@@ -21,11 +21,12 @@ The detailed domain explanation is in `README.md`. This file is intentionally th
                          reconciliation / review
                                     │
                                     ▼
-                         ┌─────────────────────┐
-                         │ CANONICAL PHYSICAL  │
-                         │      TOPOLOGY       │
-                         │ object + connection │
-                         └──────────┬──────────┘
+                         ┌─────────────────────────────┐
+                         │     CANONICAL PHYSICAL       │
+                         │          TOPOLOGY           │
+                         │ Substation · GeneratingUnit │
+                         │ Transformer · Circuit(edge) │
+                         └──────────────┬──────────────┘
                                     │
                           view projection engine
                ┌────────────────────┼─────────────────────┐
@@ -56,13 +57,25 @@ The detailed domain explanation is in `README.md`. This file is intentionally th
 ## One-object / multi-context rule
 
 ```text
-IBT_KRIAN_1
-├─ BACKBONE_500  → BOUNDARY
-├─ IBT view      → RISK_OBJECT
-└─ SS Krian      → SOURCE_BOUNDARY
+GI Jatake  (one Substation row)
+├─ SS_LBK, sisi Balaraja  → Tier 5, role CORE
+└─ SS_LBK, sisi Kembangan → drawn, but not fed by any Kembangan-side seed
+
+GI Durikosambi (one Substation row)
+├─ SS Lontar-Balaraja-Kembangan → role BOUNDARY
+└─ SS Muarakarang               → role CORE   (not ingested in the slice)
 ```
 
-The canonical object is not duplicated.
+The canonical object is not duplicated. Tier is computed per view, never stored
+on the object. See `SS_LBK_SLICE.md`.
+
+## Implemented
+
+The canonical model, the GI-aware Tier engine, reconciliation, the JSON view
+contract (`/api/views/{id}/graph`), the Corporate Topology Register (Excel)
+round-trip, a starter SVG renderer, and governance tables are in place and
+exercised by the SS Lontar-Balaraja-Kembangan slice (`app/services/seed_ss_lbk.py`,
+14 tests). Detailed status: `README.md` &sect;22.
 
 ## Persistence
 

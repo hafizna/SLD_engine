@@ -1,19 +1,35 @@
----
-title: MANTAPS Topology Engine
-emoji: ⚡
-colorFrom: blue
-colorTo: red
-sdk: docker
-app_port: 7860
-pinned: false
----
-
-<!-- The block above is Hugging Face Spaces config; it is ignored on GitHub. See DEPLOY.md. -->
-
 # MANTAPS Topology Engine
 
-> **Status:** architecture + runnable starter repository for a corporate transmission topology / analytical-SLD platform.  
-> **Current focus:** prove the data model, reconciliation model, analytical-view model, tier profiles, API flow, and generated-SLD flow before connecting to NMM/CIM and before implementing a production-grade screenshot parser.
+> **Status:** runnable engine with a real vertical slice.  
+> The canonical electrical model, the GI-aware Tier engine, the reconciliation
+> model, the analytical-view model, the JSON API, the Corporate Topology Register
+> (Excel) round-trip, and a starter SLD renderer are all implemented and proven
+> end-to-end on one real P2B subsystem — **SS Lontar–Balaraja 1,2–Kembangan 1,2**
+> from the *Buku Kerawanan SJB 2026* (section 2.5). See [`SS_LBK_SLICE.md`](SS_LBK_SLICE.md).  
+> **Next:** field-review the traced topology, extend to all of Jakarta–Banten,
+> then the full engineering bus/bay/CB renderer and the NMM/CIM adapter.
+
+## Try it
+
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload        # http://localhost:8000  (Swagger at /docs)
+```
+
+- `GET /`                         — view selector + SLD + risk / defense-scheme overlay panel
+- `GET /api/views/{id}/graph`     — the JSON contract a web viewer should consume (nodes with computed Tier + role, edges, overlays)
+- `GET /api/views/{id}/sld.svg`   — starter SLD
+- `GET /api/register.xlsx`        — Corporate Topology Register export
+
+```bash
+docker compose up --build            # same, in a container
+python scripts/build_static_site.py  # frozen snapshot -> ./site/  (for GitHub Pages)
+pytest -q                            # 14 tests
+```
+
+Hosting notes (GitHub Pages static snapshot, Docker, Render, ngrok): [`DEPLOY.md`](DEPLOY.md).
+
+---
 
 ## 1. Why this repository exists
 
@@ -53,7 +69,7 @@ ObservedObject + ObservedConnection
                 │
                 ▼
        CANONICAL PHYSICAL MODEL
- CanonicalObject + CanonicalConnection
+ Substation + GeneratingUnit + Transformer + Circuit
                 │
                 ▼
         ANALYTICAL PROJECTIONS
@@ -452,9 +468,13 @@ not “pick the newest-looking line automatically”.
 
 # 9. Physical topology model required for real SLD generation
 
-The current generic `CanonicalObject` model is enough for the starter architecture, but the production physical model should expand into explicit engineering structures.
+The canonical model is now explicit — `Substation`, `GeneratingUnit`,
+`Transformer` + `TransformerWinding`, and `Circuit` (the graph edge) — at the
+GI-node granularity the risk map needs. `BusSection` / `Bay` / `Device` exist as
+**nullable** tables so the schema stays CIM/NMM-compatible without forcing
+bay-level detail that the risk map does not use.
 
-Expected hierarchy:
+Expected fuller hierarchy (partially in place, `⬜` = still a nullable stub):
 
 ```text
 SUBSTATION / GITET
@@ -684,7 +704,7 @@ Expected scenario support:
 - `ISLAND`
 - other approved operating configurations
 
-The `CanonicalConnection.scenario_id` field is the starter hook for this capability.
+The `Circuit.scenario_id` field is the starter hook for this capability.
 
 ---
 
@@ -951,76 +971,75 @@ The web renderer, analytical views, risk attachment model, and application API s
 
 # 22. What is implemented in this repository now
 
-| Capability | Status | Current implementation |
+| Capability | Status | Where |
 |---|---|---|
-| FastAPI application | ✅ Starter works | `app/main.py` |
-| SQLite local database | ✅ | `app/db.py` |
-| PostgreSQL Docker configuration | ✅ Starter config | `docker-compose.yml` |
-| Source document model | ✅ | `SourceDocument` |
-| Observed object model | ✅ | `ObservedObject` |
-| Observed connection model | ✅ | `ObservedConnection` |
-| Canonical object model | ✅ Generic | `CanonicalObject` |
-| Canonical connection model | ✅ Generic | `CanonicalConnection` |
-| Analytical views | ✅ | `AnalyticalView` |
-| View membership / analytical role | ✅ | `ViewMembership` |
-| Contextual risk record | ✅ | `RiskRecord` |
-| Topology version hook | ✅ Starter | `TopologyVersion` |
-| Reconciliation scoring | ✅ Starter | `services/reconciliation.py` |
-| Structured observation import | ✅ | `/api/observations/import` |
-| Candidate match API | ✅ | `/api/observations/{id}/candidates` |
-| Three analytical rule-profile names | ✅ | `BACKBONE_500`, `IBT_500_150`, `SUBSYSTEM_150` |
-| Demo views for same IBT in different roles | ✅ | `services/seed.py` |
-| Generated SVG view | ✅ Starter | `services/sld_renderer.py` |
-| Minimal web view selector | ✅ | `app/static/index.html` |
-| Screenshot/vision parser | 🟡 Interface only | `VisionExtractor` |
+| FastAPI application | ✅ | `app/main.py` |
+| SQLite local DB / PostgreSQL via `psycopg` | ✅ | `app/db.py`, `docker-compose.yml` (Postgres profile) |
+| Provenance: source document + observed object/connection | ✅ | `SourceDocument`, `ObservedObject`, `ObservedConnection` |
+| **Explicit canonical electrical model** | ✅ | `Substation`, `GeneratingUnit`, `Transformer` + `TransformerWinding`, `Circuit` |
+| Engineering detail as nullable CIM-shaped stubs | ✅ | `BusSection`, `Bay`, `Device` (unused by the risk map) |
+| One physical GI → many subsystems / roles | ✅ | `Subsystem`, `SubsystemMembership` (`role`, `external_subsystem`) |
+| Analytical views + membership + rule profiles | ✅ | `AnalyticalView`, `ViewMembership`; `BACKBONE_500` / `IBT_500_150` / `SUBSYSTEM_150` |
+| **GI/core-aware Tier algorithm** | ✅ | `services/topology.py` — BFS over the GI graph, load transformers do not add a Tier, not-yet-energised nodes excluded; Tier computed per-view, never stored |
+| Contextual risk record (Kondisi/Dampak/Mitigasi/Solusi) | ✅ | `RiskRecord` |
+| Defense Scheme + relation (multi-object, cross-SS) | ✅ | `DefenseScheme`, `DSRelation` |
+| AHI record | ✅ schema | `AhiRecord` (no data in the slice) |
+| Governance: topology version + change set | ✅ | `TopologyVersion`, `ChangeSet` |
+| Reconciliation scoring + `AUTO_MATCH/REVIEW/CREATE_NEW` | ✅ Starter | `services/reconciliation.py` |
+| Structured observation import + candidate API | ✅ | `/api/observations/import`, `/api/observations/{id}/candidates` |
+| **JSON view contract for a web viewer** | ✅ | `/api/views/{id}/graph` (nodes+Tier+role, edges, overlays) |
+| Starter SVG renderer with overlay layers | ✅ Starter | `services/sld_renderer.py` (`<g id="overlay-tier">`, `overlay-risk`) |
+| Corporate Topology Register (Excel) export + round-trip | ✅ | `services/excel_register.py`, `/api/register.xlsx` |
+| Web view selector + overlay panel | ✅ | `app/static/index.html` |
+| Static snapshot build for GitHub Pages | ✅ | `scripts/build_static_site.py` |
+| Real vertical slice seeded from the book | ✅ | `services/seed_ss_lbk.py` — 41 GI, 49 circuits, 6 risks, 3 DS, 3 views |
+| SLD colour-convention status enum | ✅ | `ENERGIZED / NEW_NOT_ENERGIZED / PLANNED / DE_ENERGIZED / OWNED_BY_CUSTOMER` |
+| Screenshot / vision parser | 🟡 Interface only | `VisionExtractor` |
 | Vector PDF/SVG parser | ⬜ Planned | — |
-| Full engineering bus/bay/CB renderer | ⬜ Planned | — |
-| Explicit voltage-level model | ⬜ Planned | — |
-| Explicit bay/device model | ⬜ Planned | — |
-| Transformer winding model | ⬜ Planned | — |
-| Generating unit/GSU model | ⬜ Planned | — |
-| GI/core-aware P2B Tier algorithm | ⬜ Planned | simplified hops currently |
-| Topology conflict review UI | ⬜ Planned | — |
-| AHI overlay model | ⬜ Planned in repo | design defined |
-| DS/ADS relationship model | ⬜ Planned in repo | design defined |
-| Semantic web overlays | ⬜ Planned in this repo | prototype existed separately |
-| Approval/change workflow | ⬜ Planned | topology-version hook exists |
+| Full engineering bus/bay/CB renderer | ⬜ Planned | starter renderer only |
+| Explicit voltage-level / bay / device *data* | ⬜ Planned | stubs exist, unpopulated |
+| Topology conflict detection + review UI | ⬜ Planned | — |
+| Semantic zoom on overlays | ⬜ Planned | — |
+| Approval / change-request workflow (UI) | ⬜ Planned | `TopologyVersion` / `ChangeSet` tables exist |
 | NMM/CIM adapter | ⬜ Future | — |
 
-This table is important: the repo is **not claiming that every domain requirement is already coded**.
+The traced topology in the slice carries **confidence tags** — many circuits are
+at 0.4–0.7 and marked `NEEDS_REVIEW` pending the field team. See `SS_LBK_SLICE.md`.
 
 ---
 
 # 23. Repository structure
 
 ```text
-mantaps-topology-engine/
+SLD_engine/
 ├─ app/
-│  ├─ main.py
-│  ├─ db.py
-│  ├─ models.py
-│  ├─ schemas.py
-│  ├─ api/
-│  │  └─ routes.py
+│  ├─ main.py                     FastAPI app + CORS + boot seed
+│  ├─ db.py                       engine / session (SQLite or Postgres via DATABASE_URL)
+│  ├─ models.py                   canonical model (see §22)
+│  ├─ schemas.py                  observation-import + create-view payloads
+│  ├─ api/routes.py               /api/views, /graph, /sld.svg, /register.xlsx, /observations
 │  ├─ services/
-│  │  ├─ ingestion.py
-│  │  ├─ reconciliation.py
-│  │  ├─ topology.py
-│  │  ├─ sld_renderer.py
-│  │  └─ seed.py
-│  └─ static/
-│     └─ index.html
+│  │  ├─ topology.py              GI-aware Tier engine + view projection
+│  │  ├─ reconciliation.py        observed → canonical scoring
+│  │  ├─ ingestion.py             structured-observation adapter contract
+│  │  ├─ sld_renderer.py          starter SVG (busbars in Tier bands + overlay layers)
+│  │  ├─ excel_register.py        Corporate Topology Register export / import
+│  │  ├─ seed.py                  seed entry point
+│  │  └─ seed_ss_lbk.py           SS Lontar–Balaraja–Kembangan fixture
+│  └─ static/index.html           view selector + SLD + overlay panel
+├─ scripts/
+│  ├─ build_static_site.py        render every view to ./site/ for GitHub Pages
+│  ├─ static_index.html           the snapshot viewer
+│  └─ pages.yml                   → copy to .github/workflows/pages.yml
 ├─ examples/
-│  └─ sample_observations.json
-├─ tests/
-│  ├─ test_reconciliation.py
-│  └─ test_topology.py
-├─ .github/workflows/ci.yml
-├─ ARCHITECTURE.md
-├─ Dockerfile
-├─ docker-compose.yml
-├─ requirements.txt
-└─ README.md
+│  ├─ sample_observations.json    example import batch (SS_LBK)
+│  └─ Corporate_Topology_Register_SLD_V2.xlsx   generated register
+├─ tests/                         14 tests: topology, reconciliation, API contract
+├─ SS_LBK_SLICE.md                what the slice proves + field-review items
+├─ DEPLOY.md                      hosting options
+├─ ARCHITECTURE.md                compact technical map
+├─ Dockerfile / docker-compose.yml / render.yaml
+└─ requirements.txt
 ```
 
 ---
@@ -1069,144 +1088,108 @@ Swagger API:
 http://localhost:8000/docs
 ```
 
-## Docker + PostgreSQL
+## Docker
 
 ```bash
-docker compose up --build
+docker compose up --build                        # SQLite, no DB service
+docker compose --profile postgres up --build     # against Postgres
 ```
+
+## Static snapshot / GitHub Pages
+
+```bash
+python scripts/build_static_site.py site          # -> ./site/
+```
+
+Auto-published to `https://<user>.github.io/SLD_engine/` by
+`.github/workflows/pages.yml` on each push to `main` (see `DEPLOY.md`).
 
 ---
 
-# 25. API starter examples
-
-## Health
+# 25. API examples
 
 ```bash
 curl http://localhost:8000/api/health
-```
-
-## Import structured observations
-
-This represents what a future screenshot/vector parser should produce:
-
-```bash
-curl -X POST http://localhost:8000/api/observations/import \
-  -H "Content-Type: application/json" \
-  --data @examples/sample_observations.json
-```
-
-## Candidate canonical match
-
-```bash
-curl http://localhost:8000/api/observations/1/candidates
-```
-
-## List analytical views
-
-```bash
+curl http://localhost:8000/api/subsystems
 curl http://localhost:8000/api/views
-```
 
-## Render a view
+# full contract for a web viewer: nodes (with Tier + role), edges, overlays
+curl http://localhost:8000/api/views/3/graph | jq '.nodes[0], (.overlays.risk|length)'
 
-```text
-GET /api/views/{view_id}/sld.svg
+curl http://localhost:8000/api/views/3/sld.svg -o view.svg
+curl http://localhost:8000/api/register.xlsx -o register.xlsx
+
+# stage an evidence source, then see reconciliation candidates
+curl -X POST http://localhost:8000/api/observations/import \
+  -H "Content-Type: application/json" --data @examples/sample_observations.json
+curl http://localhost:8000/api/observations/1/candidates
 ```
 
 ---
 
 # 26. Recommended implementation order from this point
 
-The next work should stay focused on making the physical topology / SLD path credible before adding too many dashboard features.
+**Done** (see §22): explicit canonical model (Substation / GeneratingUnit /
+Transformer+Winding / Circuit), GI-aware Tier engine, three rule profiles,
+reconciliation, JSON view contract, Excel register round-trip, starter renderer,
+governance tables, and the SS_LBK vertical slice.
 
-### Phase 1 — canonical electrical model
+**Next:**
 
-Add explicit:
+### Phase A — field-review + widen the data
 
-- voltage level
-- bus section
-- bay
-- CB/PMS
-- circuit endpoints
-- transformer + winding
-- generating unit + connection
+- reconcile the SS_LBK traced circuits with the field team (`NEEDS_REVIEW` tags)
+- extend to the rest of UP2B Jakarta–Banten, then the other UP2Bs
+- populate `BusSection` / `Bay` / `Device` only where a risk case needs it
 
-### Phase 2 — engineering SLD renderer
+### Phase B — engineering SLD renderer
 
-Implement:
+Real busbars, bay stubs, CB symbols with a CB on both ends of a circuit,
+IBT/transformer/generator symbols, orthogonal routing, deterministic placement,
+manual layout override. The current `sld_renderer.py` is a starter GI-graph
+projection, not this.
 
-- busbars
-- bay stubs
-- CB symbols
-- CB at both circuit ends
-- IBT / transformer symbols
-- generator symbols
-- orthogonal line routing
-- deterministic placement
-- layout override
+### Phase C — reconciliation / import workflow
 
-### Phase 3 — analytical projection engine
+- vector PDF/SVG parser and a vision parser feeding the same observation contract
+- topology conflict detection (drawing A: IBT→Bus A, drawing B: IBT→Bus B → ⚠)
+- a merge / create-canonical review UI over the reconciliation candidates
 
-Fully implement:
+### Phase D — semantic web application
 
-- 500 kV backbone rule profile
-- IBT interface projection
-- SS multi-voltage projection
-- proper P2B Tier traversal
+Pan/zoom, layer toggles with semantic zoom for Tier / Risk / AHI / DS,
+click-through detail panels, scenario selector. The JSON contract at
+`/api/views/{id}/graph` already exists for a viewer to build on.
 
-### Phase 4 — reconciliation / import workflow
+### Phase E — governance + integration
 
-Implement:
-
-- vector PDF/SVG parser
-- vision parser
-- confidence review
-- topology conflict detection
-- merge/create canonical object workflow
-
-### Phase 5 — semantic web application
-
-Add:
-
-- pan / zoom
-- Tier overlay
-- Risk overlay
-- AHI overlay
-- DS/ADS overlay
-- click-through detail panels
-- topology scenario selector
-
-### Phase 6 — corporate governance / integration
-
-Add:
-
-- change request
-- reviewer / approver
-- effective date
-- topology version publication
-- Maximo/NIA mapping
-- NMM/CIM adapter
+Change request → review → approval → effective date → published `TopologyVersion`;
+Maximo/NIA mapping; the **NMM/CIM adapter** that replaces the screenshot/Excel
+adapters without touching the engine, the views, or the API.
 
 ---
 
-# 27. Acceptance criteria for the real PoC
+# 27. Acceptance criteria for the real PoC — status
 
-Before calling the topology engine useful for production development, one real P2B case should be reproduced end-to-end.
+One real P2B case reproduced end-to-end. **Done for SS Lontar–Balaraja–Kembangan**
+(`SS_LBK_SLICE.md`):
 
-Suggested test:
+| # | Criterion | Status |
+|---|---|---|
+| 1 | take one actual existing subsystem SLD | ✅ Buku Kerawanan SJB 2026 §2.5 (two SLDs, hal. 69–70) |
+| 2 | encode every source, GI, IBT/transformer, line | ✅ 41 GI, 4 IBT, 1 generator, 49 circuits |
+| 3 | reconcile repeated objects across drawings | ✅ intersection GIs stored once; reconciliation scoring + round-trip |
+| 4 | generate a base SLD from structured topology | 🟡 starter renderer (engineering renderer = Phase B) |
+| 5 | compare generated relationships vs the original | 🟡 pending field review of `NEEDS_REVIEW` circuits |
+| 6 | apply Tier as an overlay | ✅ computed per view, drawn as `<g id="overlay-tier">` |
+| 7 | attach P2B risk records to the correct objects | ✅ 6 risks on the right transformer / circuit / GI |
+| 8 | one object, several analytical roles | ✅ GI Jatake: Tier 5 from the Balaraja seed, unreachable from the Kembangan SLD; Durikosambi: BOUNDARY here / CORE in SS Muarakarang |
+| 9 | a topology scenario such as bus splitting | 🟡 `scenario_id` hook present; not populated (peta risiko is the non-dynamic ideal snapshot) |
+| 10 | preserve provenance for every relationship | ✅ every circuit carries `source_document_id` + `confidence` |
 
-1. take one actual existing subsystem SLD;
-2. encode/extract every relevant source, bus, bay, CB, IBT/transformer, line, and GI;
-3. reconcile repeated physical objects with at least one other P2B drawing;
-4. generate the clean base SLD from structured topology;
-5. compare the generated electrical relationships against the original SLD;
-6. apply Tier as an overlay;
-7. attach P2B risk records to the correct objects/context;
-8. prove that one IBT can simultaneously appear in an IBT risk view and as the source boundary of a subsystem view;
-9. test a topology scenario such as bus splitting;
-10. preserve source-document provenance for every imported relationship.
-
-The purpose is not pixel-perfect reproduction of an old drawing. The purpose is to prove that the structured model reproduces the **same electrical meaning** and can generate a maintainable web SLD.
+The purpose is not pixel-perfect reproduction of an old drawing — it is proving
+the structured model carries the **same electrical meaning** and can drive a
+maintainable web SLD.
 
 ---
 
