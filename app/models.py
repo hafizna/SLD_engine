@@ -288,6 +288,11 @@ class Bay(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     substation_id: Mapped[int] = mapped_column(ForeignKey("substation.id"))          # the small GI
     feeder_substation_id: Mapped[int | None] = mapped_column(ForeignKey("substation.id"), nullable=True)  # the Tier-N busbar it hangs off
+    # "GI X is drawn as a stub" is a property of ONE subsystem's SLD, not of the
+    # GI globally. Balaraja is a full busbar in SS_LBK but only a stub off New
+    # Balaraja in SS_BLL -- so a Bay row is scoped to the subsystem whose drawing
+    # renders it that way. NULL = applies to every subsystem (legacy).
+    subsystem_id: Mapped[int | None] = mapped_column(ForeignKey("subsystem.id"), nullable=True)
     bus_section_id: Mapped[int | None] = mapped_column(ForeignKey("bus_section.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(80))
     bay_type: Mapped[str] = mapped_column(String(20), default="LINE")  # LINE / TRAFO / COUPLER / GENERATOR
@@ -371,6 +376,37 @@ class ViewMembership(Base):
     display_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
     __table_args__ = (
         UniqueConstraint("view_id", "node_kind", "node_id", name="uq_view_node"),
+    )
+
+
+class DiagramNodePosition(Base):
+    """A manually-placed position for one node in one view.
+
+    The renderer's auto-layout is only a SEED. When a person drags a busbar /
+    generator / GITET to a better spot in the viewer, that (x, y) is saved
+    here and wins on the next render. A view with no rows here renders
+    entirely from auto-layout, exactly as before -- so nothing regresses and
+    a fresh subsystem still gets a full forced diagram on first open.
+
+    `x` / `y` are in the SVG user-space the renderer emits (auto-layout puts
+    Tier-1 near y=120 and each Tier ~200 px below). Only the node's anchor
+    point is stored; the renderer still draws the busbar, its ports, bays,
+    symbols and routes every circuit around it.
+    """
+
+    __tablename__ = "diagram_node_position"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    view_id: Mapped[int] = mapped_column(ForeignKey("analytical_view.id"))
+    node_kind: Mapped[str] = mapped_column(String(20))  # SUBSTATION / GENERATING_UNIT / TRANSFORMER
+    node_id: Mapped[int] = mapped_column(Integer)
+    x: Mapped[float] = mapped_column(Float)
+    y: Mapped[float] = mapped_column(Float)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=True)  # False = hint only, auto-layout may still nudge
+    updated_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    __table_args__ = (
+        UniqueConstraint("view_id", "node_kind", "node_id", name="uq_diagram_pos_node"),
     )
 
 

@@ -317,6 +317,7 @@ def seed_ss_bll(db: Session) -> None:
     for (gi, feeder, status, note) in BAYS:
         db.add(Bay(
             substation_id=subs[gi].id, feeder_substation_id=subs[feeder].id,
+            subsystem_id=ss.id,
             name=f"Bay {subs[gi].name} @ {subs[feeder].name}", bay_type="LINE",
             drawing_side=None, status=status, note=note,
         ))

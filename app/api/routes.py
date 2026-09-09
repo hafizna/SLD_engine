@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import tempfile
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
@@ -19,6 +20,7 @@ from app.models import (
     AnalyticalView,
     Circuit,
     DefenseScheme,
+    DiagramNodePosition,
     DSRelation,
     GeneratingUnit,
     ObservedObject,
@@ -27,7 +29,7 @@ from app.models import (
     Subsystem,
     Transformer,
 )
-from app.schemas import CreateViewIn, ObservationBatchIn
+from app.schemas import CreateViewIn, LayoutPatchIn, ObservationBatchIn
 from app.services.excel_register import export_register
 from app.services.ingestion import save_observation_batch
 from app.services.reconciliation import classify, find_candidates
@@ -151,6 +153,11 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
                 "relations": rel_by_scheme.get(d.id, []),
             })
 
+    positions = [
+        {"node_kind": p.node_kind, "node_id": p.node_id, "x": p.x, "y": p.y, "pinned": p.pinned}
+        for p in db.query(DiagramNodePosition).filter(DiagramNodePosition.view_id == v.id).all()
+    ]
+
     return {
         "view": {
             "id": v.id, "key": v.view_key, "name": v.name, "rule_profile": v.rule_profile,
@@ -159,6 +166,9 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
         "nodes": node_out,
         "edges": edge_out,
         "overlays": {"risk": risks, "defense_scheme": schemes},
+        # manually-saved node positions for this view; the SVG carries the full
+        # auto-layout coords as data-x / data-y on each <g class="sld-node">.
+        "layout": {"positions": positions},
     }
 
 
@@ -168,6 +178,71 @@ def view_svg(view_id: int, db: Session = Depends(get_db)):
     if not v:
         raise HTTPException(404, "View not found")
     return Response(render_view_svg(db, v), media_type="image/svg+xml")
+
+
+# ---- diagram layout: drag-and-drop persistence -----------------------
+# The renderer's auto-layout is a seed. A viewer that lets a person drag
+# nodes POSTs the new positions back here; the next render uses them.
+
+@router.get("/views/{view_id}/layout")
+def get_layout(view_id: int, db: Session = Depends(get_db)):
+    v = db.get(AnalyticalView, view_id)
+    if not v:
+        raise HTTPException(404, "View not found")
+    rows = db.query(DiagramNodePosition).filter(DiagramNodePosition.view_id == view_id).all()
+    return {
+        "view_id": view_id,
+        "positions": [
+            {
+                "node_kind": p.node_kind, "node_id": p.node_id,
+                "x": p.x, "y": p.y, "pinned": p.pinned,
+                "updated_by": p.updated_by,
+                "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+            }
+            for p in rows
+        ],
+    }
+
+
+@router.patch("/views/{view_id}/layout")
+def patch_layout(view_id: int, payload: LayoutPatchIn, db: Session = Depends(get_db)):
+    v = db.get(AnalyticalView, view_id)
+    if not v:
+        raise HTTPException(404, "View not found")
+
+    existing = {
+        (p.node_kind, p.node_id): p
+        for p in db.query(DiagramNodePosition).filter(DiagramNodePosition.view_id == view_id).all()
+    }
+    keep: set[tuple[str, int]] = set()
+    for pos in payload.positions:
+        key = (pos.node_kind, pos.node_id)
+        keep.add(key)
+        row = existing.get(key)
+        if row is None:
+            db.add(DiagramNodePosition(
+                view_id=view_id, node_kind=pos.node_kind, node_id=pos.node_id,
+                x=pos.x, y=pos.y, pinned=pos.pinned, updated_by=payload.updated_by,
+            ))
+        else:
+            row.x, row.y, row.pinned = pos.x, pos.y, pos.pinned
+            row.updated_by = payload.updated_by
+            row.updated_at = datetime.utcnow()
+    if payload.replace:
+        for key, row in existing.items():
+            if key not in keep:
+                db.delete(row)
+    db.commit()
+    return {"view_id": view_id, "saved": len(payload.positions),
+            "cleared": len([k for k in existing if payload.replace and k not in keep])}
+
+
+@router.delete("/views/{view_id}/layout")
+def reset_layout(view_id: int, db: Session = Depends(get_db)):
+    """Drop all manual positions -> the view falls back to pure auto-layout."""
+    n = db.query(DiagramNodePosition).filter(DiagramNodePosition.view_id == view_id).delete()
+    db.commit()
+    return {"view_id": view_id, "cleared": n}
 
 
 # ---- observations / reconciliation -----------------------------------

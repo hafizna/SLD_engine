@@ -29,8 +29,8 @@ from collections import defaultdict
 
 from sqlalchemy.orm import Session
 
-from app.models import AnalyticalView, Bay, RiskRecord, Transformer
-from app.services.topology import calculate_tier, classify_layout, get_view_graph
+from app.models import AnalyticalView, Bay, Circuit, DiagramNodePosition, RiskRecord, Transformer
+from app.services.topology import _is_live, calculate_tier, classify_layout, get_view_graph
 
 VOLT_COLOR = {500: "#0047AB", 275: "#00A6D6", 150: "#C00000", 70: "#E6B800", 20: "#E67300"}
 
@@ -159,6 +159,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         tx_by_sub[t.substation_id].append(t)
 
     bay_rows = db.query(Bay).filter(Bay.substation_id.in_(subs), Bay.active.is_(True)).all()
+    # a Bay row scoped to another subsystem does not apply to this view
+    bay_rows = [b for b in bay_rows
+                if b.subsystem_id is None or b.subsystem_id == view.subsystem_id]
     if view.drawing_side:
         bay_rows = [b for b in bay_rows if not b.drawing_side or b.drawing_side == view.drawing_side]
     bays_by_feeder: dict[int, list] = defaultdict(list)
@@ -349,8 +352,131 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         gx = outlet[0] if outlet else W / 2
         gen_pos[gid] = (gx, MARGIN_Y + rk * ROW_H)
 
+    # ---- manual overrides: a saved (x, y) wins over auto-layout ----------
+    # The auto-layout below is only a seed. Anything a person dragged in the
+    # viewer is persisted per view in DiagramNodePosition and applied here,
+    # so the diagram the engine emits is the one the user last arranged.
+    saved = {
+        (p.node_kind, p.node_id): (p.x, p.y)
+        for p in db.query(DiagramNodePosition).filter(DiagramNodePosition.view_id == view.id).all()
+    }
+    for (kind, nid), (sx, sy) in saved.items():
+        if kind == "SUBSTATION" and nid in pos:
+            pos[nid] = (sx, sy)
+        elif kind == "GENERATING_UNIT" and nid in gen_pos:
+            gen_pos[nid] = (sx, sy)
+
+    # a GITET busbar sits directly above the LV bus it feeds (its IBT chains
+    # rise straight into that bus); the DFS cursor placed it as a loose root.
+    # Skip any GITET the user has explicitly placed.
+    for hv, lv in gitet_feeds.items():
+        if hv in pos and lv in pos and ("SUBSTATION", hv) not in saved:
+            pos[hv] = (pos[lv][0], pos[hv][1])
+
+    # ---- normalise the frame ------------------------------------------
+    # The auto-layout puts nodes wherever the DFS cursor landed; that leaves a
+    # dead band on the left and an over-wide canvas on the right. Translate the
+    # whole drawing so its true left edge (leftmost busbar end, or a bay-panjang
+    # routing channel) sits at a fixed margin, then size W/H to the real extent.
+    def _left_edge(sid):
+        return pos[sid][0] - bus_half(sid)
+
+    def _right_edge(sid):
+        return pos[sid][0] + bus_half(sid)
+
+    if pos:
+        left = min([_left_edge(sid) for sid in pos] + [p[0] - 20 for p in gen_pos.values()])
+        # Once a person has arranged this view, don't translate their layout --
+        # only clamp so nothing runs off the left edge. Pure auto-layout is
+        # snapped to the margin to kill the dead gutter.
+        target_left = MARGIN_X + EDGE_MARGIN
+        shift = (target_left - left) if not saved else max(0.0, target_left - left)
+        if abs(shift) > 0.5:
+            pos = {sid: (x + shift, y) for sid, (x, y) in pos.items()}
+            gen_pos = {gid: (x + shift, y) for gid, (x, y) in gen_pos.items()}
+        right = max([_right_edge(sid) for sid in pos] + [p[0] + 20 for p in gen_pos.values()])
+        W = right + MARGIN_X + EDGE_MARGIN
+
+    all_y = [p[1] for p in pos.values()] + [p[1] for p in gen_pos.values()]
     max_rk = max(list(rows) + list(gen_row.values()) + [1])
     H = MARGIN_Y * 2 + int(max_rk * ROW_H) + 170
+    if all_y:
+        H = max(H, max(all_y) + MARGIN_Y + 170)
+
+    # ---- mapping-audit list ------------------------------------------
+    # GUARANTEE: every object out of the parse -- busbar, bay, GITET, IBT,
+    # penghantar -- appears SOMEWHERE. Whatever the main Tier drawing leaves
+    # out (not energised, drawn on another book SLD, a bay on the far side)
+    # goes in this list, with its reason, so a reviewer can confirm nothing
+    # was dropped silently. Computed here so the canvas can reserve height.
+    drawn_sub_ids = set(drawn_ids)
+    _ibt_drawn = {c.id for links in ibt_links_by_pair.values() for c in links}
+    drawn_circ_ids = {c.id for c in line_edges} | _ibt_drawn
+    drawn_bay_ids = {b.id for b in bay_rows if b.feeder_substation_id in pos}
+
+    audit: list[tuple[str, str, str, str]] = []   # (kind, code, label, reason)
+    for sid, s in subs.items():
+        if sid in drawn_sub_ids or sid in bay_gi_ids or sid in spur:
+            continue
+        t = tier.get(("SUBSTATION", sid))
+        if not _is_live(s.status):
+            reason = f"status {s.status}"
+        elif t is None:
+            reason = "tidak terhubung ke Tier graph di view ini"
+        else:
+            reason = "tidak tergambar (cek layout)"
+        audit.append(("GI/BUS", s.code, s.name, reason))
+
+    _all_sub_ids = set(subs)
+    for c in db.query(Circuit).filter(
+        Circuit.from_substation_id.in_(_all_sub_ids),
+        Circuit.to_substation_id.in_(_all_sub_ids),
+        Circuit.active.is_(True),
+    ).all():
+        if c.id in drawn_circ_ids:
+            continue
+        # a GI drawn as a stub -- a Bay row, or a degree-1 spur -- carries its
+        # single feeding circuit as that stub.
+        stub_gis = bay_gi_ids | set(spur)
+        a_stub = c.from_substation_id in stub_gis
+        b_stub = c.to_substation_id in stub_gis
+        side_mismatch = bool(view.drawing_side and c.drawing_side
+                             and c.drawing_side != view.drawing_side)
+        if (a_stub ^ b_stub) and _is_live(c.status) and not side_mismatch:
+            feeder = c.to_substation_id if a_stub else c.from_substation_id
+            stub_gi = c.from_substation_id if a_stub else c.to_substation_id
+            drawn_as_stub = feeder in pos and (
+                any(bb.feeder_substation_id == feeder for bb in bay_rows)
+                or spur.get(stub_gi) == feeder
+            )
+            if drawn_as_stub:
+                continue
+        fr, to = subs.get(c.from_substation_id), subs.get(c.to_substation_id)
+        nm = c.name or (f"{fr.code}-{to.code}" if fr and to else c.code)
+        if side_mismatch:
+            reason = f"digambar di SLD sisi {c.drawing_side}"
+        elif not _is_live(c.status):
+            reason = f"status {c.status}"
+        elif a_stub and b_stub:
+            reason = "ruas antara dua GI yang sama-sama digambar sebagai bay/spur"
+        else:
+            reason = "endpoint tidak tergambar sebagai busbar"
+        audit.append(("IBT" if c.circuit_type == "IBT_LINK" else "PENGHANTAR", c.code, nm, reason))
+
+    for b in bay_rows:
+        if b.id in drawn_bay_ids:
+            continue
+        gi = subs.get(b.substation_id)
+        fd = subs.get(b.feeder_substation_id) if b.feeder_substation_id else None
+        code = gi.code if gi else str(b.substation_id)
+        lbl = f"{gi.name if gi else b.substation_id}" + (f" @ {fd.name}" if fd else "")
+        audit.append(("BAY", code, lbl,
+                      "busbar feeder tidak tergambar" if b.feeder_substation_id
+                      else "feeder tidak diketahui"))
+
+    audit.sort()
+    audit_h = (34 + 16 * len(audit)) if audit else 0
+    H += audit_h
 
     # ---- port allocation: every attachment on a busbar gets its own x -----
     # Collect attachment keys per busbar, ordered so incoming feed is left,
@@ -457,6 +583,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         af, at = c.from_substation_id, c.to_substation_id
         if af not in pos or at not in pos:
             continue
+        p.append(f'<g data-circuit-id="{c.id}" data-circuit-code="{esc(c.code)}" '
+                 f'data-circuit-type="{esc(c.circuit_type)}" data-status="{esc(c.status)}">')
         stroke, dash = _circuit_style(c)
         w = 1.3 if c.single_phi else 2.2
         ta = tier.get(("SUBSTATION", af))
@@ -487,6 +615,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                      f'stroke-dasharray="{dash}">{title}</path>')
             p.append(_cbs(fx0, fy0 + (1 if fy0 > ty0 else -1) * CB_GAP, stroke, n_cct))
             p.append(_cbs(tx0, ty0 + (1 if ty0 > fy0 else -1) * CB_GAP, stroke, n_cct))
+            p.append('</g>')
             continue
         if same_tier:
             fdir = tdir = 1
@@ -527,6 +656,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
         p.append(_cbs(fx0, fy0 + fdir * CB_GAP, stroke, n_cct))
         p.append(_cbs(tx0, ty0 + tdir * CB_GAP, stroke, n_cct))
+        p.append('</g>')
     p.append('</g>')
 
     # ---- IBT chains (each chain at the LV busbar's 'ibt' port) --------
@@ -543,11 +673,14 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             hy, ly = hp[1], lp[1]
             mid = (hy + ly) / 2
             da = f' stroke-dasharray="{STATUS_DASH.get(c.status, "none")}"' if c.status != "ENERGIZED" else ""
+            p.append(f'<g data-circuit-id="{c.id}" data-circuit-code="{esc(c.code)}" '
+                     f'data-circuit-type="IBT_LINK" data-status="{esc(c.status)}">')
             p.append(f'<path d="M{cx:.1f},{hy:.1f} V{ly:.1f}" fill="none" stroke="#8a6a3a" '
                      f'stroke-width="1.6"{da}><title>{esc(c.name)} - {esc(c.status)}</title></path>')
             p.append(_cb(cx, hy + CB_GAP, hv_col))
             p.append(_sym_ibt_inline(cx, mid - 4))
             p.append(_cb(cx, ly - CB_GAP, lv_col))
+            p.append('</g>')
     p.append('</g>')
 
     # ---- generators --------------------------------------------
@@ -585,6 +718,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         outlet = pos.get(g.outlet_substation_id)
         gx = port(g.outlet_substation_id, f"gen{g.id}", gen_pos[gid][0]) if outlet else gen_pos[gid][0]
         gy = gen_pos[gid][1]
+        _gp = "1" if ("GENERATING_UNIT", gid) in saved else "0"
+        p.append(f'<g class="sld-node" data-node-kind="GENERATING_UNIT" data-node-id="{gid}" '
+                 f'data-code="{esc(g.code)}" data-x="{gx:.1f}" data-y="{gy:.1f}" data-pinned="{_gp}">')
         p.append(_sym_generator(gx, gy - 30, col))
         p.append(f'<text x="{gx:.1f}" y="{gy - 42:.1f}" font-size="10" text-anchor="middle" '
                  f'fill="{col}">{esc(g.name)}</text>')
@@ -592,6 +728,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             p.append(f'<path d="M{gx:.1f},{gy:.1f} V{outlet[1] - CB_GAP:.1f}" fill="none" '
                      f'stroke="{col}" stroke-width="2"/>')
             p.append(_cb(gx, outlet[1] - CB_GAP, col))
+        p.append('</g>')
     p.append('</g>')
 
     # ---- busbars ---------------------------------------------
@@ -613,7 +750,11 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         bdash = STATUS_DASH.get(s.status, "none")
         da = f' stroke-dasharray="{bdash}"' if s.status not in ("ENERGIZED", "OWNED_BY_CUSTOMER") else ""
         role = roles.get(("SUBSTATION", sid), "")
-        p.append(f'<g><title>{esc(s.name)} [{esc(s.code)}] {esc(s.substation_type)} '
+        _pinned = "1" if ("SUBSTATION", sid) in saved else "0"
+        p.append(f'<g class="sld-node" data-node-kind="SUBSTATION" data-node-id="{sid}" '
+                 f'data-code="{esc(s.code)}" data-x="{x:.1f}" data-y="{y:.1f}" '
+                 f'data-bus-half="{bh:.1f}" data-pinned="{_pinned}">'
+                 f'<title>{esc(s.name)} [{esc(s.code)}] {esc(s.substation_type)} '
                  f'{esc(int(s.voltage_kv))} kV - {esc(s.status)} - role {esc(role)}'
                  f'{" - " + esc(s.busbar_note) if s.busbar_note else ""}</title>')
         p.append(f'<text x="{x:.1f}" y="{y - 15:.1f}" font-size="11" font-weight="700" '
@@ -647,12 +788,17 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                                    b.status, b.note or ""))
     # a bay stub is drawn in its feeding circuit's style (SKTT = red dashed,
     # SUTT = solid); it ends in a transformer symbol if the bay GI is a
-    # radial load (Ulujami), otherwise a small dot.
+    # radial load (Ulujami), otherwise a small dot. The stub IS the circuit on
+    # the diagram, so carry its circuit id/code for the mapping audit.
     bay_feed_style: dict[int, tuple[str, str]] = {}
-    for c in line_edges:
-        for sid in (c.from_substation_id, c.to_substation_id):
-            if sid in bay_gi_ids:
+    bay_circuit: dict[tuple[int, int], object] = {}   # (feeder_id, stub_gi_id) -> Circuit
+    _stub_gi_ids = bay_gi_ids | set(spur)
+    for c in edges:   # not line_edges -- those exclude bay/spur-GI endpoints
+        a, b = c.from_substation_id, c.to_substation_id
+        for sid, oth in ((a, b), (b, a)):
+            if sid in _stub_gi_ids and oth in subs:
                 bay_feed_style[sid] = _circuit_style(c)
+                bay_circuit[(oth, sid)] = c
 
     row_by_feeder: dict[int, int] = defaultdict(int)
     for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], it[2].name)):
@@ -667,7 +813,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         elif status == "DE_ENERGIZED":
             stroke, dash = "#9AA0A6", "none"
         da = f' stroke-dasharray="{dash}"' if dash != "none" else ""
-        p.append(f'<g><title>{esc(gi.name)} [{esc(gi.code)}] - bay di bus {esc(subs[feeder_id].name)} '
+        _bc = bay_circuit.get((feeder_id, gi.id))
+        _bc_attr = (f' data-circuit-id="{_bc.id}" data-circuit-code="{esc(_bc.code)}"'
+                    if _bc else "")
+        p.append(f'<g class="sld-bay" data-node-kind="SUBSTATION" data-node-id="{gi.id}" '
+                 f'data-code="{esc(gi.code)}"{_bc_attr}>'
+                 f'<title>{esc(gi.name)} [{esc(gi.code)}] - bay di bus {esc(subs[feeder_id].name)} '
                  f'({esc(status)}){" - " + esc(meta) if meta else ""}</title>')
         p.append(f'<path d="M{sx:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
                  f'stroke="{stroke}" stroke-width="1.8"{da}/>')
@@ -683,20 +834,22 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         p.append('</g>')
     p.append('</g>')
 
-    # ---- not-yet-energised note strip -------------------------
-    dead = [sid for sid in core_ids
-            if tier.get(("SUBSTATION", sid)) is None and sid not in spur and sid not in bay_gi_ids]
-    if dead:
-        y0 = MARGIN_Y + (max(bands) + 1) * ROW_H if bands else H - 90
-        p.append('<g id="not-energised">')
-        p.append(f'<text x="20" y="{y0 - 6:.1f}" font-size="10" fill="#8592a6" font-weight="700">'
-                 f'Belum energize / perencanaan (tidak dihitung Tier):</text>')
-        for i, sid in enumerate(sorted(dead, key=lambda z: subs[z].name)):
-            x = 24 + i * 210
-            p.append(f'<line x1="{x:.1f}" x2="{x + 44:.1f}" y1="{y0:.1f}" y2="{y0:.1f}" '
-                     f'stroke="#111" stroke-width="4" stroke-dasharray="10 6"/>')
-            p.append(f'<text x="{x:.1f}" y="{y0 + 14:.1f}" font-size="9" fill="#555">'
-                     f'{esc(subs[sid].name)}</text>')
+    # ---- mapping-audit strip (list computed earlier) -----------------
+    if audit:
+        y0 = (MARGIN_Y + (max(bands) + 1) * ROW_H) if bands else (H - audit_h + 20)
+        p.append('<g id="mapping-audit">')
+        p.append(f'<text x="20" y="{y0 - 8:.1f}" font-size="11" fill="#8592a6" font-weight="700">'
+                 f'Objek hasil mapping yang TIDAK masuk gambar utama '
+                 f'({len(audit)}) &#8212; konfirmasi tidak ada yang terlewat:</text>')
+        for i, (kind, code, label, reason) in enumerate(audit):
+            yy = y0 + 10 + i * 16
+            p.append(f'<g data-audit-kind="{esc(kind)}" data-audit-code="{esc(code)}">')
+            p.append(f'<text x="24" y="{yy:.1f}" font-size="9" fill="#7a5c00" font-weight="700">'
+                     f'{esc(kind)}</text>')
+            p.append(f'<text x="110" y="{yy:.1f}" font-size="9" fill="#333">'
+                     f'{esc(label)} [{esc(code)}]</text>')
+            p.append(f'<text x="470" y="{yy:.1f}" font-size="9" fill="#8592a6">&#8212; {esc(reason)}</text>')
+            p.append('</g>')
         p.append('</g>')
 
     # ---- risk overlay ---------------------------------------

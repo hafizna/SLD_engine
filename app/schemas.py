@@ -47,3 +47,21 @@ class CreateViewIn(BaseModel):
     subsystem_id: Optional[int] = None
     scenario_id: str = "NORMAL"
     layout_hint: Optional[str] = None
+
+
+# ---- diagram layout (drag-and-drop persistence) --------------------------
+
+class NodePositionIn(BaseModel):
+    node_kind: str = "SUBSTATION"   # SUBSTATION / GENERATING_UNIT / TRANSFORMER
+    node_id: int
+    x: float
+    y: float
+    pinned: bool = True
+
+
+class LayoutPatchIn(BaseModel):
+    positions: List[NodePositionIn]
+    updated_by: Optional[str] = None
+    # when true, positions not listed in this patch are cleared (full replace);
+    # when false (default) it is an upsert of just the listed nodes.
+    replace: bool = False

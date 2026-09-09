@@ -101,3 +101,68 @@ def test_sld_svg_renders(client):
     assert r.headers["content-type"] == "image/svg+xml"
     assert b"<svg" in r.content
     assert b"overlay-risk" in r.content
+
+
+def test_svg_accounts_for_every_mapped_object(client):
+    """Nothing from the parse may vanish: every substation, circuit and bay is
+    either drawn (data-node / a circuit path / a bay stub) or listed in the
+    mapping-audit strip with a reason."""
+    import re
+
+    views = client.get("/api/views").json()
+    for v in views:
+        vid = v["id"]
+        svg = client.get(f"/api/views/{vid}/sld.svg").content.decode()
+        g = client.get(f"/api/views/{vid}/graph").json()
+
+        drawn_node_ids = set(map(int, re.findall(r'data-node-id="(\d+)"', svg)))
+        audit_codes = set(re.findall(r'data-audit-code="([^"]+)"', svg))
+        stub_names = set(re.findall(r'font-size="8.5" text-anchor="middle"[^>]*>([^<]+)</text>', svg))
+
+        for n in g["nodes"]:
+            if n["kind"] != "SUBSTATION":
+                continue
+            drawn = n["id"] in drawn_node_ids
+            stub = n["name"] in stub_names          # bay-only GI: drawn as a stub
+            listed = n.get("code") in audit_codes   # accounted for in the audit strip
+            assert drawn or stub or listed, (
+                f"view {v['view_key']}: {n.get('code')} ({n['name']}) "
+                f"neither drawn nor stubbed nor audited"
+            )
+
+        # every circuit is either a drawn path or in the audit strip
+        drawn_circ_ids = set(map(int, re.findall(r'data-circuit-id="(\d+)"', svg)))
+        for e in g["edges"]:
+            assert e["id"] in drawn_circ_ids or e["code"] in audit_codes, (
+                f"view {v['view_key']}: circuit {e['code']} neither drawn nor audited"
+            )
+
+
+def test_layout_roundtrip(client):
+    import re
+
+    views = client.get("/api/views").json()
+    vid = views[0]["id"]
+    g = client.get(f"/api/views/{vid}/graph").json()
+    # a plain GI (not a GITET -- those get snapped above their LV bus)
+    sub = next(n for n in g["nodes"]
+               if n["kind"] == "SUBSTATION" and n.get("type") not in ("GITET", "GISTET")
+               and n.get("tier"))
+
+    assert client.get(f"/api/views/{vid}/layout").json()["positions"] == []
+    r = client.patch(f"/api/views/{vid}/layout", json={
+        "positions": [{"node_kind": "SUBSTATION", "node_id": sub["id"], "x": 900.0, "y": 640.0}],
+        "updated_by": "tester",
+    })
+    assert r.json()["saved"] == 1
+    saved = client.get(f"/api/views/{vid}/layout").json()["positions"]
+    assert saved and saved[0]["x"] == 900.0 and saved[0]["y"] == 640.0
+
+    # the saved position appears in the rendered SVG (frame may only clamp, not
+    # translate, once a layout is saved)
+    svg = client.get(f"/api/views/{vid}/sld.svg").content.decode()
+    m = re.search(rf'data-node-id="{sub["id"]}"[^>]*data-x="([\d.]+)"[^>]*data-y="([\d.]+)"', svg)
+    assert m
+    assert abs(float(m.group(1)) - 900.0) < 5
+    assert abs(float(m.group(2)) - 640.0) < 5
+    assert client.delete(f"/api/views/{vid}/layout").json()["cleared"] == 1
