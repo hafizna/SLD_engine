@@ -2,9 +2,31 @@
 
 The engine is a FastAPI + Python app, so it needs a running server -- it cannot
 go on GitHub Pages (that only serves static files, which is why the sister
-project's React `dist/` works there).
+project's React `dist/` works there). Vercel is a poor fit too: it is
+serverless/stateless, and this app seeds a DB on boot and holds it in memory.
 
-## Render.com (free, recommended)
+## Hugging Face Spaces (free, no credit card) -- recommended
+
+1. Create an account at <https://huggingface.co> (free).
+2. **New** &rarr; **Space**.
+3. Owner: your username. Space name: e.g. `sld-engine`.
+   SDK: **Docker**. Visibility: Public (or Private).
+4. Create the Space. It gives you a git repo URL like
+   `https://huggingface.co/spaces/<user>/sld-engine`.
+5. Push this project to that repo:
+   ```bash
+   git remote add hf https://huggingface.co/spaces/<user>/sld-engine
+   git push hf main
+   ```
+   (or, on the Space page, **Files** &rarr; link the GitHub repo).
+6. The Space builds the `Dockerfile` and serves on port 7860. URL:
+   `https://<user>-sld-engine.hf.space`.
+
+The HF config lives in the YAML block at the top of `README.md`
+(`sdk: docker`, `app_port: 7860`). SQLite is seeded on boot; the free CPU Space
+sleeps after ~48 h idle and re-seeds on wake (deterministic data).
+
+## Render.com (free, may ask for verification)
 
 Free web service, auto-deploys on every push to `main`. No credit card.
 `render.yaml` in the repo root is the blueprint.

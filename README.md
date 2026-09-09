@@ -1,3 +1,15 @@
+---
+title: MANTAPS Topology Engine
+emoji: ⚡
+colorFrom: blue
+colorTo: red
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
+<!-- The block above is Hugging Face Spaces config; it is ignored on GitHub. See DEPLOY.md. -->
+
 # MANTAPS Topology Engine
 
 > **Status:** architecture + runnable starter repository for a corporate transmission topology / analytical-SLD platform.  
