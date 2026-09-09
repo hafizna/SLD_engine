@@ -49,9 +49,9 @@ SS_CODE = "SS_LBK"
 # ---------------------------------------------------------------------------
 SUBSTATIONS = [
     dict(code="GITET_KMBGN", name="GITET Kembangan", type="GITET", voltage=500, status="ENERGIZED",
-         busbar_config="DOUBLE_1CB", busbar_note=None, role="SOURCE", external_subsystem=None,
+         busbar_config="UNKNOWN", busbar_note=None, role="SOURCE", external_subsystem=None,
          tier_k=1, tier_b=None, has_transformer=False, has_capacitor=False, symbol_note=None,
-         note="GITET 500 kV, 2x IBT 500/150 ke bus Kembangan 150"),
+         note="GITET 500 kV, 2x IBT 500/150 ke bus Kembangan 150. Kopel ada di bus 150 kV (KMBGN), bukan di bus 500 kV ini."),
     dict(code="GITET_NBRJA", name="GITET New Balaraja", type="GITET", voltage=500, status="ENERGIZED",
          busbar_config="UNKNOWN", busbar_note=None, role="SOURCE", external_subsystem=None,
          tier_k=None, tier_b=1, has_transformer=False, has_capacitor=False, symbol_note=None,

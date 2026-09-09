@@ -52,15 +52,15 @@ STATUS_STROKE = {
     "OWNED_BY_CUSTOMER": "#7A5C00",
 }
 
-LANE_W = 190           # fixed lane width per GI
-BAY_SLOT = 40          # horizontal space reserved per bay / attachment
-BUS_MIN = 96           # minimum busbar half-not: actual = max(BUS_MIN, slots*BAY_SLOT)/2
-ROW_H = 190
-MARGIN_X = 140
+BAY_SLOT = 46          # horizontal space per attachment (bay / circuit / trafo)
+BUS_MIN_HALF = 55      # minimum busbar half-length
+GUTTER = 70            # clear space between one GI's lane and the next
+ROW_H = 200
+MARGIN_X = 150
 MARGIN_Y = 120
 CB = 10
 CB_GAP = 12
-EDGE_MARGIN = 46       # width of the outer routing channel for bay-panjang
+EDGE_MARGIN = 54       # width of the outer routing channel for bay-panjang
 
 
 def esc(v) -> str:
@@ -174,19 +174,21 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     drawn_ids = [sid for sid in core_ids
                  if sid not in bay_gi_ids and tier.get(("SUBSTATION", sid)) is not None]
 
-    # count attachments -> busbar width
-    att: dict[int, int] = defaultdict(lambda: 1)
+    # count attachments -> busbar width. Every distinct thing that touches the
+    # busbar takes one slot: incoming feed, each outgoing circuit, each bay,
+    # own load transformer, own capacitor, each IBT chain.
+    att: dict[int, int] = defaultdict(lambda: 2)
     for sid in drawn_ids:
         s = subs[sid]
-        n = 1 + (1 if s.has_transformer and sid not in gitet_feeds else 0) + (1 if s.has_shunt_capacitor else 0)
+        n = (1 if s.has_transformer and sid not in gitet_feeds else 0) + (1 if s.has_shunt_capacitor else 0)
         n += len(bays_by_feeder.get(sid, []))
-        for c in line_edges:
-            if sid in (c.from_substation_id, c.to_substation_id):
-                n += 1
+        n += sum(1 for spr, fd in spur.items() if fd == sid and spr not in bay_gi_ids)
+        n += sum(1 for c in line_edges if sid in (c.from_substation_id, c.to_substation_id))
+        n += sum(1 for (hv, lv) in gitet_feeds.items() if lv == sid)
         att[sid] = max(n, 2)
 
     def bus_half(sid: int) -> float:
-        return max(BUS_MIN, att[sid] * BAY_SLOT) / 2
+        return max(BUS_MIN_HALF, att[sid] * BAY_SLOT / 2)
 
     # ---- rows keyed by fractional Tier --------------------------------
     row_of: dict[int, float] = {}
@@ -219,30 +221,35 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     for hv, lv in gitet_feeds.items():
         parent[hv] = lv  # GITET nudged to its GI
 
-    # ---- assign x per row: pack, then bias toward parent -------------
+    # ---- assign x per row: pack lanes (busbar + gutter), bias toward parent
     pos: dict[int, tuple[float, float]] = {}
-    # width first pass
-    row_width = {}
-    for rk, ids in rows.items():
-        row_width[rk] = sum(max(LANE_W, bus_half(s) * 2 + 30) for s in ids)
-    content_w = max(row_width.values()) if row_width else LANE_W
+
+    def lane_w(sid):
+        return bus_half(sid) * 2 + GUTTER
+
+    content_w = max((sum(lane_w(s) for s in ids) for ids in rows.values()), default=lane_w)
     W = MARGIN_X * 2 + EDGE_MARGIN * 2 + content_w
 
     for rk in sorted(rows):
         ids = rows[rk]
-        # order by parent x if known, else by name
         ids.sort(key=lambda s: (pos.get(parent.get(s, -1), (1e9,))[0], subs[s].name))
-        lanes = [max(LANE_W, bus_half(s) * 2 + 30) for s in ids]
+        lanes = [lane_w(s) for s in ids]
         total = sum(lanes)
         x = MARGIN_X + EDGE_MARGIN + (content_w - total) / 2
         for s, lw in zip(ids, lanes):
             cx = x + lw / 2
-            # bias toward parent
             pp = pos.get(parent.get(s, -1))
             if pp:
-                cx = 0.55 * cx + 0.45 * pp[0]
+                cx = 0.6 * cx + 0.4 * pp[0]
             pos[s] = (cx, MARGIN_Y + rk * ROW_H)
             x += lw
+        # de-overlap: enforce minimum centre spacing after the parent bias
+        order = sorted(ids, key=lambda s: pos[s][0])
+        for i in range(1, len(order)):
+            prev, cur = order[i - 1], order[i]
+            min_gap = bus_half(prev) + bus_half(cur) + GUTTER * 0.6
+            if pos[cur][0] - pos[prev][0] < min_gap:
+                pos[cur] = (pos[prev][0] + min_gap, pos[cur][1])
 
     gen_pos: dict[int, tuple[float, float]] = {}
     for gid, rk in gen_row.items():
@@ -252,6 +259,60 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
     max_rk = max(list(rows) + list(gen_row.values()) + [1])
     H = MARGIN_Y * 2 + int(max_rk * ROW_H) + 170
+
+    # ---- port allocation: every attachment on a busbar gets its own x -----
+    # Collect attachment keys per busbar, ordered so incoming feed is left,
+    # own load in the middle, outgoing circuits to the right, bays after that.
+    PORT: dict[tuple[int, str], float] = {}   # (sub_id, key) -> x
+
+    def _order_key(sid, kind, other_x):
+        # left -> right along the busbar: incoming feed & IBT, then own load /
+        # capacitor, then outgoing circuits, then bays.
+        base = {"in": 0, "ibt": 1, "gen": 1, "load": 3, "cap": 4, "out": 6, "bay": 8}[kind]
+        return (base, other_x if other_x is not None else pos[sid][0])
+
+    bus_attach: dict[int, list] = defaultdict(list)
+    for c in line_edges:
+        a, b = c.from_substation_id, c.to_substation_id
+        for sid, oth in ((a, b), (b, a)):
+            if sid not in pos:
+                continue
+            t_self = tier.get(("SUBSTATION", sid))
+            t_oth = tier.get(("SUBSTATION", oth))
+            kind = "in" if (t_oth is not None and t_self is not None and t_oth < t_self) else "out"
+            bus_attach[sid].append((f"c{c.id}", kind, pos.get(oth, (pos[sid][0],))[0]))
+    for hv, lv in gitet_feeds.items():
+        if lv in pos:
+            bus_attach[lv].append(("ibt", "ibt", pos[hv][0]))
+    for g in gens.values():
+        if g.outlet_substation_id in pos:
+            bus_attach[g.outlet_substation_id].append((f"gen{g.id}", "gen", None))
+    for sid in drawn_ids:
+        s = subs[sid]
+        if s.has_transformer and sid not in gitet_feeds:
+            bus_attach[sid].append(("load", "load", None))
+        if s.has_shunt_capacitor:
+            bus_attach[sid].append(("cap", "cap", None))
+    for feeder_id, blist in bays_by_feeder.items():
+        if feeder_id in pos:
+            for b in blist:
+                bus_attach[feeder_id].append((f"bay{b.id}", "bay", None))
+    for spur_id, feeder_id in spur.items():
+        if spur_id not in bay_gi_ids and feeder_id in pos:
+            bus_attach[feeder_id].append((f"spur{spur_id}", "bay", None))
+
+    for sid, items in bus_attach.items():
+        cx, cy = pos[sid]
+        bh = bus_half(sid)
+        items = sorted(items, key=lambda it: _order_key(sid, it[1], it[2]))
+        n = len(items)
+        usable = max(2 * bh - 20, 2 * bh * 0.7)
+        for i, (key, kind, _) in enumerate(items):
+            px = cx - usable / 2 + (i + 0.5) * usable / max(n, 1)
+            PORT[(sid, key)] = px
+
+    def port(sid, key, fallback_x=None):
+        return PORT.get((sid, key), fallback_x if fallback_x is not None else pos[sid][0])
 
     p: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:.0f} {H}" '
@@ -270,64 +331,63 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         p.append(f'<text x="20" y="{y - 8}" font-size="11" fill="#8592a6" font-weight="700">TIER-{t}</text>')
     p.append('</g>')
 
-    # ---- circuits -------------------------------------------------
+    # ---- circuits (each end enters its busbar at its own port x) ------
     left_ch = MARGIN_X + EDGE_MARGIN * 0.45
     right_ch = W - MARGIN_X - EDGE_MARGIN * 0.45
     p.append('<g id="circuits">')
     for c in line_edges:
-        a = pos.get(c.from_substation_id)
-        b = pos.get(c.to_substation_id)
-        if not a or not b:
+        af, at = c.from_substation_id, c.to_substation_id
+        if af not in pos or at not in pos:
             continue
         stroke = STATUS_STROKE.get(c.status) or "#C00000"
         dash = STATUS_DASH.get(c.status, "7 5")
         w = 1.4 if c.single_phi else 2.3
-        ta = tier.get(("SUBSTATION", c.from_substation_id))
-        tb = tier.get(("SUBSTATION", c.to_substation_id))
+        ta = tier.get(("SUBSTATION", af))
+        tb = tier.get(("SUBSTATION", at))
+        key = f"c{c.id}"
+        pf = (port(af, key), pos[af][1])
+        pt = (port(at, key), pos[at][1])
         title = (f'<title>{esc(c.name)} - {esc(c.circuit_type)}, {esc(c.status)}'
                  f'{", single phi" if c.single_phi else ""}'
                  f'{", " + str(c.circuit_count) + " sirkit" if c.circuit_count else ""} '
                  f'(conf {c.confidence})</title>')
 
         if ta is not None and tb is not None and ta == tb:
-            # same-tier tie: shallow bump below the bar
-            (x1, y1), (x2, y2) = a, b
-            yb = y1 + 30
+            (x1, y1), (x2, y2) = pf, pt
+            yb = y1 + 34
             p.append(f'<path d="M{x1:.1f},{y1 + CB_GAP:.1f} V{yb:.1f} H{x2:.1f} V{y2 + CB_GAP:.1f}" '
                      f'fill="none" stroke="{stroke}" stroke-width="{w}" stroke-dasharray="{dash}">{title}</path>')
             p.append(_cb(x1, y1 + CB_GAP, stroke)); p.append(_cb(x2, y2 + CB_GAP, stroke))
             continue
 
-        (ux, uy), (lx, ly) = (a, b) if a[1] <= b[1] else (b, a)
-        upward = ta is not None and tb is not None and ta > tb  # child above its feeder
-
+        upward = ta is not None and tb is not None and ta > tb
         if upward:
-            # route around the nearer outer edge
-            (fx, fy), (cx, cy) = (a, b) if a[1] > b[1] else (b, a)  # feeder is lower
+            (fx, fy), (cx, cy) = (pf, pt) if pf[1] > pt[1] else (pt, pf)  # feeder lower
             ch = left_ch if (fx + cx) / 2 < W / 2 else right_ch
-            p.append(f'<path d="M{fx:.1f},{fy + CB_GAP:.1f} V{fy + 24:.1f} H{ch:.1f} V{cy - 24:.1f} '
+            p.append(f'<path d="M{fx:.1f},{fy + CB_GAP:.1f} V{fy + 26:.1f} H{ch:.1f} V{cy - 26:.1f} '
                      f'H{cx:.1f} V{cy + CB_GAP:.1f}" fill="none" stroke="{stroke}" '
                      f'stroke-width="{w}" stroke-dasharray="{dash}">{title}</path>')
             p.append(_cb(fx, fy + CB_GAP, stroke)); p.append(_cb(cx, cy + CB_GAP, stroke))
             continue
 
-        # normal parent->child: elbow in the gap between the two bands
+        (ux, uy), (lx, ly) = (pf, pt) if pf[1] <= pt[1] else (pt, pf)
         gap_y = (uy + ly) / 2
         p.append(f'<path d="M{ux:.1f},{uy + CB_GAP:.1f} V{gap_y:.1f} H{lx:.1f} V{ly - CB_GAP:.1f}" '
                  f'fill="none" stroke="{stroke}" stroke-width="{w}" stroke-dasharray="{dash}">{title}</path>')
         p.append(_cb(ux, uy + CB_GAP, stroke)); p.append(_cb(lx, ly - CB_GAP, stroke))
     p.append('</g>')
 
-    # ---- IBT chains ----------------------------------------------
+    # ---- IBT chains (each chain at the LV busbar's 'ibt' port) --------
     p.append('<g id="ibt-links">')
     for (hv, lv), links in ibt_links_by_pair.items():
         hp, lp = pos.get(hv), pos.get(lv)
         if not hp or not lp:
             continue
         hv_col, lv_col = _vcol(subs[hv].voltage_kv), _vcol(subs[lv].voltage_kv)
+        base = port(lv, "ibt")
         n = len(links)
         for i, c in enumerate(sorted(links, key=lambda z: z.code)):
-            cx = lp[0] + (i - (n - 1) / 2) * 28
+            cx = base + (i - (n - 1) / 2) * 26
             hy, ly = hp[1], lp[1]
             mid = (hy + ly) / 2
             da = f' stroke-dasharray="{STATUS_DASH.get(c.status, "none")}"' if c.status != "ENERGIZED" else ""
@@ -341,8 +401,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # ---- generators --------------------------------------------
     p.append('<g id="generators">')
     for gid, g in gens.items():
-        gx, gy = gen_pos[gid]
         outlet = pos.get(g.outlet_substation_id)
+        gx = port(g.outlet_substation_id, f"gen{g.id}", gen_pos[gid][0]) if outlet else gen_pos[gid][0]
+        gy = gen_pos[gid][1]
         col = "#0a8a3a"
         p.append(_sym_generator(gx, gy - 30, col))
         p.append(f'<text x="{gx:.1f}" y="{gy - 42:.1f}" font-size="10" text-anchor="middle" '
@@ -375,48 +436,47 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             p.append(f'<rect x="{x - 5:.1f}" y="{y - 4:.1f}" width="10" height="8" '
                      f'fill="#ffffff" stroke="{bstroke}" stroke-width="1.6"/>')
         if s.has_transformer and sid not in gitet_feeds:
-            p.append(_sym_transformer(x - bh + 20, y + 3, vcol))
+            p.append(_sym_transformer(port(sid, "load", x), y + 3, vcol))
         if s.has_shunt_capacitor:
-            p.append(_sym_capacitor(x + bh - 18, y + 3, vcol))
+            p.append(_sym_capacitor(port(sid, "cap", x), y + 3, vcol))
         if role in ("BOUNDARY", "EXTERNAL_CONTEXT"):
             p.append(f'<text x="{x:.1f}" y="{y - 27:.1f}" font-size="8" text-anchor="middle" '
                      f'fill="#b06a00" font-weight="700">{esc(role)}</text>')
         p.append('</g>')
     p.append('</g>')
 
-    # ---- bays (stub + CB + name, no busbar) --------------------
+    # ---- bays (stub + CB + name, no busbar; at their own port) -------
     p.append('<g id="bays">')
-    stub_targets: dict[int, list] = defaultdict(list)
+    stub_items: list[tuple[int, str, object, str, str]] = []
     for spur_id, feeder_id in spur.items():
         if spur_id not in bay_gi_ids and feeder_id in pos:
-            stub_targets[feeder_id].append(("spur", subs[spur_id], subs[spur_id].status,
-                                            roles.get(("SUBSTATION", spur_id), "")))
+            stub_items.append((feeder_id, f"spur{spur_id}", subs[spur_id],
+                               subs[spur_id].status, roles.get(("SUBSTATION", spur_id), "")))
     for feeder_id, blist in bays_by_feeder.items():
-        if feeder_id not in pos:
-            continue
-        for b in blist:
-            stub_targets[feeder_id].append(("bay", subs[b.substation_id], b.status, b.note or ""))
-
-    for feeder_id, items in stub_targets.items():
+        if feeder_id in pos:
+            for b in blist:
+                stub_items.append((feeder_id, f"bay{b.id}", subs[b.substation_id],
+                                   b.status, b.note or ""))
+    # stagger label rows so names don't collide
+    row_by_feeder: dict[int, int] = defaultdict(int)
+    for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], it[2].name)):
         fx, fy = pos[feeder_id]
-        bh = bus_half(feeder_id)
-        items = sorted(items, key=lambda it: it[1].name)
-        n = len(items)
-        span = min(2 * bh - 24, max(1, n) * BAY_SLOT)
-        for i, (kind, gi, status, meta) in enumerate(items):
-            sx = fx - span / 2 + (i + 0.5) * span / max(n, 1)
-            sy = fy + 44
-            col = STATUS_STROKE.get(status) or _vcol(gi.voltage_kv)
-            dash = STATUS_DASH.get(status, "7 5")
-            p.append(f'<g><title>{esc(gi.name)} [{esc(gi.code)}] - bay di bus {esc(subs[feeder_id].name)} '
-                     f'({esc(status)}){" - " + esc(meta) if meta else ""}</title>')
-            p.append(f'<path d="M{sx:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
-                     f'stroke="{col}" stroke-width="1.8" stroke-dasharray="{dash}"/>')
-            p.append(_cb(sx, fy + CB_GAP, col))
-            p.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3" fill="{col}"/>')
-            p.append(f'<text x="{sx:.1f}" y="{sy + 13:.1f}" font-size="8.5" text-anchor="middle" '
-                     f'fill="#6b7787">{esc(gi.name)}</text>')
-            p.append('</g>')
+        sx = port(feeder_id, key, fx)
+        lvl = row_by_feeder[feeder_id]
+        row_by_feeder[feeder_id] += 1
+        sy = fy + 42
+        col = STATUS_STROKE.get(status) or _vcol(gi.voltage_kv)
+        dash = STATUS_DASH.get(status, "7 5")
+        p.append(f'<g><title>{esc(gi.name)} [{esc(gi.code)}] - bay di bus {esc(subs[feeder_id].name)} '
+                 f'({esc(status)}){" - " + esc(meta) if meta else ""}</title>')
+        p.append(f'<path d="M{sx:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
+                 f'stroke="{col}" stroke-width="1.8" stroke-dasharray="{dash}"/>')
+        p.append(_cb(sx, fy + CB_GAP, col))
+        p.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3" fill="{col}"/>')
+        ly = sy + 13 + (lvl % 2) * 11
+        p.append(f'<text x="{sx:.1f}" y="{ly:.1f}" font-size="8.5" text-anchor="middle" '
+                 f'fill="#6b7787">{esc(gi.name)}</text>')
+        p.append('</g>')
     p.append('</g>')
 
     # ---- not-yet-energised note strip -------------------------
