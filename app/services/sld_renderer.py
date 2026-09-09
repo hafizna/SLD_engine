@@ -87,6 +87,13 @@ def _cb(x, y, color):
     return f'<rect x="{x - CB / 2:.1f}" y="{y - CB / 2:.1f}" width="{CB}" height="{CB}" fill="{color}"/>'
 
 
+def _cbs(x, y, color, n, dx=None):
+    """n CB squares stacked horizontally (one per sirkit)."""
+    dx = dx if dx is not None else (CB + 3)
+    x0 = x - (n - 1) * dx / 2
+    return "".join(_cb(x0 + i * dx, y, color) for i in range(n))
+
+
 def _sym_transformer(x, y, hv_color, lv_color="#E67300"):
     """150/20 kV load transformer: top circle in the HV (busbar) colour, bottom
     circle in the LV colour (20 kV = orange)."""
@@ -410,19 +417,28 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
         same_tier = ta is not None and tb is not None and ta == tb
         upward = ta is not None and tb is not None and ta > tb
+        # the CB sits where the line physically meets the busbar:
+        #   line comes from ABOVE  -> CB above the bus  (dir -1)
+        #   line comes from BELOW  -> CB below the bus  (dir +1)
+        if same_tier:
+            fdir = tdir = 1                      # both drop below, elbow underneath
+        elif fy0 < ty0:                          # 'from' is the upper bus
+            fdir, tdir = 1, -1
+        else:
+            fdir, tdir = -1, 1
 
         for k, off in enumerate(offs):
             fx, tx = fx0 + off, tx0 + off
-            t_first = k == 0
-            tt = title if t_first else ""
+            tt = title if k == 0 else ""
             if same_tier:
-                yb = fy0 + 34 + off
+                yb = max(fy0, ty0) + 48 + abs(off)
                 d = f'M{fx:.1f},{fy0 + CB_GAP:.1f} V{yb:.1f} H{tx:.1f} V{ty0 + CB_GAP:.1f}'
             elif upward:
+                # the lower (feeder) bus is the one the line rises from
                 (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
                 ch = (left_ch if (bx + ux) / 2 < W / 2 else right_ch) + off
-                d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{by + 26 + off:.1f} H{ch:.1f} '
-                     f'V{uy - 26 - off:.1f} H{ux:.1f} V{uy + CB_GAP:.1f}')
+                d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{by + 30 + abs(off):.1f} H{ch:.1f} '
+                     f'V{uy - CB_GAP:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
             else:
                 (ux, uy), (lx, ly) = ((fx, fy0), (tx, ty0)) if fy0 <= ty0 else ((tx, ty0), (fx, fy0))
                 gap_y = (uy + ly) / 2 + off
@@ -430,8 +446,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
                      f'stroke-dasharray="{dash}">{tt}</path>')
 
-        p.append(_cb(fx0, fy0 + CB_GAP, stroke))
-        p.append(_cb(tx0, ty0 + CB_GAP, stroke))
+        p.append(_cbs(fx0, fy0 + fdir * CB_GAP, stroke, n_cct))
+        p.append(_cbs(tx0, ty0 + tdir * CB_GAP, stroke, n_cct))
     p.append('</g>')
 
     # ---- IBT chains (each chain at the LV busbar's 'ibt' port) --------
@@ -461,8 +477,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         standby = (g.status or "").upper() in ("STANDBY", "OFF")
         col = "#7c9a6a" if standby else "#0a8a3a"
         if g.tap_circuit_id:
-            # a small plant tapping a circuit -> a NODE (point) + label at the
-            # midpoint of that circuit's span. No generator symbol.
+            # a small plant tapping a circuit -> a NODE (point) + label, placed
+            # ~1/3 along the circuit toward its downstream end (like the book:
+            # the tap "cuts into" the existing line near one substation).
             c = next((e for e in line_edges if e.id == g.tap_circuit_id), None)
             a = pos.get(c.from_substation_id) if c else None
             b = pos.get(c.to_substation_id) if c else None
@@ -470,8 +487,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 continue
             fx = port(c.from_substation_id, f"c{c.id}")
             tx = port(c.to_substation_id, f"c{c.id}")
-            mx = (fx + tx) / 2
-            my = (a[1] + b[1]) / 2
+            mx = fx + (tx - fx) * 0.32
+            my = a[1] + (b[1] - a[1]) * 0.32
             p.append(f'<g><title>{esc(g.name)} ({esc(g.unit_type)}) - {esc(g.status)} - '
                      f'node di ruas {esc(c.name)}</title>')
             p.append(f'<circle cx="{mx:.1f}" cy="{my:.1f}" r="4" fill="#ffffff" '
@@ -498,14 +515,14 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         s = subs[sid]
         x, y = pos[sid]
         bh = bus_half(sid)
-        # a GITET busbar must span the IBT chains that hang below it
-        if sid in [hv for (hv, lv) in ibt_links_by_pair]:
+        # a GITET busbar is centred exactly over its IBT chains (nothing else
+        # attaches to it here), so it can't overrun the rest of the diagram
+        if sid in gitet_feeds:
             lv = gitet_feeds[sid]
             base = port(lv, "ibt")
-            n = len(ibt_links_by_pair[(sid, lv)])
-            spanneed = (n - 1) * 26 / 2 + 26
-            lo, hi = min(x - bh, base - spanneed), max(x + bh, base + spanneed)
-            x, bh = (lo + hi) / 2, (hi - lo) / 2
+            n = len(ibt_links_by_pair.get((sid, lv), [1]))
+            x = base
+            bh = max((n - 1) * 26 / 2 + 30, 40)
         vcol = _vcol(s.voltage_kv)
         bstroke = STATUS_STROKE.get(s.status) or vcol
         bdash = STATUS_DASH.get(s.status, "none")
