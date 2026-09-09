@@ -378,8 +378,8 @@ BAYS = [
     # sisi Kembangan
     ("DKSBI", "KMBGN", "K", "ENERGIZED", "Bay Durikosambi di bus Kembangan (GI batas -> SS Muarakarang)"),
     ("PKTGN", "KMBGN", "K", "ENERGIZED", "Bay Petukangan di bus Kembangan"),
-    ("PKTGN", "SNYAN", "K", "DE_ENERGIZED", "Bay Petukangan di bus Senayan - feeder SKTT rusak"),
-    ("ABDGP", "SNYAN", "K", "PLANNED", "Bay AGP di bus Senayan - SKTT belum jadi (abu di SLD)"),
+    ("PKTGN", "SNYAN", "K", "DE_ENERGIZED", "Bay Petukangan di bus Senayan (abu di SLD = non-aktif)"),
+    ("ABDGP", "SNYAN", "K", "DE_ENERGIZED", "Bay AGP di bus Senayan (abu di SLD = non-aktif)"),
     ("ABDGP", "DNYSA", "K", "ENERGIZED", "Bay AGP di bus Danayasa - ruas Mampang-AGP-Danayasa"),
     ("MPANG", "ABDGP", "K", "ENERGIZED", "Bay Mampang - ujung ruas Mampang-AGP-Danayasa"),
     ("SVRNA", "CKUPA", "K", "ENERGIZED", "Bay Suvarna Sutra dari Cikupa (SKTT)"),

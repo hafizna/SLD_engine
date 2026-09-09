@@ -417,31 +417,42 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
         same_tier = ta is not None and tb is not None and ta == tb
         upward = ta is not None and tb is not None and ta > tb
-        # the CB sits where the line physically meets the busbar:
-        #   line comes from ABOVE  -> CB above the bus  (dir -1)
-        #   line comes from BELOW  -> CB below the bus  (dir +1)
+        # if an "upward" feeder is roughly under the child, route it straight up
+        # instead of around the diagram edge
+        straight_up = upward and abs(fx0 - tx0) < 135
         if same_tier:
-            fdir = tdir = 1                      # both drop below, elbow underneath
-        elif fy0 < ty0:                          # 'from' is the upper bus
+            fdir = tdir = 1
+        elif upward:
+            # feeder (lower bus) -> line rises from ABOVE it; child (upper bus)
+            # -> line enters from BELOW it
+            fdir = -1 if fy0 > ty0 else 1
+            tdir = -1 if ty0 > fy0 else 1
+        elif fy0 < ty0:
             fdir, tdir = 1, -1
         else:
             fdir, tdir = -1, 1
+
+        # stagger the elbow depth per circuit so same-tier ties don't stack
+        stagger = (hash(c.id) % 3) * 9
 
         for k, off in enumerate(offs):
             fx, tx = fx0 + off, tx0 + off
             tt = title if k == 0 else ""
             if same_tier:
-                yb = max(fy0, ty0) + 48 + abs(off)
+                yb = max(fy0, ty0) + 46 + stagger + abs(off)
                 d = f'M{fx:.1f},{fy0 + CB_GAP:.1f} V{yb:.1f} H{tx:.1f} V{ty0 + CB_GAP:.1f}'
+            elif straight_up:
+                (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
+                gap_y = (by + uy) / 2 + off
+                d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{gap_y:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
             elif upward:
-                # the lower (feeder) bus is the one the line rises from
                 (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
                 ch = (left_ch if (bx + ux) / 2 < W / 2 else right_ch) + off
                 d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{by + 30 + abs(off):.1f} H{ch:.1f} '
                      f'V{uy - CB_GAP:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
             else:
                 (ux, uy), (lx, ly) = ((fx, fy0), (tx, ty0)) if fy0 <= ty0 else ((tx, ty0), (fx, fy0))
-                gap_y = (uy + ly) / 2 + off
+                gap_y = (uy + ly) / 2 + off + stagger
                 d = f'M{ux:.1f},{uy + CB_GAP:.1f} V{gap_y:.1f} H{lx:.1f} V{ly - CB_GAP:.1f}'
             p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
                      f'stroke-dasharray="{dash}">{tt}</path>')
@@ -487,13 +498,19 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 continue
             fx = port(c.from_substation_id, f"c{c.id}")
             tx = port(c.to_substation_id, f"c{c.id}")
-            mx = fx + (tx - fx) * 0.32
-            my = a[1] + (b[1] - a[1]) * 0.32
+            # a point ON the circuit line, ~1/3 down toward its downstream end,
+            # with a short dash to the node label off to the side
+            ly_ = a[1] + (b[1] - a[1]) * 0.35
+            lx_ = fx + (tx - fx) * 0.35
+            nx = lx_ + 34                       # node sits a bit to the right
             p.append(f'<g><title>{esc(g.name)} ({esc(g.unit_type)}) - {esc(g.status)} - '
-                     f'node di ruas {esc(c.name)}</title>')
-            p.append(f'<circle cx="{mx:.1f}" cy="{my:.1f}" r="4" fill="#ffffff" '
+                     f'tap ruas {esc(c.name)}</title>')
+            p.append(f'<circle cx="{lx_:.1f}" cy="{ly_:.1f}" r="2.5" fill="{col}"/>')
+            p.append(f'<path d="M{lx_:.1f},{ly_:.1f} h34" stroke="{col}" stroke-width="1.4" '
+                     f'stroke-dasharray="4 3"/>')
+            p.append(f'<circle cx="{nx:.1f}" cy="{ly_:.1f}" r="4" fill="#ffffff" '
                      f'stroke="{col}" stroke-width="2"/>')
-            p.append(f'<text x="{mx:.1f}" y="{my - 8:.1f}" font-size="9" text-anchor="middle" '
+            p.append(f'<text x="{nx + 8:.1f}" y="{ly_ + 3:.1f}" font-size="9" '
                      f'fill="{col}">{esc(g.name)}{" (standby)" if standby else ""}</text>')
             p.append('</g>')
             continue
