@@ -68,9 +68,41 @@ uvicorn app.main:app --reload
 
 To share a local instance briefly without deploying: `ngrok http 8000`.
 
-## Static snapshot (if you ever want a GitHub Pages URL too)
+## Static snapshot -> GitHub Pages (free, no account, no CC)
 
-Not set up yet. It would mean a build step that renders every view's SVG + graph
-JSON to files and ships a small static viewer -- ask and it can be added as a
-GitHub Actions workflow publishing to `hafizna.github.io/SLD_engine`. The data
-would be frozen (no live API).
+A frozen snapshot: every view's SVG + graph JSON + the register, plus a small
+viewer. Same hosting model as the sister dashboard, but the topology comes from
+the canonical engine. No live API.
+
+Build locally:
+
+```bash
+python scripts/build_static_site.py site
+# open site/index.html
+```
+
+Auto-publish on every push to `main`:
+
+1. Add `scripts/pages.yml` to the repo as `.github/workflows/pages.yml`
+   (GitHub web UI: **Add file -> Create new file**, paste, path
+   `.github/workflows/pages.yml`). It cannot be pushed by an OAuth app without
+   `workflow` scope, hence the manual step.
+2. **Settings -> Pages -> Build and deployment -> Source = GitHub Actions**.
+3. Push anything to `main`; the workflow builds `site/` and deploys.
+4. URL: `https://hafizna.github.io/SLD_engine/`.
+
+## Local via Docker
+
+```bash
+docker compose up --build          # SQLite, http://localhost:8000
+docker compose --profile postgres up --build   # against Postgres
+```
+
+## Local via Python
+
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload      # http://localhost:8000
+```
+
+Share a local instance briefly: `ngrok http 8000`.

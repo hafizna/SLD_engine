@@ -1,6 +1,23 @@
+# Local demo -- SQLite, seeded on boot, no separate DB service.
+#   docker compose up --build
+#   open http://localhost:8000   (Swagger at /docs)
+#
+# To run against Postgres instead, use the "postgres" profile:
+#   docker compose --profile postgres up --build
 services:
+  api:
+    build: .
+    environment:
+      DATABASE_URL: sqlite:////data/mantaps.db
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - apidata:/data
+
   db:
     image: postgres:16
+    profiles: ["postgres"]
     environment:
       POSTGRES_DB: mantaps
       POSTGRES_USER: mantaps
@@ -9,13 +26,17 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-  api:
+
+  api-postgres:
     build: .
-    depends_on:
-      - db
+    profiles: ["postgres"]
+    depends_on: [db]
     environment:
       DATABASE_URL: postgresql+psycopg://mantaps:mantaps@db:5432/mantaps
+      PORT: "8000"
     ports:
       - "8000:8000"
+
 volumes:
+  apidata:
   pgdata:

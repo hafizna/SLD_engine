@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MANTAPS Topology Engine &mdash; snapshot</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #eef4fb; color: #0f274a; }
+  header { padding: 14px 22px; background: #0b5cab; color: #fff; }
+  header b { font-size: 15px; }
+  header .sub { font-size: 12px; opacity: .85; }
+  main { display: grid; grid-template-columns: 300px 1fr 320px; gap: 12px; padding: 12px; align-items: start; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid #dbe5f0; border-radius: 12px; padding: 14px; }
+  h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #5c6b7f; }
+  button.view { width: 100%; text-align: left; padding: 9px 10px; margin: 4px 0; border: 1px solid #dbe5f0;
+    background: #fff; border-radius: 8px; cursor: pointer; font: inherit; }
+  button.view:hover { background: #eef6ff; }
+  button.view.active { border-color: #0b5cab; background: #eaf3ff; }
+  .small { font-size: 12px; color: #64748b; }
+  .svgwrap { width: 100%; overflow: auto; border: 1px solid #dbe5f0; border-radius: 8px; background: #fff; }
+  .svgwrap svg { display: block; max-width: none; }
+  .risk { border-left: 3px solid #F6C000; padding: 6px 10px; margin: 8px 0; background: #fffdf5; border-radius: 4px; }
+  .risk b { display: block; font-size: 12px; }
+  .risk .meta { font-size: 11px; color: #8592a6; }
+  .risk details { margin-top: 4px; font-size: 12px; }
+  .ds { border-left: 3px solid #0b5cab; padding: 6px 10px; margin: 8px 0; background: #f5f9ff; border-radius: 4px; font-size: 12px; }
+  .legend span { display: inline-block; font-size: 11px; margin-right: 10px; }
+  a.dl { font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <b>MANTAPS &mdash; Topology Engine</b> <span class="sub">(static snapshot)</span>
+  <div class="sub">Satu topologi kanonik &middot; Tier dihitung per proyeksi &middot; overlay semantik. Slice: SS Lontar&ndash;Balaraja&ndash;Kembangan.</div>
+</header>
+<main>
+  <div class="card">
+    <h3>Analytical views</h3>
+    <div id="views"></div>
+    <h3 style="margin-top:16px">Legend</h3>
+    <div class="legend">
+      <span style="color:#0047AB">&#9644; 500 kV</span>
+      <span style="color:#C00000">&#9644; 150 kV</span>
+      <span style="color:#111">&#9644; belum energize</span>
+      <span style="color:#9AA0A6">&#9644; perencanaan</span>
+      <span style="color:#B8860B">&#9679; titik kerawanan</span>
+    </div>
+    <p style="margin-top:14px"><a class="dl" href="data/register.xlsx">&#8681; Corporate Topology Register (.xlsx)</a></p>
+    <p class="small">Snapshot dari canonical engine. Untuk API hidup: jalankan repo secara lokal (lihat DEPLOY.md).</p>
+  </div>
+  <div class="card">
+    <div id="svg" class="svgwrap"></div>
+  </div>
+  <div class="card">
+    <h3>Overlay: kerawanan &amp; defense scheme</h3>
+    <div id="overlays" class="small">Pilih view.</div>
+  </div>
+</main>
+<script>
+async function j(p) { return (await fetch(p)).json(); }
+async function t(p) { return (await fetch(p)).text(); }
+
+async function load() {
+  const views = await j('data/views.json');
+  const box = document.getElementById('views');
+  views.forEach((v, i) => {
+    const b = document.createElement('button');
+    b.className = 'view';
+    b.innerHTML = `<b>${v.name}</b><br><span class="small">${v.view_type} &middot; ${v.rule_profile}</span>`;
+    b.onclick = () => select(v.id, b);
+    box.appendChild(b);
+    if (i === 0) b.dataset.first = '1';
+  });
+  const first = box.querySelector('button[data-first]');
+  if (first) select(views[0].id, first);
+}
+
+async function select(id, btn) {
+  document.querySelectorAll('button.view').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('svg').innerHTML = await t(`data/view-${id}.svg`);
+  const g = await j(`data/view-${id}.json`);
+  const o = document.getElementById('overlays');
+  o.innerHTML = '';
+  g.overlays.risk.forEach(r => {
+    const d = document.createElement('div');
+    d.className = 'risk';
+    d.innerHTML = `<b>#${r.seq_no} &middot; ${r.title}</b>
+      <span class="meta">${r.attach_kind || ''} ${r.attach_label || ''} &middot; prioritas ${r.priority || '-'}</span>
+      <details><summary>detail</summary>
+        <p><b>Kondisi:</b> ${r.condition || '-'}</p>
+        <p><b>Dampak:</b> ${r.impact || '-'}</p>
+        <p><b>Mitigasi:</b> ${r.mitigation || '-'}</p>
+        <p><b>Usulan/Solusi:</b> ${r.follow_up || '-'}</p>
+      </details>`;
+    o.appendChild(d);
+  });
+  g.overlays.defense_scheme.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'ds';
+    const mw = s.target_mw ? `${s.target_mw} MW` + (s.target_mw_planned ? ` &rarr; ${s.target_mw_planned} MW` : '') : '';
+    d.innerHTML = `<b>${s.name}</b> (${s.scheme_type}) ${mw} <span class="meta">${s.reference || ''}</span>`;
+    o.appendChild(d);
+  });
+}
+load();
+</script>
+</body>
+</html>

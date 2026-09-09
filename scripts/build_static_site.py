@@ -1,0 +1,74 @@
+"""Render every analytical view to a static bundle for GitHub Pages.
+
+Output (default: ./site/):
+    index.html                 - viewer shell (view switcher, SLD, overlays)
+    data/views.json            - list of views
+    data/view-<id>.json        - full graph contract per view
+    data/view-<id>.svg         - starter SLD per view
+    data/register.xlsx         - Corporate Topology Register export
+
+The data is a frozen snapshot -- no live API. It mirrors how the sister
+dashboard is hosted, but the topology comes from the canonical engine.
+"""
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "site"
+
+
+def build() -> None:
+    # fresh in-memory-ish DB in a temp file
+    tmp = tempfile.mkdtemp()
+    os.environ["DATABASE_URL"] = f"sqlite:///{tmp}/snapshot.db"
+
+    from app.db import Base, SessionLocal, engine
+    from app.models import AnalyticalView
+    from app.services.excel_register import export_register
+    from app.services.seed import seed_demo
+    from app.services.sld_renderer import render_view_svg
+    from fastapi.testclient import TestClient
+
+    Base.metadata.create_all(bind=engine)
+    with SessionLocal() as db:
+        seed_demo(db)
+
+    from app.main import app  # imports after DB is ready
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    data_dir = OUT / "data"
+    data_dir.mkdir(exist_ok=True)
+
+    with TestClient(app) as client, SessionLocal() as db:
+        views = client.get("/api/views").json()
+        (data_dir / "views.json").write_text(json.dumps(views, indent=2), encoding="utf-8")
+
+        for v in views:
+            vid = v["id"]
+            graph = client.get(f"/api/views/{vid}/graph").json()
+            (data_dir / f"view-{vid}.json").write_text(json.dumps(graph, indent=2), encoding="utf-8")
+
+            av = db.get(AnalyticalView, vid)
+            (data_dir / f"view-{vid}.svg").write_text(render_view_svg(db, av), encoding="utf-8")
+
+        export_register(db, data_dir / "register.xlsx")
+
+    shutil.copy(ROOT / "scripts" / "static_index.html", OUT / "index.html")
+    (OUT / ".nojekyll").write_text("", encoding="utf-8")
+
+    print(f"static site -> {OUT}")
+    for p in sorted(OUT.rglob("*")):
+        if p.is_file():
+            print(f"  {p.relative_to(OUT)}  ({p.stat().st_size} B)")
+
+
+if __name__ == "__main__":
+    build()
