@@ -1,11 +1,14 @@
 # MANTAPS Topology Engine
 
-> **Status:** runnable engine with a real vertical slice.  
+> **Status:** runnable engine with two real vertical slices.  
 > The canonical electrical model, the GI-aware Tier engine, the reconciliation
 > model, the analytical-view model, the JSON API, the Corporate Topology Register
 > (Excel) round-trip, and a starter SLD renderer are all implemented and proven
-> end-to-end on one real P2B subsystem — **SS Lontar–Balaraja 1,2–Kembangan 1,2**
-> from the *Buku Kerawanan SJB 2026* (section 2.5). See [`SS_LBK_SLICE.md`](SS_LBK_SLICE.md).  
+> end-to-end on real P2B subsystems from the *Buku Kerawanan SJB 2026*:
+> **SS Lontar–Balaraja 1,2–Kembangan 1,2** (§2.5, two book SLD sides —
+> see [`SS_LBK_SLICE.md`](SS_LBK_SLICE.md)) and **SS Balaraja 3,4–Lengkong 1,2**
+> (§2.6, one SLD, two independent Tier-1 sources) added to test that the model
+> and renderer generalise to a second subsystem shape.  
 > **Next:** field-review the traced topology, extend to all of Jakarta–Banten,
 > then the full engineering bus/bay/CB renderer and the NMM/CIM adapter.
 
@@ -992,7 +995,8 @@ The web renderer, analytical views, risk attachment model, and application API s
 | Corporate Topology Register (Excel) export + round-trip | ✅ | `services/excel_register.py`, `/api/register.xlsx` |
 | Web view selector + overlay panel | ✅ | `app/static/index.html` |
 | Static snapshot build for GitHub Pages | ✅ | `scripts/build_static_site.py` |
-| Real vertical slice seeded from the book | ✅ | `services/seed_ss_lbk.py` — 41 GI, 49 circuits, 6 risks, 3 DS, 3 views |
+| Real vertical slice seeded from the book | ✅ | `services/seed_ss_lbk.py` — 41 GI, 49 circuits, 6 risks, 3 DS, 2 views |
+| Second slice (generalisation test) | ✅ | `services/seed_ss_bll.py` — SS Balaraja 3,4–Lengkong 1,2, 18 GI, 15 circuits, 1 risk, 1 view, 2 independent Tier-1 sources |
 | SLD colour-convention status enum | ✅ | `ENERGIZED / NEW_NOT_ENERGIZED / PLANNED / DE_ENERGIZED / OWNED_BY_CUSTOMER` |
 | Screenshot / vision parser | 🟡 Interface only | `VisionExtractor` |
 | Vector PDF/SVG parser | ⬜ Planned | — |

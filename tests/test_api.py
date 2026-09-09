@@ -15,8 +15,8 @@ def client():
     importlib.reload(db_mod)
     for name in ("app.models", "app.services.topology", "app.services.reconciliation",
                  "app.services.sld_renderer", "app.services.ingestion",
-                 "app.services.seed_ss_lbk", "app.services.seed", "app.api.routes",
-                 "app.main"):
+                 "app.services.seed_ss_lbk", "app.services.seed_ss_bll",
+                 "app.services.seed", "app.api.routes", "app.main"):
         importlib.reload(importlib.import_module(name))
     from fastapi.testclient import TestClient
     import app.main as main_mod
@@ -39,7 +39,30 @@ def test_subsystems_lists_ss_lbk(client):
 
 def test_two_views_no_merged(client):
     keys = {v["view_key"] for v in client.get("/api/views").json()}
-    assert keys == {"SS_LBK_KEMBANGAN", "SS_LBK_BALARAJA"}
+    # SS_LBK spans two book SLDs -> two per-side views, and no force-merged
+    # "SS_LBK_FULL" view.
+    ss_lbk_keys = {k for k in keys if k.startswith("SS_LBK")}
+    assert ss_lbk_keys == {"SS_LBK_KEMBANGAN", "SS_LBK_BALARAJA"}
+
+
+def test_ss_bll_single_view_two_sources(client):
+    views = client.get("/api/views").json()
+    bll = next(v for v in views if v["view_key"] == "SS_BLL_FULL")
+    g = client.get(f"/api/views/{bll['id']}/graph").json()
+    # two independent Tier-1 busbars from two different GITETs
+    t1 = sorted(n["code"] for n in g["nodes"] if n.get("tier") == 1 and n.get("role") == "SOURCE")
+    assert {"NBRJA", "LKBRU"}.issubset(set(t1))
+    # they are not tied at Tier-1
+    id_to_code = {n["id"]: n.get("code") for n in g["nodes"] if n["kind"] == "SUBSTATION"}
+    tied = {
+        frozenset((id_to_code.get(e["from_substation_id"]), id_to_code.get(e["to_substation_id"])))
+        for e in g["edges"]
+    }
+    assert frozenset(("NBRJA", "LKBRU")) not in tied
+    # the one book kerawanan point lands on the Lengkong Baru - Serpong ruas
+    assert len(g["overlays"]["risk"]) == 1
+    srpng = next(n for n in g["nodes"] if n.get("code") == "SRPNG")
+    assert srpng["tier"] == 2
 
 
 def test_view_graph_contract(client):
