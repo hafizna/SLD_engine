@@ -243,35 +243,65 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     for hv, lv in gitet_feeds.items():
         parent[hv] = lv  # GITET nudged to its GI
 
-    # ---- assign x per row: pack lanes (busbar + gutter), bias toward parent
+    # ---- tree layout: place each subtree as a contiguous block -----------
     pos: dict[int, tuple[float, float]] = {}
 
     def lane_w(sid):
         return bus_half(sid) * 2 + GUTTER
 
-    content_w = max((sum(lane_w(s) for s in ids) for ids in rows.values()), default=lane_w)
-    W = MARGIN_X * 2 + EDGE_MARGIN * 2 + content_w
+    # normalise the parent map: a node's parent must be strictly upstream
+    # (lower row) so the child->parent graph is a DAG we can DFS safely.
+    clean_parent: dict[int, int] = {}
+    for cid, pid in parent.items():
+        if cid in row_of and pid in row_of and row_of[pid] < row_of[cid]:
+            clean_parent[cid] = pid
+    children: dict[int, list[int]] = defaultdict(list)
+    for cid, pid in clean_parent.items():
+        children[pid].append(cid)
+    roots = sorted((s for s in row_of if s not in clean_parent),
+                   key=lambda s: (row_of[s], subs[s].name))
 
+    cursor = [MARGIN_X + EDGE_MARGIN]
+    placed: set[int] = set()
+
+    def layout(sid: int) -> float:
+        if sid in placed:
+            return pos.get(sid, (cursor[0],))[0]
+        placed.add(sid)
+        pos[sid] = (cursor[0], MARGIN_Y + row_of[sid] * ROW_H)   # placeholder
+        kids = sorted(children.get(sid, []), key=lambda k: (row_of[k], subs[k].name))
+        if not kids:
+            x = cursor[0] + lane_w(sid) / 2
+            cursor[0] += lane_w(sid)
+        else:
+            kid_xs = [layout(k) for k in kids]
+            x = sum(kid_xs) / len(kid_xs)
+        pos[sid] = (x, MARGIN_Y + row_of[sid] * ROW_H)
+        return x
+
+    for r in roots:
+        layout(r)
+    for s in list(row_of):
+        if s not in placed:
+            layout(s)
+
+    content_w = cursor[0] - (MARGIN_X + EDGE_MARGIN)
+    W = MARGIN_X * 2 + EDGE_MARGIN * 2 + max(content_w, lane_w(roots[0]) if roots else 200)
+
+    # de-overlap within each row
     for rk in sorted(rows):
-        ids = rows[rk]
-        ids.sort(key=lambda s: (pos.get(parent.get(s, -1), (1e9,))[0], subs[s].name))
-        lanes = [lane_w(s) for s in ids]
-        total = sum(lanes)
-        x = MARGIN_X + EDGE_MARGIN + (content_w - total) / 2
-        for s, lw in zip(ids, lanes):
-            cx = x + lw / 2
-            pp = pos.get(parent.get(s, -1))
-            if pp:
-                cx = 0.6 * cx + 0.4 * pp[0]
-            pos[s] = (cx, MARGIN_Y + rk * ROW_H)
-            x += lw
-        # de-overlap: enforce minimum centre spacing after the parent bias
-        order = sorted(ids, key=lambda s: pos[s][0])
+        order = sorted(rows[rk], key=lambda s: pos[s][0])
         for i in range(1, len(order)):
             prev, cur = order[i - 1], order[i]
-            min_gap = bus_half(prev) + bus_half(cur) + GUTTER * 0.6
+            min_gap = bus_half(prev) + bus_half(cur) + GUTTER * 0.55
             if pos[cur][0] - pos[prev][0] < min_gap:
                 pos[cur] = (pos[prev][0] + min_gap, pos[cur][1])
+        # keep parents roughly centred over their (possibly shifted) children
+        for s in order:
+            kids = [k for k in children.get(s, []) if k in pos]
+            if kids:
+                cx = sum(pos[k][0] for k in kids) / len(kids)
+                pos[s] = (0.5 * pos[s][0] + 0.5 * cx, pos[s][1])
 
     gen_pos: dict[int, tuple[float, float]] = {}
     for gid, rk in gen_row.items():
@@ -431,8 +461,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         standby = (g.status or "").upper() in ("STANDBY", "OFF")
         col = "#7c9a6a" if standby else "#0a8a3a"
         if g.tap_circuit_id:
-            # a small plant tapping a circuit -> a point + small symbol + label
-            # at the midpoint of that circuit's span
+            # a small plant tapping a circuit -> a NODE (point) + label at the
+            # midpoint of that circuit's span. No generator symbol.
             c = next((e for e in line_edges if e.id == g.tap_circuit_id), None)
             a = pos.get(c.from_substation_id) if c else None
             b = pos.get(c.to_substation_id) if c else None
@@ -443,12 +473,11 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             mx = (fx + tx) / 2
             my = (a[1] + b[1]) / 2
             p.append(f'<g><title>{esc(g.name)} ({esc(g.unit_type)}) - {esc(g.status)} - '
-                     f'tap ruas {esc(c.name)}</title>')
-            p.append(f'<circle cx="{mx:.1f}" cy="{my:.1f}" r="3.5" fill="{col}"/>')
-            p.append(f'<path d="M{mx:.1f},{my:.1f} h22" stroke="{col}" stroke-width="1.6"/>')
-            p.append(_sym_generator(mx + 22, my - 6, col))
-            p.append(f'<text x="{mx + 34:.1f}" y="{my - 2:.1f}" font-size="9" fill="{col}">'
-                     f'{esc(g.name)}{" (standby)" if standby else ""}</text>')
+                     f'node di ruas {esc(c.name)}</title>')
+            p.append(f'<circle cx="{mx:.1f}" cy="{my:.1f}" r="4" fill="#ffffff" '
+                     f'stroke="{col}" stroke-width="2"/>')
+            p.append(f'<text x="{mx:.1f}" y="{my - 8:.1f}" font-size="9" text-anchor="middle" '
+                     f'fill="{col}">{esc(g.name)}{" (standby)" if standby else ""}</text>')
             p.append('</g>')
             continue
         outlet = pos.get(g.outlet_substation_id)
@@ -541,17 +570,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         p.append(f'<path d="M{sx:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
                  f'stroke="{stroke}" stroke-width="1.8"{da}/>')
         p.append(_cb(sx, fy + CB_GAP, stroke))
-        # a bay is a stub + label. Only a true dead-end radial load (no onward
-        # circuit) shows a transformer as its end symbol (Ulujami, Maxim).
-        onward = any(gi.id in (c.from_substation_id, c.to_substation_id)
-                     and feeder_id not in (c.from_substation_id, c.to_substation_id)
-                     for c in line_edges)
-        if gi.has_transformer and not onward:
-            p.append(_sym_transformer(sx, sy - 4, _vcol(gi.voltage_kv)))
-            ly = sy + 46 + (lvl % 2) * 11
-        else:
-            p.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
-            ly = sy + 13 + (lvl % 2) * 11
+        # A bay is ALWAYS just stub + CB + endpoint dot + name. It never gets a
+        # transformer -- a transformer is only drawn on a GI that has its own
+        # busbar (a terminal / radial GI like Ulujami, Maxim). The decision of
+        # which GIs are terminal comes from the substation data, not the drawing.
+        p.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
+        ly = sy + 13 + (lvl % 2) * 11
         p.append(f'<text x="{sx:.1f}" y="{ly:.1f}" font-size="8.5" text-anchor="middle" '
                  f'fill="#6b7787">{esc(gi.name)}</text>')
         p.append('</g>')

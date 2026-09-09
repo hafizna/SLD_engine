@@ -299,8 +299,8 @@ CIRCUITS = [
     ("SUTT_PSKBR_GJTGL", "Pasar Kemis Baru - Gajah Tunggal", "SUTT", "PSKBR", "GJTGL", 150, None, 1, True, "ENERGIZED", 1.0, "B", "Kerawanan #3: single phi; KTT Gajah Tunggal padam saat N-1-1 [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
     ("SUTT_GJTGL_PSKMS", "Gajah Tunggal - Pasar Kemis", "SUTT", "GJTGL", "PSKMS", 150, None, 1, True, "ENERGIZED", 0.7, "B", "Kerawanan #3: garis tipis semi-hilang di SLD, menutup loop single-phi [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
     ("PHT_CNKNG_TGRNG", "Cengkareng - Tangerang", "SUTT", "CNKNG", "TGRNG", 150, None, 2, False, "ENERGIZED", 0.5, "B", "Hotspot #5 [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
-    ("PHT_TGRNG_JTKBR", "Tangerang - Jatake Baru", "SUTT", "TGRNG", "JTKBR", 150, None, 2, False, "ENERGIZED", 0.5, "B", "traced [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
-    ("PHT_TGRNG_JTAKE", "Tangerang - Jatake", "SUTT", "TGRNG", "JTAKE", 150, None, 2, False, "ENERGIZED", 0.5, "B", "Jatake sebagai output bay dari sisi Balaraja (label PDF blur 'ITAKE' = JTAKE) [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
+    ("PHT_TGRNG_JTAKE", "Tangerang - Jatake", "SUTT", "TGRNG", "JTAKE", 150, None, 2, False, "ENERGIZED", 0.5, "B", "Jatake output bay dari sisi Balaraja (label PDF blur 'ITAKE' = JTAKE) [NEEDS_REVIEW]"),
+    ("PHT_JTAKE_JTKBR_B", "Jatake - Jatake Baru", "SUTT", "JTAKE", "JTKBR", 150, None, 2, False, "ENERGIZED", 0.6, "B", "Jatake Baru dari Jatake (sama spt sisi Kembangan) [NEEDS_REVIEW]"),
 ]
 
 # Risk records  (seq, title, condition, impact, mitigation, follow_up, priority,
