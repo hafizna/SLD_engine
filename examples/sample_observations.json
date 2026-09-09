@@ -1,0 +1,16 @@
+{
+  "filename": "sld_ss_lbk_hal69_crop.png",
+  "document_type": "SLD_PDF_PAGE",
+  "analytical_hint": "SUBSYSTEM_150",
+  "source_ref": "Buku Kerawanan SJB 2026 hal.69",
+  "effective_date": "2026-06-30",
+  "objects": [
+    {"external_key": "o1", "object_type": "GI", "raw_label": "KMBGN", "site_name": "Kembangan", "voltage_hv_kv": 150, "tier_hint": 1, "status_hint": "ENERGIZED", "confidence": 0.95},
+    {"external_key": "o2", "object_type": "GI", "raw_label": "NSYAN", "site_name": "New Senayan", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.9},
+    {"external_key": "o3", "object_type": "GIS", "raw_label": "SNYAN", "site_name": "Senayan", "voltage_hv_kv": 150, "tier_hint": 3, "status_hint": "ENERGIZED", "confidence": 0.9}
+  ],
+  "connections": [
+    {"from_external_key": "o1", "to_external_key": "o2", "relation_type": "CONNECTED_TO", "circuit_type_hint": "SKTT", "confidence": 0.95},
+    {"from_external_key": "o2", "to_external_key": "o3", "relation_type": "CONNECTED_TO", "circuit_type_hint": "SKTT", "confidence": 0.95}
+  ]
+}

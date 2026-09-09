@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+*.db
+.pytest_cache/
+dist/
+node_modules/
+scratchpad/
+
+# internal PLN source document - kept local, referenced via source_ref
+Buku Kerawanan SJB Tahun 2026.pdf
+*.pdf
