@@ -332,8 +332,11 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     p.append('</g>')
 
     # ---- circuits (each end enters its busbar at its own port x) ------
+    #      2 sirkit  -> two parallel dashed lines
+    #      1 sirkit / single phi -> one dashed line (single phi = thinner + note)
     left_ch = MARGIN_X + EDGE_MARGIN * 0.45
     right_ch = W - MARGIN_X - EDGE_MARGIN * 0.45
+    CCT_OFF = 5     # half-separation between the two circuits of a 2-sirkit line
     p.append('<g id="circuits">')
     for c in line_edges:
         af, at = c.from_substation_id, c.to_substation_id
@@ -341,40 +344,43 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             continue
         stroke = STATUS_STROKE.get(c.status) or "#C00000"
         dash = STATUS_DASH.get(c.status, "7 5")
-        w = 1.4 if c.single_phi else 2.3
+        w = 1.3 if c.single_phi else 2.2
         ta = tier.get(("SUBSTATION", af))
         tb = tier.get(("SUBSTATION", at))
         key = f"c{c.id}"
-        pf = (port(af, key), pos[af][1])
-        pt = (port(at, key), pos[at][1])
+        fx0, fy0 = port(af, key), pos[af][1]
+        tx0, ty0 = port(at, key), pos[at][1]
         title = (f'<title>{esc(c.name)} - {esc(c.circuit_type)}, {esc(c.status)}'
                  f'{", single phi" if c.single_phi else ""}'
                  f'{", " + str(c.circuit_count) + " sirkit" if c.circuit_count else ""} '
                  f'(conf {c.confidence})</title>')
+        n_cct = 1 if (c.single_phi or (c.circuit_count or 1) < 2) else 2
+        offs = [0.0] if n_cct == 1 else [-CCT_OFF, CCT_OFF]
 
-        if ta is not None and tb is not None and ta == tb:
-            (x1, y1), (x2, y2) = pf, pt
-            yb = y1 + 34
-            p.append(f'<path d="M{x1:.1f},{y1 + CB_GAP:.1f} V{yb:.1f} H{x2:.1f} V{y2 + CB_GAP:.1f}" '
-                     f'fill="none" stroke="{stroke}" stroke-width="{w}" stroke-dasharray="{dash}">{title}</path>')
-            p.append(_cb(x1, y1 + CB_GAP, stroke)); p.append(_cb(x2, y2 + CB_GAP, stroke))
-            continue
-
+        same_tier = ta is not None and tb is not None and ta == tb
         upward = ta is not None and tb is not None and ta > tb
-        if upward:
-            (fx, fy), (cx, cy) = (pf, pt) if pf[1] > pt[1] else (pt, pf)  # feeder lower
-            ch = left_ch if (fx + cx) / 2 < W / 2 else right_ch
-            p.append(f'<path d="M{fx:.1f},{fy + CB_GAP:.1f} V{fy + 26:.1f} H{ch:.1f} V{cy - 26:.1f} '
-                     f'H{cx:.1f} V{cy + CB_GAP:.1f}" fill="none" stroke="{stroke}" '
-                     f'stroke-width="{w}" stroke-dasharray="{dash}">{title}</path>')
-            p.append(_cb(fx, fy + CB_GAP, stroke)); p.append(_cb(cx, cy + CB_GAP, stroke))
-            continue
 
-        (ux, uy), (lx, ly) = (pf, pt) if pf[1] <= pt[1] else (pt, pf)
-        gap_y = (uy + ly) / 2
-        p.append(f'<path d="M{ux:.1f},{uy + CB_GAP:.1f} V{gap_y:.1f} H{lx:.1f} V{ly - CB_GAP:.1f}" '
-                 f'fill="none" stroke="{stroke}" stroke-width="{w}" stroke-dasharray="{dash}">{title}</path>')
-        p.append(_cb(ux, uy + CB_GAP, stroke)); p.append(_cb(lx, ly - CB_GAP, stroke))
+        for k, off in enumerate(offs):
+            fx, tx = fx0 + off, tx0 + off
+            t_first = k == 0
+            tt = title if t_first else ""
+            if same_tier:
+                yb = fy0 + 34 + off
+                d = f'M{fx:.1f},{fy0 + CB_GAP:.1f} V{yb:.1f} H{tx:.1f} V{ty0 + CB_GAP:.1f}'
+            elif upward:
+                (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
+                ch = (left_ch if (bx + ux) / 2 < W / 2 else right_ch) + off
+                d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{by + 26 + off:.1f} H{ch:.1f} '
+                     f'V{uy - 26 - off:.1f} H{ux:.1f} V{uy + CB_GAP:.1f}')
+            else:
+                (ux, uy), (lx, ly) = ((fx, fy0), (tx, ty0)) if fy0 <= ty0 else ((tx, ty0), (fx, fy0))
+                gap_y = (uy + ly) / 2 + off
+                d = f'M{ux:.1f},{uy + CB_GAP:.1f} V{gap_y:.1f} H{lx:.1f} V{ly - CB_GAP:.1f}'
+            p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
+                     f'stroke-dasharray="{dash}">{tt}</path>')
+
+        p.append(_cb(fx0, fy0 + CB_GAP, stroke))
+        p.append(_cb(tx0, ty0 + CB_GAP, stroke))
     p.append('</g>')
 
     # ---- IBT chains (each chain at the LV busbar's 'ibt' port) --------
