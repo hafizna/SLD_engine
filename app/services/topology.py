@@ -295,18 +295,23 @@ def validate_tier(db: Session, view: AnalyticalView):
 
 
 def classify_layout(db: Session, view: AnalyticalView):
-    """Split the view's substations into 'core' (own tier row) and 'spur'
-    (drawn as a short stub hanging off its single feeder).
+    """Split the view's substations into 'core' (own Tier row + busbar) and
+    'spur' (a bay hanging off one feeder busbar, drawn with NO busbar).
 
-    A spur = a substation with graph degree 1 whose role is a context role
-    (BOUNDARY / EXTERNAL_CONTEXT / DOWNSTREAM_CONTEXT) or that has no transformer
-    of its own and only one connection. GI Jatake as an "output bay" on the
-    Balaraja side is a spur; a real next-tier GI is core.
+    In the book, a GI that is only a bay on a Tier-N busbar -- Durikosambi,
+    Petukangan, Abadi Guna Papan, Mampang off the Kembangan bus -- is drawn as
+    a short stub + a name, not as a Tier node. A spur here is a substation that:
+      * has graph degree 1 (a single feeder), AND
+      * either has a context role (BOUNDARY / EXTERNAL_CONTEXT / DOWNSTREAM_CONTEXT),
+        OR has no book Tier of its own on this drawing,
+        OR its lone feeder is a Tier-1 source busbar (a bay straight off it).
 
     Returns (core_ids, spur: {spur_sub_id: feeder_sub_id}).
     """
     nodes, edges, roles, _, _ = get_view_graph(db, view)
     sub_ids = {k[1] for k in nodes if k[0] == "SUBSTATION"}
+    tier = calculate_tier(db, view)
+    members = {(m.node_kind, m.node_id): m for m in _members(db, view)}
 
     deg: dict[int, int] = defaultdict(int)
     neigh: dict[int, list[int]] = defaultdict(list)
@@ -319,9 +324,17 @@ def classify_layout(db: Session, view: AnalyticalView):
     context_roles = {"BOUNDARY", "EXTERNAL_CONTEXT", "DOWNSTREAM_CONTEXT"}
     spur: dict[int, int] = {}
     for sid in sub_ids:
+        if deg.get(sid, 0) != 1:
+            continue
         role = roles.get(("SUBSTATION", sid), "")
-        if deg.get(sid, 0) == 1 and (role in context_roles):
-            spur[sid] = neigh[sid][0]
+        feeder = neigh[sid][0]
+        m = members.get(("SUBSTATION", sid))
+        book_t = (m.tier_seed if m and m.tier_seed else
+                  (m.display_order if m and m.display_order else None))
+        feeder_t = tier.get(("SUBSTATION", feeder))
+        is_bay_off_source = feeder_t == 1 and (book_t is None or book_t == 1)
+        if role in context_roles or book_t is None or is_bay_off_source:
+            spur[sid] = feeder
 
     core_ids = sub_ids - set(spur)
     return core_ids, spur

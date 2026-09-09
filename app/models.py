@@ -273,15 +273,27 @@ class BusSection(Base):
 
 
 class Bay(Base):
+    """A bay is a GI appearing as a stub on ONE feeder busbar.
+
+    For the risk map, a small GI drawn only as a bay on a Tier-N busbar
+    (Petukangan off Kembangan, and separately off Senayan) is modelled as the
+    same physical `Substation` with one Bay row per appearance -- feeder,
+    drawing side, and its own status on that side.
+    """
+
     __tablename__ = "bay"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    substation_id: Mapped[int] = mapped_column(ForeignKey("substation.id"))
+    substation_id: Mapped[int] = mapped_column(ForeignKey("substation.id"))          # the small GI
+    feeder_substation_id: Mapped[int | None] = mapped_column(ForeignKey("substation.id"), nullable=True)  # the Tier-N busbar it hangs off
     bus_section_id: Mapped[int | None] = mapped_column(ForeignKey("bus_section.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(80))
     bay_type: Mapped[str] = mapped_column(String(20), default="LINE")  # LINE / TRAFO / COUPLER / GENERATOR
     circuit_id: Mapped[int | None] = mapped_column(ForeignKey("circuit.id"), nullable=True)
+    drawing_side: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="ENERGIZED")
     bay_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

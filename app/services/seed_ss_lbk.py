@@ -367,6 +367,19 @@ RISKS = [
      "High", "SUBSTATION", "SNYAN"),
 ]
 
+# Bays: a small GI drawn only as a stub on a feeder busbar (no busbar of its
+# own). A GI can be a bay on more than one busbar (Petukangan: off Kembangan,
+# and separately off Senayan with a broken feeder).
+#   (gi_code, feeder_code, side, status, note)
+BAYS = [
+    ("DKSBI", "KMBGN", "K", "ENERGIZED", "Bay Durikosambi di bus Kembangan (GI batas -> SS Muarakarang)"),
+    ("PKTGN", "KMBGN", "K", "ENERGIZED", "Bay Petukangan di bus Kembangan"),
+    ("PKTGN", "SNYAN", "K", "DE_ENERGIZED", "Bay Petukangan di bus Senayan - feeder SKTT rusak"),
+    ("ABDGP", "SNYAN", "K", "PLANNED", "Bay AGP di bus Senayan - SKTT belum jadi (abu di SLD)"),
+    ("ABDGP", "DNYSA", "K", "ENERGIZED", "Bay AGP di bus Danayasa - ruas Mampang-AGP-Danayasa"),
+    ("MPANG", "ABDGP", "K", "ENERGIZED", "Bay Mampang - ujung ruas Mampang-AGP-Danayasa"),
+]
+
 # Defense schemes  (key, name, type, status, scope, target_mw, target_mw_planned, stages, ref,
 #                   [ (attach_kind, attach_code, role, coverage_note) ])
 DEFENSE_SCHEMES = [
@@ -500,6 +513,15 @@ def seed_ss_lbk(db: Session) -> None:
         )
         db.add(c)
         circuits[code] = c
+    db.flush()
+
+    from app.models import Bay
+    for (gi, feeder, side, status, note) in BAYS:
+        db.add(Bay(
+            substation_id=subs[gi].id, feeder_substation_id=subs[feeder].id,
+            name=f"Bay {subs[gi].name} @ {subs[feeder].name}", bay_type="LINE",
+            drawing_side=side, status=status, note=note,
+        ))
     db.flush()
 
     def resolve(kind: str, code: str):
