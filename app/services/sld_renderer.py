@@ -236,8 +236,23 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # parent is the higher-Tier (upstream) end; for an UPWARD "bay panjang"
     # (child Tier < feeder Tier) the child is nudged toward its FEEDER instead,
     # so e.g. Cikupa lands above Curug rather than far away.
+    # a single-phi edge is a weak link for layout -- don't derive parenthood
+    # from it; a GI reachable only through single-phi edges is instead attached
+    # next to a loop sibling that has a real feeder (Pasar Kemis <- Pasar Kemis
+    # Baru).
+    sp_nb: dict[int, set[int]] = defaultdict(set)
+    all_nb: dict[int, set[int]] = defaultdict(set)
+    for c in line_edges:
+        all_nb[c.from_substation_id].add(c.to_substation_id)
+        all_nb[c.to_substation_id].add(c.from_substation_id)
+        if c.single_phi:
+            sp_nb[c.from_substation_id].add(c.to_substation_id)
+            sp_nb[c.to_substation_id].add(c.from_substation_id)
+
     parent: dict[int, int] = {}
     for c in line_edges:
+        if c.single_phi:
+            continue
         a, b = c.from_substation_id, c.to_substation_id
         ta, tb = tier.get(("SUBSTATION", a)), tier.get(("SUBSTATION", b))
         if ta is None or tb is None:
@@ -246,9 +261,16 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             parent.setdefault(b, a)
         elif tb < ta:
             parent.setdefault(a, b)
-            parent[b] = a          # upward: child (lower Tier) toward its feeder
+            parent[b] = a
     for hv, lv in gitet_feeds.items():
-        parent[hv] = lv  # GITET nudged to its GI
+        parent[hv] = lv
+
+    for sid, nb in sp_nb.items():
+        if sid in row_of and sid not in parent and nb == all_nb.get(sid):
+            for sib in sorted(nb, key=lambda x: (x not in parent, x)):
+                if sib in parent:
+                    parent[sid] = sib
+                    break
 
     # ---- tree layout: place each subtree as a contiguous block -----------
     pos: dict[int, tuple[float, float]] = {}
@@ -257,10 +279,21 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         return bus_half(sid) * 2 + GUTTER
 
     # normalise the parent map: a node's parent must be strictly upstream
-    # (lower row) so the child->parent graph is a DAG we can DFS safely.
+    # (lower row) OR a same-row loop sibling, so the graph stays a DAG.
     clean_parent: dict[int, int] = {}
     for cid, pid in parent.items():
-        if cid in row_of and pid in row_of and row_of[pid] < row_of[cid]:
+        if cid not in row_of or pid not in row_of:
+            continue
+        if row_of[pid] < row_of[cid]:
+            clean_parent[cid] = pid
+        elif row_of[pid] == row_of[cid] and pid in clean_parent:
+            # same-row sibling attach (loop members); safe only if pid already
+            # has a real upstream parent
+            clean_parent[cid] = pid
+    # second pass: pick up same-row attaches whose pid was cleaned after them
+    for cid, pid in parent.items():
+        if (cid in row_of and pid in row_of and cid not in clean_parent
+                and row_of[pid] == row_of[cid] and pid in clean_parent):
             clean_parent[cid] = pid
     children: dict[int, list[int]] = defaultdict(list)
     for cid, pid in clean_parent.items():
@@ -396,6 +429,29 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     left_ch = MARGIN_X + EDGE_MARGIN * 0.45
     right_ch = W - MARGIN_X - EDGE_MARGIN * 0.45
     CCT_OFF = 5     # half-separation between the two circuits of a 2-sirkit line
+
+    # detect single-phi loops: a set of >=3 single-phi edges forming a cycle
+    # (Pasar Kemis - Pasar Kemis Baru - Gajah Tunggal). The edge that closes
+    # the loop (an upward single-phi edge inside the group) is routed as one
+    # clean run just outside the group, not through the generic edge channel.
+    sp_adj: dict[int, set[int]] = defaultdict(set)
+    for c in line_edges:
+        if c.single_phi:
+            sp_adj[c.from_substation_id].add(c.to_substation_id)
+            sp_adj[c.to_substation_id].add(c.from_substation_id)
+    loop_members: set[int] = {n for n, nb in sp_adj.items() if len(nb) >= 2}
+    loop_close_ids: set[int] = set()
+    for c in line_edges:
+        if (c.single_phi and c.from_substation_id in loop_members
+                and c.to_substation_id in loop_members):
+            ta_ = tier.get(("SUBSTATION", c.from_substation_id))
+            tb_ = tier.get(("SUBSTATION", c.to_substation_id))
+            if ta_ is not None and tb_ is not None and ta_ != tb_:
+                loop_close_ids.add(c.id)   # the up/down edge closing the triangle
+    loop_x = None
+    if loop_members:
+        loop_x = max(pos[m][0] + bus_half(m) for m in loop_members if m in pos) + 34
+
     p.append('<g id="circuits">')
     for c in line_edges:
         af, at = c.from_substation_id, c.to_substation_id
@@ -420,6 +476,18 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # if an "upward" feeder is roughly under the child, route it straight up
         # instead of around the diagram edge
         straight_up = upward and abs(fx0 - tx0) < 135
+
+        # single-phi loop-closing edge: one clean run just outside the group
+        if c.id in loop_close_ids and loop_x is not None:
+            (ex, ey), (sx2, sy2) = ((fx0, fy0), (tx0, ty0)) if fy0 > ty0 else ((tx0, ty0), (fx0, fy0))
+            edir = 1 if ey > sy2 else -1   # lower end: line leaves downward? no, sideways
+            d = (f'M{ex:.1f},{ey + CB_GAP:.1f} V{ey + 24:.1f} H{loop_x:.1f} '
+                 f'V{sy2 - CB_GAP:.1f} H{sx2:.1f} V{sy2 - CB_GAP:.1f}')
+            p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
+                     f'stroke-dasharray="{dash}">{title}</path>')
+            p.append(_cbs(fx0, fy0 + (1 if fy0 > ty0 else -1) * CB_GAP, stroke, n_cct))
+            p.append(_cbs(tx0, ty0 + (1 if ty0 > fy0 else -1) * CB_GAP, stroke, n_cct))
+            continue
         if same_tier:
             fdir = tdir = 1
         elif upward:
