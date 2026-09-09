@@ -87,13 +87,15 @@ def _cb(x, y, color):
     return f'<rect x="{x - CB / 2:.1f}" y="{y - CB / 2:.1f}" width="{CB}" height="{CB}" fill="{color}"/>'
 
 
-def _sym_transformer(x, y, color):
+def _sym_transformer(x, y, hv_color, lv_color="#E67300"):
+    """150/20 kV load transformer: top circle in the HV (busbar) colour, bottom
+    circle in the LV colour (20 kV = orange)."""
     r = 9
     return (
-        f'<g stroke="{color}" fill="none" stroke-width="1.7">'
-        f'<line x1="{x:.1f}" y1="{y:.1f}" x2="{x:.1f}" y2="{y + 7:.1f}"/>'
-        f'<circle cx="{x:.1f}" cy="{y + 7 + r:.1f}" r="{r}"/>'
-        f'<circle cx="{x:.1f}" cy="{y + 7 + r + 8:.1f}" r="{r}"/>'
+        f'<g fill="none" stroke-width="1.7">'
+        f'<line x1="{x:.1f}" y1="{y:.1f}" x2="{x:.1f}" y2="{y + 7:.1f}" stroke="{hv_color}"/>'
+        f'<circle cx="{x:.1f}" cy="{y + 7 + r:.1f}" r="{r}" stroke="{hv_color}"/>'
+        f'<circle cx="{x:.1f}" cy="{y + 7 + r + 8:.1f}" r="{r}" stroke="{lv_color}"/>'
         f"</g>"
     )
 
@@ -110,13 +112,15 @@ def _sym_capacitor(x, y, color):
     )
 
 
-def _sym_ibt_inline(x, y):
+def _sym_ibt_inline(x, y, hv_color="#0047AB", lv_color="#C00000"):
+    """IBT 500/150: top circle HV colour (blue 500), lower two LV colour
+    (red 150)."""
     r = 7.5
     return (
-        f'<g stroke="#7A3D00" fill="#ffffff" stroke-width="1.7">'
-        f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}"/>'
-        f'<circle cx="{x - 4.5:.1f}" cy="{y + 8:.1f}" r="{r}"/>'
-        f'<circle cx="{x + 4.5:.1f}" cy="{y + 8:.1f}" r="{r}"/>'
+        f'<g fill="#ffffff" stroke-width="1.7">'
+        f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" stroke="{hv_color}"/>'
+        f'<circle cx="{x - 4.5:.1f}" cy="{y + 8:.1f}" r="{r}" stroke="{lv_color}"/>'
+        f'<circle cx="{x + 4.5:.1f}" cy="{y + 8:.1f}" r="{r}" stroke="{lv_color}"/>'
         f"</g>"
     )
 
@@ -501,7 +505,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         p.append(f'<path d="M{sx:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
                  f'stroke="{stroke}" stroke-width="1.8"{da}/>')
         p.append(_cb(sx, fy + CB_GAP, stroke))
-        if gi.has_transformer:
+        # a bay is a stub + label. Only a true dead-end radial load (no onward
+        # circuit) shows a transformer as its end symbol (Ulujami, Maxim).
+        onward = any(gi.id in (c.from_substation_id, c.to_substation_id)
+                     and feeder_id not in (c.from_substation_id, c.to_substation_id)
+                     for c in line_edges)
+        if gi.has_transformer and not onward:
             p.append(_sym_transformer(sx, sy - 4, _vcol(gi.voltage_kv)))
             ly = sy + 46 + (lvl % 2) * 11
         else:

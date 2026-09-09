@@ -119,6 +119,11 @@ SUBSTATIONS = [
          busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
          tier_k=3, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
          note="GIS kawasan Zero Down Time (ZDT), disuplai radial dari SKTT New Senayan-Senayan. Kerawanan #6."),
+    dict(code="PLTD_SNYAN", name="PLTD Senayan", type="GIS", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="DOWNSTREAM_CONTEXT", external_subsystem=None,
+         tier_k=3, tier_b=None, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="GIS kecil di jalur Senayan-Danayasa. PLTD standby (input langsung ke sistem). "
+              "TIDAK punya risk. Ruas Senayan-PLTD-Danayasa single phi (usulan double phi)."),
     dict(code="ULJMI", name="Ulujami", type="GI", voltage=150, status="ENERGIZED",
          busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
          tier_k=3, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
@@ -220,9 +225,10 @@ SUBSTATIONS = [
          note="Single phi (kerawanan #3)"),
 ]
 
-# Generating units  (code, name, unit_type, voltage, rated_mw, unit_count, outlet_code, operator)
+# Generating units  (code, name, unit_type, voltage, rated_mw, unit_count, outlet_code, operator, status)
 GENERATORS = [
-    ("PLTU_LONTAR", "PLTU Lontar", "PLTU", 150, 945.0, 4, "LTKNG", "PIP"),
+    ("PLTU_LONTAR", "PLTU Lontar", "PLTU", 150, 945.0, 4, "LTKNG", "PIP", "ENERGIZED"),
+    ("PLTD_SNYAN_GEN", "PLTD Senayan", "PLTD", 150, None, None, "PLTD_SNYAN", "PLN", "STANDBY"),
 ]
 
 # Transformers  (code, name, type, substation_code, unit_no, rating_mva, windings[(no,kv,role)])
@@ -251,14 +257,15 @@ CIRCUITS = [
     # ================= Kembangan side (SLD hal.69) =================
     ("PHT_KMBGN_MTLAN", "Kembangan - Metland", "SKTT", "KMBGN", "MTLAN", 150, None, 2, False, "ENERGIZED", 0.7, "K", "Ruas 2 sirkit KMBGN turun; Metland tap di tengah, lanjut ke Ciledug"),
     ("PHT_MTLAN_CLDUG", "Metland - Ciledug", "SKTT", "MTLAN", "CLDUG", 150, None, 2, False, "ENERGIZED", 0.7, "K", "Ciledug 'mampir' Metland dulu; ruas lanjut dari KMBGN"),
-    ("SKTT_KMBGN_NSYAN", "Kembangan - New Senayan", "SKTT", "KMBGN", "NSYAN", 150, None, 1, False, "ENERGIZED", 1.0, "K", "Kerawanan #2: pembebanan 72%, N-1 tak terpenuhi"),
+    ("SKTT_KMBGN_NSYAN", "Kembangan - New Senayan", "SKTT", "KMBGN", "NSYAN", 150, None, 2, False, "ENERGIZED", 1.0, "K", "Kerawanan #2: pembebanan 72%, N-1 tak terpenuhi (2 sirkit, trip 1 -> overload)"),
     ("PHT_KMBGN_DKSBI", "Kembangan - Durikosambi", "SKTT", "KMBGN", "DKSBI", 150, None, 2, False, "ENERGIZED", 0.5, "K", "DKSBI boundary stub"),
     ("PHT_KMBGN_PKTGN", "Kembangan - Petukangan", "SKTT", "KMBGN", "PKTGN", 150, None, 2, False, "ENERGIZED", 0.5, "K", "traced"),
-    ("SKTT_NSYAN_SNYAN", "New Senayan - Senayan", "SKTT", "NSYAN", "SNYAN", 150, None, 1, False, "ENERGIZED", 1.0, "K", "Kerawanan #6: GIS Senayan ZDT, radial"),
+    ("SKTT_NSYAN_SNYAN", "New Senayan - Senayan", "SKTT", "NSYAN", "SNYAN", 150, None, 2, False, "ENERGIZED", 1.0, "K", "2 sirkit. Kerawanan #6: Senayan (GIS ZDT) hanya bersumber dari New Senayan (tidak ada backup GI lain); N-1-1 di hulu Kembangan-New Senayan -> Senayan padam."),
     ("PHT_NSYAN_ULJMI", "New Senayan - Ulujami", "SKTT", "NSYAN", "ULJMI", 150, None, 2, False, "ENERGIZED", 0.6, "K", "Ulujami dead-end load"),
-    ("SKTT_PKTGN_SNYAN", "Petukangan - Senayan", "SKTT", "PKTGN", "SNYAN", 150, None, 1, False, "DE_ENERGIZED", 0.5, "K", "Kabel eksisting rusak (teks p8/p87)"),
-    ("PHT_SNYAN_DNYSA", "Senayan - Danayasa", "SKTT", "SNYAN", "DNYSA", 150, None, 2, False, "ENERGIZED", 0.5, "K", "DNYSA boundary -> Gandul 2,4"),
-    ("PHT_SNYAN_ABDGP", "Senayan - Abadi Guna Papan", "SKTT", "SNYAN", "ABDGP", 150, None, 1, False, "PLANNED", 0.4, "K", "Abu di SLD = perencanaan"),
+    ("SKTT_SNYAN_DNYSA_DIRECT", "Senayan - Danayasa (direct)", "SKTT", "SNYAN", "DNYSA", 150, None, 1, False, "ENERGIZED", 0.5, "K", "1 sirkit direct. DNYSA boundary -> Gandul 2,4"),
+    ("SKTT_SNYAN_PLTDSNYAN", "Senayan - PLTD Senayan", "SKTT", "SNYAN", "PLTD_SNYAN", 150, None, 1, True, "ENERGIZED", 0.5, "K", "Single phi. Sirkit ke-2 Senayan-Danayasa mampir PLTD Senayan."),
+    ("SKTT_PLTDSNYAN_DNYSA", "PLTD Senayan - Danayasa", "SKTT", "PLTD_SNYAN", "DNYSA", 150, None, 1, True, "ENERGIZED", 0.5, "K", "Single phi. Sistem single-phi Senayan-PLTD-Danayasa; usulan double phi."),
+    ("SKTT_SNYAN_ABDGP", "Senayan - Abadi Guna Papan", "SKTT", "SNYAN", "ABDGP", 150, None, 1, False, "PLANNED", 0.4, "K", "Bay abu -> PLANNED (belum jadi)"),
     ("PHT_CLDUG_ALTRA", "Ciledug - Alam Sutera", "SKTT", "CLDUG", "ALTRA", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
     ("PHT_ALTRA_SGS", "Alam Sutera - Summarecon Gading Serpong", "SKTT", "ALTRA", "SGS", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
     ("PHT_SGS_CURUG", "Summarecon Gading Serpong - Curug", "SKTT", "SGS", "CURUG", 150, None, 2, False, "ENERGIZED", 0.5, "K", "traced"),
@@ -379,7 +386,6 @@ BAYS = [
     ("ABDGP", "SNYAN", "K", "PLANNED", "Bay AGP di bus Senayan - SKTT belum jadi (abu di SLD)"),
     ("ABDGP", "DNYSA", "K", "ENERGIZED", "Bay AGP di bus Danayasa - ruas Mampang-AGP-Danayasa"),
     ("MPANG", "ABDGP", "K", "ENERGIZED", "Bay Mampang - ujung ruas Mampang-AGP-Danayasa"),
-    ("ULJMI", "NSYAN", "K", "ENERGIZED", "Bay Ulujami radial dari New Senayan (SKTT); trafo sbg ujung flow"),
     ("SVRNA", "CKUPA", "K", "ENERGIZED", "Bay Suvarna Sutra dari Cikupa (SKTT)"),
     ("PSKMS", "CKUPA", "K", "ENERGIZED", "Bay Pasar Kemis dari Cikupa (SKTT)"),
     ("JTKBR", "JTAKE", "K", "ENERGIZED", "Bay Jatake Baru dari Jatake (SKTT)"),
@@ -473,10 +479,11 @@ def seed_ss_lbk(db: Session) -> None:
         ))
 
     gens: dict[str, GeneratingUnit] = {}
-    for (code, name, utype, kv, mw, ucnt, outlet, op) in GENERATORS:
+    for (code, name, utype, kv, mw, ucnt, outlet, op, status) in GENERATORS:
         g = GeneratingUnit(
             code=code, name=name, unit_type=utype, voltage_kv=kv, rated_mw=mw,
             unit_count=ucnt, outlet_substation_id=subs[outlet].id, operator=op,
+            status=status,
         )
         db.add(g)
         gens[code] = g
