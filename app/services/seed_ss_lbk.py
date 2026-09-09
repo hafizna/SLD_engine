@@ -249,12 +249,12 @@ CIRCUITS = [
     ("IBT_NBRJA_2_LINK", "IBT 2 New Balaraja 500/150", "IBT_LINK", "GITET_NBRJA", "NBRJA", 500, "IBT_NBRJA_2", None, False, "ENERGIZED", 1.0, "B", None),
 
     # ================= Kembangan side (SLD hal.69) =================
-    ("PHT_KMBGN_MTLAN", "Kembangan - Metland", "SKTT", "KMBGN", "MTLAN", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
+    ("PHT_KMBGN_MTLAN", "Kembangan - Metland", "SKTT", "KMBGN", "MTLAN", 150, None, 2, False, "ENERGIZED", 0.7, "K", "Ruas 2 sirkit KMBGN turun; Metland tap di tengah, lanjut ke Ciledug"),
+    ("PHT_MTLAN_CLDUG", "Metland - Ciledug", "SKTT", "MTLAN", "CLDUG", 150, None, 2, False, "ENERGIZED", 0.7, "K", "Ciledug 'mampir' Metland dulu; ruas lanjut dari KMBGN"),
     ("SKTT_KMBGN_NSYAN", "Kembangan - New Senayan", "SKTT", "KMBGN", "NSYAN", 150, None, 1, False, "ENERGIZED", 1.0, "K", "Kerawanan #2: pembebanan 72%, N-1 tak terpenuhi"),
     ("PHT_KMBGN_DKSBI", "Kembangan - Durikosambi", "SKTT", "KMBGN", "DKSBI", 150, None, 2, False, "ENERGIZED", 0.5, "K", "DKSBI boundary stub"),
     ("PHT_KMBGN_PKTGN", "Kembangan - Petukangan", "SKTT", "KMBGN", "PKTGN", 150, None, 2, False, "ENERGIZED", 0.5, "K", "traced"),
     ("SKTT_NSYAN_SNYAN", "New Senayan - Senayan", "SKTT", "NSYAN", "SNYAN", 150, None, 1, False, "ENERGIZED", 1.0, "K", "Kerawanan #6: GIS Senayan ZDT, radial"),
-    ("PHT_NSYAN_CLDUG", "New Senayan - Ciledug", "SKTT", "NSYAN", "CLDUG", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
     ("PHT_NSYAN_ULJMI", "New Senayan - Ulujami", "SKTT", "NSYAN", "ULJMI", 150, None, 2, False, "ENERGIZED", 0.6, "K", "Ulujami dead-end load"),
     ("SKTT_PKTGN_SNYAN", "Petukangan - Senayan", "SKTT", "PKTGN", "SNYAN", 150, None, 1, False, "DE_ENERGIZED", 0.5, "K", "Kabel eksisting rusak (teks p8/p87)"),
     ("PHT_SNYAN_DNYSA", "Senayan - Danayasa", "SKTT", "SNYAN", "DNYSA", 150, None, 2, False, "ENERGIZED", 0.5, "K", "DNYSA boundary -> Gandul 2,4"),
