@@ -106,3 +106,7 @@ uvicorn app.main:app --reload      # http://localhost:8000
 ```
 
 Share a local instance briefly: `ngrok http 8000`.
+
+---
+
+_Static demo: https://hafizna.github.io/SLD_engine/ (published by `.github/workflows/pages.yml` on each push to `main`)._
