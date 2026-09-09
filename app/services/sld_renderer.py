@@ -1,30 +1,26 @@
 """SLD renderer -- Buku Kerawanan drawing grammar, fixed-grid layout.
 
-Layout
-  * Row  = book Tier band (from calculate_tier). GITET sits half a row above
-    the GI its IBTs feed.
-  * Each core GI gets a fixed-width lane. Its busbar width scales with the
-    number of things attached to it (bays + own transformer/capacitor + child
-    circuits), with a floor, so bays never get cramped.
-  * Columns are packed left-to-right per row; a child GI is nudged toward its
-    parent's x so the tree reads top-down.
-
-Line grammar
+Line grammar (from the book's legend):
+  * SUTT / SUTET         SOLID line
+  * SKTT / SKLT          DASHED red line
+  * RENCANA (not energised)   DASHED black line
+  * OFF / tidak beroperasi    solid GREY line
+  * 2 sirkit             two parallel lines; 1 sirkit / single phi -> one, thinner
   * busbar               SOLID bold, coloured by voltage
-  * inter-GI circuit     DASHED, orthogonal, a CB box at each busbar end.
-                         The horizontal elbow runs in the empty gap BETWEEN two
-                         Tier bands -- never across a busbar it does not touch.
-  * upward "bay panjang" (child Tier < feeder Tier, e.g. Curug T5 -> Cikupa T4)
-                         routed around the OUTSIDE edge of the diagram.
+                         (black busbar = planned / not yet energised)
+  * a CB box where a circuit meets a busbar
+  * upward "bay panjang" (child Tier < feeder Tier) routed around the outside
   * IBT 500/150 link     one vertical chain per transformer: CB(HV) -> triple
-                         circle -> CB(LV). Two IBTs -> two chains side by side.
-  * bay (small GI drawn only as a stub on a feeder busbar -- Durikosambi,
-    Petukangan, AGP, Mampang off Kembangan): short stub + CB + name, NO busbar.
-    A GI can be a bay on several busbars (Petukangan: off Kembangan, and a
-    broken feeder off Senayan).
-  * GI 150/20 load transformer  double circle hanging under the busbar
-  * shunt capacitor             standard symbol
-  * bus coupler                 small open square mid-busbar
+                         circle -> CB(LV)
+  * bay (a small GI drawn only as a stub on a feeder busbar -- Durikosambi,
+    Petukangan, AGP, Mampang off Kembangan): stub + CB + name, NO busbar. A GI
+    can be a bay on several busbars.
+  * GI 150/20 load transformer  double circle under the busbar
+  * shunt capacitor / bus coupler   standard symbols
+
+Layout: row = book Tier band; each GI gets a fixed lane; busbar width scales
+with the number of attachments (own port per attachment); child GIs nudged
+toward their parent's x.
 """
 from __future__ import annotations
 
@@ -37,20 +33,36 @@ from app.models import AnalyticalView, Bay, RiskRecord, Transformer
 from app.services.topology import calculate_tier, classify_layout, get_view_graph
 
 VOLT_COLOR = {500: "#0047AB", 275: "#00A6D6", 150: "#C00000", 70: "#E6B800", 20: "#E67300"}
+
+# busbar styling by status (colour, dash)
+STATUS_STROKE = {
+    "ENERGIZED": None,               # -> voltage colour
+    "NEW_NOT_ENERGIZED": "#111111",  # black busbar = planned / not yet energised
+    "PLANNED": "#9AA0A6",
+    "DE_ENERGIZED": "#C0392B",
+    "OWNED_BY_CUSTOMER": "#7A5C00",
+}
 STATUS_DASH = {
-    "ENERGIZED": "7 5",
+    "ENERGIZED": "none",
     "NEW_NOT_ENERGIZED": "12 7",
     "PLANNED": "3 6",
     "DE_ENERGIZED": "2 5",
     "OWNED_BY_CUSTOMER": "5 4",
 }
-STATUS_STROKE = {
-    "ENERGIZED": None,
-    "NEW_NOT_ENERGIZED": "#111111",
-    "PLANNED": "#9AA0A6",
-    "DE_ENERGIZED": "#C0392B",
-    "OWNED_BY_CUSTOMER": "#7A5C00",
-}
+
+
+def _circuit_style(c):
+    """(stroke, dash) for a circuit, from its type first, then its status."""
+    if c.status in ("NEW_NOT_ENERGIZED", "PLANNED"):
+        return "#111111", "3 6"            # RENCANA = black dashed
+    if c.status == "DE_ENERGIZED":
+        return "#9AA0A6", "none"           # OFF = grey solid
+    ct = (c.circuit_type or "SUTT").upper()
+    if ct in ("SKTT", "SKLT"):
+        return "#C00000", "7 5"            # cable = red dashed
+    if ct == "IBT_LINK":
+        return "#8a6a3a", "none"
+    return "#C00000", "none"               # SUTT / SUTET = solid
 
 BAY_SLOT = 46          # horizontal space per attachment (bay / circuit / trafo)
 BUS_MIN_HALF = 55      # minimum busbar half-length
@@ -342,8 +354,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         af, at = c.from_substation_id, c.to_substation_id
         if af not in pos or at not in pos:
             continue
-        stroke = STATUS_STROKE.get(c.status) or "#C00000"
-        dash = STATUS_DASH.get(c.status, "7 5")
+        stroke, dash = _circuit_style(c)
         w = 1.3 if c.single_phi else 2.2
         ta = tier.get(("SUBSTATION", af))
         tb = tier.get(("SUBSTATION", at))
@@ -463,23 +474,39 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             for b in blist:
                 stub_items.append((feeder_id, f"bay{b.id}", subs[b.substation_id],
                                    b.status, b.note or ""))
-    # stagger label rows so names don't collide
+    # a bay stub is drawn in its feeding circuit's style (SKTT = red dashed,
+    # SUTT = solid); it ends in a transformer symbol if the bay GI is a
+    # radial load (Ulujami), otherwise a small dot.
+    bay_feed_style: dict[int, tuple[str, str]] = {}
+    for c in line_edges:
+        for sid in (c.from_substation_id, c.to_substation_id):
+            if sid in bay_gi_ids:
+                bay_feed_style[sid] = _circuit_style(c)
+
     row_by_feeder: dict[int, int] = defaultdict(int)
     for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], it[2].name)):
         fx, fy = pos[feeder_id]
         sx = port(feeder_id, key, fx)
         lvl = row_by_feeder[feeder_id]
         row_by_feeder[feeder_id] += 1
-        sy = fy + 42
-        col = STATUS_STROKE.get(status) or _vcol(gi.voltage_kv)
-        dash = STATUS_DASH.get(status, "7 5")
+        sy = fy + 46
+        stroke, dash = bay_feed_style.get(gi.id, ("#C00000", "7 5"))
+        if status in ("NEW_NOT_ENERGIZED", "PLANNED"):
+            stroke, dash = "#111111", "3 6"
+        elif status == "DE_ENERGIZED":
+            stroke, dash = "#9AA0A6", "none"
+        da = f' stroke-dasharray="{dash}"' if dash != "none" else ""
         p.append(f'<g><title>{esc(gi.name)} [{esc(gi.code)}] - bay di bus {esc(subs[feeder_id].name)} '
                  f'({esc(status)}){" - " + esc(meta) if meta else ""}</title>')
         p.append(f'<path d="M{sx:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
-                 f'stroke="{col}" stroke-width="1.8" stroke-dasharray="{dash}"/>')
-        p.append(_cb(sx, fy + CB_GAP, col))
-        p.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3" fill="{col}"/>')
-        ly = sy + 13 + (lvl % 2) * 11
+                 f'stroke="{stroke}" stroke-width="1.8"{da}/>')
+        p.append(_cb(sx, fy + CB_GAP, stroke))
+        if gi.has_transformer:
+            p.append(_sym_transformer(sx, sy - 4, _vcol(gi.voltage_kv)))
+            ly = sy + 46 + (lvl % 2) * 11
+        else:
+            p.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
+            ly = sy + 13 + (lvl % 2) * 11
         p.append(f'<text x="{sx:.1f}" y="{ly:.1f}" font-size="8.5" text-anchor="middle" '
                  f'fill="#6b7787">{esc(gi.name)}</text>')
         p.append('</g>')
