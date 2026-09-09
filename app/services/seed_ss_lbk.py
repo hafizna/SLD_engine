@@ -38,109 +38,187 @@ from app.models import (
 SS_CODE = "SS_LBK"
 
 # ---------------------------------------------------------------------------
-# Substations
-#   (code, name, type, voltage, status, busbar_config, busbar_note,
-#    role, external_subsystem, tier_hint, side, has_transformer, has_capacitor,
-#    symbol_note, note)
-# side: layout view(s) the GI is drawn in -- "K" Kembangan, "B" Balaraja, "KB" both
+# Substations. `tier_k` / `tier_b` = the Tier band the GI's busbar sits in on
+# the Kembangan (hal.69) / Balaraja (hal.70) SLD. The book's drawing is the
+# authority for the risk map; a GI can be a different Tier on each drawing
+# (Suvarna: 5 on Kembangan as a Cikupa spur, 3 on Balaraja fed from Sindang
+# Jaya). `None` = not drawn on that side.
+# fields: code, name, type, voltage, status, busbar_config, busbar_note, role,
+#         external_subsystem, tier_k, tier_b, has_transformer, has_capacitor,
+#         symbol_note, note
 # ---------------------------------------------------------------------------
 SUBSTATIONS = [
-    # --- 500 kV source substations ---
-    ("GITET_KMBGN", "GITET Kembangan", "GITET", 500, "ENERGIZED", "DOUBLE_1CB", None,
-     "SOURCE", None, 1, "K", False, False, None, "GITET 500 kV, 2x IBT 500/150 ke bus Kembangan 150"),
-    ("GITET_NBRJA", "GITET New Balaraja", "GITET", 500, "ENERGIZED", "UNKNOWN", None,
-     "SOURCE", None, 1, "B", False, False, None, "GITET 500 kV, 2x IBT 500/150 ke bus New Balaraja 150"),
+    dict(code="GITET_KMBGN", name="GITET Kembangan", type="GITET", voltage=500, status="ENERGIZED",
+         busbar_config="DOUBLE_1CB", busbar_note=None, role="SOURCE", external_subsystem=None,
+         tier_k=1, tier_b=None, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="GITET 500 kV, 2x IBT 500/150 ke bus Kembangan 150"),
+    dict(code="GITET_NBRJA", name="GITET New Balaraja", type="GITET", voltage=500, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="SOURCE", external_subsystem=None,
+         tier_k=None, tier_b=1, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="GITET 500 kV, 2x IBT 500/150 ke bus New Balaraja 150"),
 
     # --- Tier 1 (150 kV injection points) ---
-    ("KMBGN", "Kembangan", "GI", 150, "ENERGIZED", "DOUBLE_1CB", "2 bus, 1 CB kopel, tanpa section",
-     "SOURCE", None, 1, "K", False, False, None,
-     "Bus 150 kV disuplai IBT-1,2 Kembangan. Kerawanan #1. Ada 1 GI trafo-only tak berlabel di ujung kiri bus (di-skip)."),
-    ("NBRJA", "New Balaraja", "GI", 150, "ENERGIZED", "UNKNOWN", None,
-     "SOURCE", None, 1, "B", False, False, None, "Bus 150 kV disuplai IBT-1,2 New Balaraja"),
-    ("LTKNG", "Lontar", "GI", 150, "ENERGIZED", "UNKNOWN", None,
-     "SOURCE", None, 1, "B", False, False, None,
-     "GI outlet PLTU Lontar (BUKAN GI Teluknaga). Busbar Tier-1 panjang."),
-    ("DKSBI", "Durikosambi", "GI", 150, "ENERGIZED", "DOUBLE_SECTIONALIZED", "Bus 1A / 2A / 1B / 2B",
-     "BOUNDARY", "SS Muarakarang 1,2 - Durikosambi 1 - KIT Muarakarang", 1, "KB", True, False, None,
-     "GI batas; irisan 2 SLD. Kerawanan #5 (Durikosambi-Cengkareng)."),
-    ("PKTGN", "Petukangan", "GI", 150, "ENERGIZED", "UNKNOWN", None,
-     "CORE", None, 1, "K", True, False, None,
-     "1 GI. Feeder Petukangan-Senayan bermasalah (SKTT rusak); Senayan tetap disuplai dari Kembangan."),
+    dict(code="KMBGN", name="Kembangan", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="DOUBLE_1CB", busbar_note="2 bus, 1 CB kopel, tanpa section",
+         role="SOURCE", external_subsystem=None, tier_k=1, tier_b=None,
+         has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="Bus 150 kV disuplai IBT-1,2 Kembangan. Kerawanan #1."),
+    dict(code="NBRJA", name="New Balaraja", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="SOURCE", external_subsystem=None,
+         tier_k=None, tier_b=1, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="Bus 150 kV disuplai IBT-1,2 New Balaraja"),
+    dict(code="LTKNG", name="Lontar", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="SOURCE", external_subsystem=None,
+         tier_k=None, tier_b=1, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="GI outlet PLTU Lontar (BUKAN GI Teluknaga)."),
+    dict(code="DKSBI", name="Durikosambi", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="DOUBLE_SECTIONALIZED", busbar_note="Bus 1A / 2A / 1B / 2B",
+         role="BOUNDARY", external_subsystem="SS Muarakarang 1,2 - Durikosambi 1 - KIT Muarakarang",
+         tier_k=1, tier_b=1, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="GI batas; irisan 2 SLD. Kerawanan #5 (Durikosambi-Cengkareng)."),
+    dict(code="PKTGN", name="Petukangan", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=1, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Feeder Petukangan-Senayan bermasalah (SKTT rusak); Senayan tetap disuplai dari Kembangan."),
 
     # --- Tier 2 ---
-    ("MTLAN", "Metland", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 2, "K", True, False, None, None),
-    ("NSYAN", "New Senayan", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 2, "K", True, False, None,
-     "Simpul kerawanan #2 dan #6."),
-    ("BLRJA", "Balaraja", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 2, "B", True, False, None, None),
-    ("SDJYA", "Sindang Jaya", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 2, "B", True, False, None, None),
-    ("TLKNG2_DADAP", "Teluknaga 2 / Dadap", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 2, "B", True, False, None, None),
-    ("TGBRU", "Tangerang Baru", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 2, "B", True, False, None, None),
-    ("TGBRU_3", "Tangerang Baru 3", "GI", 150, "NEW_NOT_ENERGIZED", "UNKNOWN", None, "CORE", None, 2, "B", False, False, None,
-     "Busbar hitam di SLD = belum energize"),
-    ("CKNDE", "Cikande", "GI", 150, "ENERGIZED", "UNKNOWN", None, "BOUNDARY",
-     "SS GU Cilegon - Cilegon Baru 1,2,3 - Labuan", 2, "B", True, False, None, "GI batas ke SS Cilegon"),
+    dict(code="MTLAN", name="Metland", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=2, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None, note=None),
+    dict(code="NSYAN", name="New Senayan", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=2, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Simpul kerawanan #2 dan #6."),
+    dict(code="BLRJA", name="Balaraja", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=2, has_transformer=True, has_capacitor=False, symbol_note=None, note=None),
+    dict(code="SDJYA", name="Sindang Jaya", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=2, has_transformer=True, has_capacitor=False, symbol_note=None, note=None),
+    dict(code="TLKNG2_DADAP", name="Teluknaga 2 / Dadap", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=2, has_transformer=True, has_capacitor=False, symbol_note=None, note=None),
+    dict(code="TGBRU", name="Tangerang Baru", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=2, has_transformer=True, has_capacitor=False, symbol_note=None, note=None),
+    dict(code="TGBRU_3", name="Tangerang Baru 3", type="GI", voltage=150, status="NEW_NOT_ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=2, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="Busbar hitam di SLD = belum energize"),
+    dict(code="CKNDE", name="Cikande", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="BOUNDARY",
+         external_subsystem="SS GU Cilegon - Cilegon Baru 1,2,3 - Labuan",
+         tier_k=None, tier_b=2, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="GI batas ke SS Cilegon"),
 
     # --- Tier 3 ---
-    ("CLDUG", "Ciledug", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 3, "K", True, True, "1 shunt capacitor", None),
-    ("SNYAN", "Senayan", "GIS", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 3, "K", True, False, None,
-     "GIS kawasan Zero Down Time (ZDT), disuplai radial dari SKTT New Senayan-Senayan. Kerawanan #6."),
-    ("ULJMI", "Ulujami", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 3, "K", True, False, None,
-     "GI terpisah dari Senayan; disuplai dari New Senayan. Dead-end load (trafo 150/20 saja)."),
-    ("SVRNA", "Suvarna Sutra", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 3, "KB", True, False, None, "Irisan 2 SLD"),
-    ("TLKGA", "Teluknaga", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 3, "B", True, True, "1 shunt capacitor",
-     "GI Teluknaga (berbeda dari GI Lontar)"),
-    ("CKBRU", "Cikupa Baru", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 3, "B", True, False, None, None),
-    ("ITS", "KTT ITS", "KTT", 150, "OWNED_BY_CUSTOMER", "UNKNOWN", None, "EXTERNAL_CONTEXT", None, 3, "B", False, False, None,
-     "Konsumen tegangan tinggi"),
+    dict(code="CLDUG", name="Ciledug", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=3, tier_b=None, has_transformer=True, has_capacitor=True, symbol_note="1 shunt capacitor", note=None),
+    dict(code="SNYAN", name="Senayan", type="GIS", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=3, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="GIS kawasan Zero Down Time (ZDT), disuplai radial dari SKTT New Senayan-Senayan. Kerawanan #6."),
+    dict(code="ULJMI", name="Ulujami", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=3, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Disuplai dari New Senayan. Dead-end load (trafo 150/20 saja)."),
+    dict(code="SVRNA", name="Suvarna Sutra", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=5, tier_b=3, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Irisan 2 SLD. Kembangan: T5 spur dari Cikupa. Balaraja: T3 dari Sindang Jaya/Balaraja."),
+    dict(code="TLKGA", name="Teluknaga", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=3, has_transformer=True, has_capacitor=True, symbol_note="1 shunt capacitor",
+         note="GI Teluknaga (berbeda dari GI Lontar)"),
+    dict(code="CKBRU", name="Cikupa Baru", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=3, has_transformer=True, has_capacitor=False, symbol_note=None, note=None),
+    dict(code="ITS", name="KTT ITS", type="KTT", voltage=150, status="OWNED_BY_CUSTOMER",
+         busbar_config="UNKNOWN", busbar_note=None, role="EXTERNAL_CONTEXT", external_subsystem=None,
+         tier_k=None, tier_b=3, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="Konsumen tegangan tinggi"),
 
     # --- Tier 4 ---
-    ("ALTRA", "Alam Sutera", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 4, "K", True, False, None, None),
-    ("DNYSA", "Danayasa", "GIS", 150, "ENERGIZED", "DOUBLE_1CB", "gap bus section di SLD",
-     "BOUNDARY", "SS Gandul 2,4", 4, "K", True, False, None,
-     "GI batas -> SS Gandul 2,4. Ruas Mampang-AGP-Danayasa. Dialihkan ke SS Cawang 2,3-Depok 1 saat pemeliharaan Kembangan-New Senayan."),
-    ("ABDGP", "Abadi Guna Papan", "GIS", 150, "ENERGIZED", "UNKNOWN", None, "BOUNDARY", "SS Gandul 2,4", 4, "K", False, False, None,
-     "GIS AGP. Ruas AGP-Mampang SKTT baru 1000A. Feeder Senayan-AGP masih PLANNED."),
-    ("MPANG", "Mampang", "GIS", 150, "ENERGIZED", "UNKNOWN", None, "BOUNDARY", "SS Gandul 2,4", 4, "K", False, False, None,
-     "GIS Mampang Baru. Ujung ruas Mampang-AGP-Danayasa."),
-    ("CKUPA", "Cikupa", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 4, "KB", True, False, None,
-     "Irisan 2 SLD. Kerawanan #4 (Cikupa-Jatake)."),
-    ("NCKUPA", "GITET New Cikupa", "GITET", 500, "NEW_NOT_ENERGIZED", "UNKNOWN", None, "CORE", None, 4, "B", False, False, None,
-     "GITET (IBT 500/150) BELUM energize -- busbar hitam di SLD. Solusi kerawanan #4: dibangun untuk "
-     "menyuntik daya di titik Cikupa-Jatake agar ruas tidak overload. Saat COD nanti = perubahan "
-     "struktural (TopologyVersion baru, kemungkinan SS baru) via change request -- BUKAN toggle. "
-     "Node disimpan sbg informasi; tidak dihitung dalam Tier kondisi sekarang."),
-    ("SPTAN", "Sepatan", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 4, "B", True, False, None, None),
-    ("CNKNG", "Cengkareng", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 4, "B", True, False, None,
-     "Kerawanan #5 (Durikosambi-Cengkareng)"),
-    ("BSH", "BSH", "KTT", 150, "OWNED_BY_CUSTOMER", "UNKNOWN", None, "EXTERNAL_CONTEXT", None, 4, "B", True, False, None,
-     "Dalam kotak dashed 'Aset milik KTT'"),
+    dict(code="ALTRA", name="Alam Sutera", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=4, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None, note=None),
+    dict(code="DNYSA", name="Danayasa", type="GIS", voltage=150, status="ENERGIZED",
+         busbar_config="DOUBLE_1CB", busbar_note="gap bus section di SLD",
+         role="BOUNDARY", external_subsystem="SS Gandul 2,4",
+         tier_k=4, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="GI batas -> SS Gandul 2,4. Ruas Mampang-AGP-Danayasa. Dialihkan ke SS Cawang 2,3-Depok 1 saat pemeliharaan Kembangan-New Senayan."),
+    dict(code="ABDGP", name="Abadi Guna Papan", type="GIS", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="BOUNDARY", external_subsystem="SS Gandul 2,4",
+         tier_k=4, tier_b=None, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="GIS AGP. Ruas AGP-Mampang SKTT baru 1000A. Feeder Senayan-AGP masih PLANNED."),
+    dict(code="MPANG", name="Mampang", type="GIS", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="BOUNDARY", external_subsystem="SS Gandul 2,4",
+         tier_k=4, tier_b=None, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="GIS Mampang Baru. Ujung ruas Mampang-AGP-Danayasa."),
+    dict(code="CKUPA", name="Cikupa", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=4, tier_b=4, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Irisan 2 SLD. Kerawanan #4 (Cikupa-Jatake). Kembangan: fed dari Curug (bay panjang)."),
+    dict(code="NCKUPA", name="GITET New Cikupa", type="GITET", voltage=500, status="NEW_NOT_ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=4, has_transformer=False, has_capacitor=False, symbol_note=None,
+         note="GITET (IBT 500/150) BELUM energize -- busbar hitam. Solusi kerawanan #4. Saat COD = perubahan struktural via change request, bukan toggle. Tidak dihitung dalam Tier kondisi sekarang."),
+    dict(code="SPTAN", name="Sepatan", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=4, has_transformer=True, has_capacitor=False, symbol_note=None, note=None),
+    dict(code="CNKNG", name="Cengkareng", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=4, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Kerawanan #5 (Durikosambi-Cengkareng)"),
+    dict(code="BSH", name="BSH", type="KTT", voltage=150, status="OWNED_BY_CUSTOMER",
+         busbar_config="UNKNOWN", busbar_note=None, role="EXTERNAL_CONTEXT", external_subsystem=None,
+         tier_k=None, tier_b=4, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Dalam kotak dashed 'Aset milik KTT'"),
 
     # --- Tier 5 ---
-    ("SGS", "Summarecon Gading Serpong", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 5, "K", True, False, None, None),
-    ("CURUG", "Curug", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 5, "K", True, False, None, None),
-    ("PSKMS", "Pasar Kemis", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 5, "KB", True, False, None,
-     "Irisan 2 SLD. Kerawanan #3 (single phi)."),
-    ("PSKBR", "Pasar Kemis Baru", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 5, "B", True, False, None,
-     "Kerawanan #3 (Pasar Kemis Baru-Gajah Tunggal-Pasar Kemis single phi)"),
-    ("SPTAN2", "Sepatan 2", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 5, "B", True, False, None, "Dead-end load"),
-    ("TGRNG", "Tangerang", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 5, "B", True, False, None,
-     "GI Tangerang (Lama). Bebannya akan diambil GITET Cikupa (RUPTL). Hotspot #5."),
-    ("JTAKE", "Jatake", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 5, "KB", True, True, "2 shunt capacitor",
-     "Irisan 2 SLD. Kerawanan #4."),
+    dict(code="SGS", name="Summarecon Gading Serpong", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=5, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None, note=None),
+    dict(code="CURUG", name="Curug", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=5, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Kembangan: T5, punya bay panjang ke Cikupa (T4)."),
+    dict(code="PSKMS", name="Pasar Kemis", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=5, tier_b=5, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Irisan 2 SLD. Kembangan: spur T5 dari Cikupa. Kerawanan #3 (single phi)."),
+    dict(code="PSKBR", name="Pasar Kemis Baru", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=5, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Kerawanan #3 (Pasar Kemis Baru-Gajah Tunggal-Pasar Kemis single phi)"),
+    dict(code="SPTAN2", name="Sepatan 2", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=5, has_transformer=True, has_capacitor=False, symbol_note=None, note="Dead-end load"),
+    dict(code="TGRNG", name="Tangerang", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=5, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="GI Tangerang (Lama). Bebannya akan diambil GITET Cikupa (RUPTL). Hotspot #5."),
+    dict(code="JTAKE", name="Jatake", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=5, tier_b=6, has_transformer=True, has_capacitor=True,
+         symbol_note="output bay: 1 trafo + 2 kapasitor + bay Jatake Baru",
+         note="Irisan 2 SLD. Kerawanan #4. Kembangan: T5 output ke Jatake Baru & Maxim. Balaraja: output bay off T6."),
 
     # --- Tier 6 ---
-    ("MAXIM", "Maxim", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 6, "K", True, False, "3 trafo di SLD (perlu konfirmasi OSL)", None),
-    ("JTKBR", "Jatake Baru", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 6, "KB", True, False, None,
-     "Tier 6. Disuplai dari Jatake (sisi Kembangan) / Tangerang (sisi Balaraja). Irisan 2 SLD."),
-    ("GJTGL", "Gajah Tunggal", "GI", 150, "ENERGIZED", "UNKNOWN", None, "CORE", None, 6, "B", True, False, None,
-     "Single phi (kerawanan #3)"),
+    dict(code="MAXIM", name="Maxim", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=6, tier_b=None, has_transformer=True, has_capacitor=False,
+         symbol_note="3 trafo di SLD (perlu konfirmasi OSL)", note=None),
+    dict(code="JTKBR", name="Jatake Baru", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=6, tier_b=6, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Disuplai dari Jatake (Kembangan) / Tangerang (Balaraja). Irisan 2 SLD."),
+    dict(code="GJTGL", name="Gajah Tunggal", type="GI", voltage=150, status="ENERGIZED",
+         busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
+         tier_k=None, tier_b=6, has_transformer=True, has_capacitor=False, symbol_note=None,
+         note="Single phi (kerawanan #3)"),
 ]
-# NOTE: the blurred "ITAKE/ITAKF" label on the Balaraja SLD is GI JATAKE (PDF quality).
-# Jatake appears in BOTH SLDs at DIFFERENT tiers:
-#   - Kembangan side: Jatake = Tier 5  (Jatake Baru = Tier 6)
-#   - Balaraja side:  Jatake drawn as an OUTPUT BAY off Tier 6 (fed from Tangerang)
-# This is exactly why Tier is computed per-projection and NOT stored on Substation.
-JTAKE_SIDE_OVERRIDE = "KB"  # applied below
 
 # Generating units  (code, name, unit_type, voltage, rated_mw, unit_count, outlet_code, operator)
 GENERATORS = [
@@ -156,64 +234,70 @@ TRANSFORMERS = [
 ]
 
 # Circuits  (code, name, type, from_code, to_code, kv, transformer_code, circuit_count,
-#            single_phi, status, confidence, note)
+#            single_phi, status, confidence, side, note)
+#   side "K" = drawn on the Kembangan SLD (hal.69)
+#   side "B" = drawn on the Balaraja/Lontar SLD (hal.70)
+# A view renders only its own side's circuits, so the two SLDs are not
+# force-merged. Intersection GIs (Cikupa, Suvarna, Pasar Kemis, Jatake, Jatake
+# Baru, Maxim, Durikosambi) appear in both views with their own side's edges.
 # Only busbar-to-busbar connections. 150/20 transformers & capacitors are GI attributes.
 CIRCUITS = [
     # -- IBT links (500/150 step-down at GITET) --
-    ("IBT_KMBGN_1_LINK", "IBT 1 Kembangan 500/150", "IBT_LINK", "GITET_KMBGN", "KMBGN", 500, "IBT_KMBGN_1", None, False, "ENERGIZED", 1.0, None),
-    ("IBT_KMBGN_2_LINK", "IBT 2 Kembangan 500/150", "IBT_LINK", "GITET_KMBGN", "KMBGN", 500, "IBT_KMBGN_2", None, False, "ENERGIZED", 1.0, None),
-    ("IBT_NBRJA_1_LINK", "IBT 1 New Balaraja 500/150", "IBT_LINK", "GITET_NBRJA", "NBRJA", 500, "IBT_NBRJA_1", None, False, "ENERGIZED", 1.0, None),
-    ("IBT_NBRJA_2_LINK", "IBT 2 New Balaraja 500/150", "IBT_LINK", "GITET_NBRJA", "NBRJA", 500, "IBT_NBRJA_2", None, False, "ENERGIZED", 1.0, None),
+    ("IBT_KMBGN_1_LINK", "IBT 1 Kembangan 500/150", "IBT_LINK", "GITET_KMBGN", "KMBGN", 500, "IBT_KMBGN_1", None, False, "ENERGIZED", 1.0, "K", None),
+    ("IBT_KMBGN_2_LINK", "IBT 2 Kembangan 500/150", "IBT_LINK", "GITET_KMBGN", "KMBGN", 500, "IBT_KMBGN_2", None, False, "ENERGIZED", 1.0, "K", None),
+    ("IBT_NBRJA_1_LINK", "IBT 1 New Balaraja 500/150", "IBT_LINK", "GITET_NBRJA", "NBRJA", 500, "IBT_NBRJA_1", None, False, "ENERGIZED", 1.0, "B", None),
+    ("IBT_NBRJA_2_LINK", "IBT 2 New Balaraja 500/150", "IBT_LINK", "GITET_NBRJA", "NBRJA", 500, "IBT_NBRJA_2", None, False, "ENERGIZED", 1.0, "B", None),
 
     # ================= Kembangan side (SLD hal.69) =================
-    ("PHT_KMBGN_MTLAN", "Kembangan - Metland", "SKTT", "KMBGN", "MTLAN", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("SKTT_KMBGN_NSYAN", "Kembangan - New Senayan", "SKTT", "KMBGN", "NSYAN", 150, None, 1, False, "ENERGIZED", 1.0, "Kerawanan #2: pembebanan 72%, N-1 tak terpenuhi"),
-    ("PHT_KMBGN_DKSBI", "Kembangan - Durikosambi", "SKTT", "KMBGN", "DKSBI", 150, None, 2, False, "ENERGIZED", 0.5, "DKSBI boundary stub"),
-    ("PHT_KMBGN_PKTGN", "Kembangan - Petukangan", "SKTT", "KMBGN", "PKTGN", 150, None, 2, False, "ENERGIZED", 0.5, "traced"),
-    ("SKTT_NSYAN_SNYAN", "New Senayan - Senayan", "SKTT", "NSYAN", "SNYAN", 150, None, 1, False, "ENERGIZED", 1.0, "Kerawanan #6: GIS Senayan ZDT, radial"),
-    ("PHT_NSYAN_CLDUG", "New Senayan - Ciledug", "SKTT", "NSYAN", "CLDUG", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("PHT_NSYAN_ULJMI", "New Senayan - Ulujami", "SKTT", "NSYAN", "ULJMI", 150, None, 2, False, "ENERGIZED", 0.6, "Ulujami dead-end load"),
-    ("SKTT_PKTGN_SNYAN", "Petukangan - Senayan", "SKTT", "PKTGN", "SNYAN", 150, None, 1, False, "DE_ENERGIZED", 0.5, "Kabel eksisting rusak (teks p8/p87)"),
-    ("PHT_SNYAN_DNYSA", "Senayan - Danayasa", "SKTT", "SNYAN", "DNYSA", 150, None, 2, False, "ENERGIZED", 0.5, "DNYSA boundary -> Gandul 2,4"),
-    ("PHT_SNYAN_ABDGP", "Senayan - Abadi Guna Papan", "SKTT", "SNYAN", "ABDGP", 150, None, 1, False, "PLANNED", 0.4, "Abu di SLD = perencanaan"),
-    ("PHT_CLDUG_ALTRA", "Ciledug - Alam Sutera", "SKTT", "CLDUG", "ALTRA", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("PHT_ALTRA_SGS", "Alam Sutera - Summarecon Gading Serpong", "SKTT", "ALTRA", "SGS", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("PHT_SGS_CURUG", "Summarecon Gading Serpong - Curug", "SKTT", "SGS", "CURUG", 150, None, 2, False, "ENERGIZED", 0.5, "traced"),
-    ("PHT_DNYSA_ABDGP", "Danayasa - Abadi Guna Papan", "SKTT", "DNYSA", "ABDGP", 150, None, 2, False, "ENERGIZED", 0.5, "Ruas Mampang-AGP-Danayasa (teks p91)"),
-    ("PHT_ABDGP_MPANG", "Abadi Guna Papan - Mampang", "SKTT", "ABDGP", "MPANG", 150, None, 2, False, "ENERGIZED", 0.5, "SKTT baru 1000A (teks p91)"),
-    ("PHT_CKUPA_SVRNA", "Cikupa - Suvarna Sutra", "SKTT", "CKUPA", "SVRNA", 150, None, 2, False, "ENERGIZED", 0.6, "spur"),
-    ("PHT_CKUPA_PSKMS", "Cikupa - Pasar Kemis", "SKTT", "CKUPA", "PSKMS", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("SUTT_CKUPA_JTAKE", "Cikupa - Jatake", "SKTT", "CKUPA", "JTAKE", 150, None, 2, False, "ENERGIZED", 1.0, "Kerawanan #4: overload saat N-1-1/N-2 ruas Lontar-Tangerang Baru"),
-    ("PHT_JTAKE_MAXIM", "Jatake - Maxim", "SKTT", "JTAKE", "MAXIM", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("PHT_JTAKE_JTKBR", "Jatake - Jatake Baru", "SKTT", "JTAKE", "JTKBR", 150, None, 2, False, "ENERGIZED", 0.8, "Jatake T5 -> Jatake Baru T6 (sisi Kembangan)"),
+    ("PHT_KMBGN_MTLAN", "Kembangan - Metland", "SKTT", "KMBGN", "MTLAN", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
+    ("SKTT_KMBGN_NSYAN", "Kembangan - New Senayan", "SKTT", "KMBGN", "NSYAN", 150, None, 1, False, "ENERGIZED", 1.0, "K", "Kerawanan #2: pembebanan 72%, N-1 tak terpenuhi"),
+    ("PHT_KMBGN_DKSBI", "Kembangan - Durikosambi", "SKTT", "KMBGN", "DKSBI", 150, None, 2, False, "ENERGIZED", 0.5, "K", "DKSBI boundary stub"),
+    ("PHT_KMBGN_PKTGN", "Kembangan - Petukangan", "SKTT", "KMBGN", "PKTGN", 150, None, 2, False, "ENERGIZED", 0.5, "K", "traced"),
+    ("SKTT_NSYAN_SNYAN", "New Senayan - Senayan", "SKTT", "NSYAN", "SNYAN", 150, None, 1, False, "ENERGIZED", 1.0, "K", "Kerawanan #6: GIS Senayan ZDT, radial"),
+    ("PHT_NSYAN_CLDUG", "New Senayan - Ciledug", "SKTT", "NSYAN", "CLDUG", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
+    ("PHT_NSYAN_ULJMI", "New Senayan - Ulujami", "SKTT", "NSYAN", "ULJMI", 150, None, 2, False, "ENERGIZED", 0.6, "K", "Ulujami dead-end load"),
+    ("SKTT_PKTGN_SNYAN", "Petukangan - Senayan", "SKTT", "PKTGN", "SNYAN", 150, None, 1, False, "DE_ENERGIZED", 0.5, "K", "Kabel eksisting rusak (teks p8/p87)"),
+    ("PHT_SNYAN_DNYSA", "Senayan - Danayasa", "SKTT", "SNYAN", "DNYSA", 150, None, 2, False, "ENERGIZED", 0.5, "K", "DNYSA boundary -> Gandul 2,4"),
+    ("PHT_SNYAN_ABDGP", "Senayan - Abadi Guna Papan", "SKTT", "SNYAN", "ABDGP", 150, None, 1, False, "PLANNED", 0.4, "K", "Abu di SLD = perencanaan"),
+    ("PHT_CLDUG_ALTRA", "Ciledug - Alam Sutera", "SKTT", "CLDUG", "ALTRA", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
+    ("PHT_ALTRA_SGS", "Alam Sutera - Summarecon Gading Serpong", "SKTT", "ALTRA", "SGS", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
+    ("PHT_SGS_CURUG", "Summarecon Gading Serpong - Curug", "SKTT", "SGS", "CURUG", 150, None, 2, False, "ENERGIZED", 0.5, "K", "traced"),
+    ("PHT_CURUG_CKUPA", "Curug - Cikupa", "SKTT", "CURUG", "CKUPA", 150, None, 2, False, "ENERGIZED", 0.6, "K", "Bay panjang T5 Curug -> T4 Cikupa (sisi Kembangan)"),
+    ("PHT_DNYSA_ABDGP", "Danayasa - Abadi Guna Papan", "SKTT", "DNYSA", "ABDGP", 150, None, 2, False, "ENERGIZED", 0.5, "K", "Ruas Mampang-AGP-Danayasa (teks p91)"),
+    ("PHT_ABDGP_MPANG", "Abadi Guna Papan - Mampang", "SKTT", "ABDGP", "MPANG", 150, None, 2, False, "ENERGIZED", 0.5, "K", "SKTT baru 1000A (teks p91)"),
+    ("PHT_CKUPA_SVRNA_K", "Cikupa - Suvarna Sutra", "SKTT", "CKUPA", "SVRNA", 150, None, 2, False, "ENERGIZED", 0.6, "K", "output bay Cikupa"),
+    ("PHT_CKUPA_PSKMS_K", "Cikupa - Pasar Kemis", "SKTT", "CKUPA", "PSKMS", 150, None, 2, False, "ENERGIZED", 0.6, "K", "output bay Cikupa"),
+    ("SUTT_CKUPA_JTAKE", "Cikupa - Jatake", "SKTT", "CKUPA", "JTAKE", 150, None, 2, False, "ENERGIZED", 1.0, "K", "Kerawanan #4: overload saat N-1-1/N-2 ruas Lontar-Tangerang Baru. Jatake jadi selevel T5."),
+    ("PHT_JTAKE_JTKBR_K", "Jatake - Jatake Baru", "SKTT", "JTAKE", "JTKBR", 150, None, 2, False, "ENERGIZED", 0.7, "K", "output bay Jatake"),
+    ("PHT_JTAKE_MAXIM", "Jatake - Maxim", "SKTT", "JTAKE", "MAXIM", 150, None, 2, False, "ENERGIZED", 0.7, "K", "Jatake -> Maxim (T6, sisi Kembangan). Jatake juga punya output 1 trafo + 2 kapasitor."),
 
     # ================= Balaraja / Lontar side (SLD hal.70) =================
-    ("PHT_NBRJA_BLRJA", "New Balaraja - Balaraja", "SKTT", "NBRJA", "BLRJA", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("PHT_LTKNG_SDJYA", "Lontar - Sindang Jaya", "SKTT", "LTKNG", "SDJYA", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("PHT_LTKNG_TLKNG2", "Lontar - Teluknaga 2 / Dadap", "SKTT", "LTKNG", "TLKNG2_DADAP", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("PHT_LTKNG_TGBRU", "Lontar - Tangerang Baru", "SKTT", "LTKNG", "TGBRU", 150, None, 2, False, "ENERGIZED", 0.7, "Ruas Lontar-Tangerang Baru (disebut di kerawanan #4)"),
-    ("PHT_LTKNG_TGBRU3", "Lontar - Tangerang Baru 3", "SKTT", "LTKNG", "TGBRU_3", 150, None, 2, False, "NEW_NOT_ENERGIZED", 0.4, "TGBRU 3 belum energize"),
-    ("PHT_BLRJA_CKNDE", "Balaraja - Cikande", "SKTT", "BLRJA", "CKNDE", 150, None, 2, False, "ENERGIZED", 0.5, "CKNDE boundary -> Cilegon"),
-    ("PHT_BLRJA_SVRNA", "Balaraja - Suvarna Sutra", "SKTT", "BLRJA", "SVRNA", 150, None, 2, False, "ENERGIZED", 0.5, "traced (cross-routing di SLD)"),
-    ("PHT_SDJYA_SVRNA", "Sindang Jaya - Suvarna Sutra", "SKTT", "SDJYA", "SVRNA", 150, None, 2, False, "ENERGIZED", 0.4, "traced"),
-    ("PHT_TLKNG2_TLKGA", "Teluknaga 2 / Dadap - Teluknaga", "SKTT", "TLKNG2_DADAP", "TLKGA", 150, None, 2, False, "ENERGIZED", 0.5, "traced"),
-    ("PHT_TGBRU_CKBRU", "Tangerang Baru - Cikupa Baru", "SKTT", "TGBRU", "CKBRU", 150, None, 2, False, "ENERGIZED", 0.6, "traced"),
-    ("PHT_TGBRU_ITS", "Tangerang Baru - KTT ITS", "SKTT", "TGBRU", "ITS", 150, None, 1, False, "ENERGIZED", 0.4, "KTT ITS external"),
-    ("PHT_SVRNA_CKUPA", "Suvarna Sutra - Cikupa", "SKTT", "SVRNA", "CKUPA", 150, None, 2, False, "ENERGIZED", 0.6, "traced (irisan)"),
-    ("PHT_TLKGA_SPTAN", "Teluknaga - Sepatan", "SKTT", "TLKGA", "SPTAN", 150, None, 2, False, "ENERGIZED", 0.5, "traced"),
-    ("SUTT_CKBRU_CNKNG", "Cikupa Baru - Cengkareng", "SKTT", "CKBRU", "CNKNG", 150, None, 2, False, "ENERGIZED", 0.6, "terkait kerawanan #5"),
-    ("PHT_CKBRU_BSH", "Cikupa Baru - BSH", "SKTT", "CKBRU", "BSH", 150, None, 1, False, "ENERGIZED", 0.5, "BSH milik KTT"),
-    ("SUTT_DKSBI_CNKNG", "Durikosambi - Cengkareng", "SKTT", "DKSBI", "CNKNG", 150, None, 2, False, "ENERGIZED", 1.0, "Kerawanan #5: N-1 tak terpenuhi saat GI Jatake/Jatake Baru/Tangerang/Cengkareng dipasok SS Muarakarang"),
-    ("PHT_NCKUPA_JTAKE", "GITET New Cikupa - Jatake (rencana)", "IBT_LINK", "NCKUPA", "JTAKE", 500, None, 2, False, "NEW_NOT_ENERGIZED", 0.4,
+    ("PHT_NBRJA_BLRJA", "New Balaraja - Balaraja", "SKTT", "NBRJA", "BLRJA", 150, None, 2, False, "ENERGIZED", 0.6, "B", "traced"),
+    ("PHT_LTKNG_SDJYA", "Lontar - Sindang Jaya", "SKTT", "LTKNG", "SDJYA", 150, None, 2, False, "ENERGIZED", 0.6, "B", "traced"),
+    ("PHT_LTKNG_TLKNG2", "Lontar - Teluknaga 2 / Dadap", "SKTT", "LTKNG", "TLKNG2_DADAP", 150, None, 2, False, "ENERGIZED", 0.6, "B", "traced"),
+    ("PHT_LTKNG_TGBRU", "Lontar - Tangerang Baru", "SKTT", "LTKNG", "TGBRU", 150, None, 2, False, "ENERGIZED", 0.7, "B", "Ruas Lontar-Tangerang Baru (disebut di kerawanan #4)"),
+    ("PHT_LTKNG_TGBRU3", "Lontar - Tangerang Baru 3", "SKTT", "LTKNG", "TGBRU_3", 150, None, 2, False, "NEW_NOT_ENERGIZED", 0.4, "B", "TGBRU 3 belum energize"),
+    ("PHT_BLRJA_CKNDE", "Balaraja - Cikande", "SKTT", "BLRJA", "CKNDE", 150, None, 2, False, "ENERGIZED", 0.5, "B", "CKNDE boundary -> Cilegon"),
+    ("PHT_BLRJA_SVRNA", "Balaraja - Suvarna Sutra", "SKTT", "BLRJA", "SVRNA", 150, None, 2, False, "ENERGIZED", 0.5, "B", "traced (cross-routing di SLD)"),
+    ("PHT_SDJYA_SVRNA", "Sindang Jaya - Suvarna Sutra", "SKTT", "SDJYA", "SVRNA", 150, None, 2, False, "ENERGIZED", 0.4, "B", "traced"),
+    ("PHT_TLKNG2_TLKGA", "Teluknaga 2 / Dadap - Teluknaga", "SKTT", "TLKNG2_DADAP", "TLKGA", 150, None, 2, False, "ENERGIZED", 0.5, "B", "traced"),
+    ("PHT_TGBRU_CKBRU", "Tangerang Baru - Cikupa Baru", "SKTT", "TGBRU", "CKBRU", 150, None, 2, False, "ENERGIZED", 0.6, "B", "traced"),
+    ("PHT_TGBRU_ITS", "Tangerang Baru - KTT ITS", "SKTT", "TGBRU", "ITS", 150, None, 1, False, "ENERGIZED", 0.4, "B", "KTT ITS external"),
+    ("PHT_SVRNA_CKUPA", "Suvarna Sutra - Cikupa", "SKTT", "SVRNA", "CKUPA", 150, None, 2, False, "ENERGIZED", 0.6, "B", "traced (irisan) - Cikupa T4 dari sisi Balaraja"),
+    ("PHT_TLKGA_SPTAN", "Teluknaga - Sepatan", "SKTT", "TLKGA", "SPTAN", 150, None, 2, False, "ENERGIZED", 0.5, "B", "traced"),
+    ("SUTT_CKBRU_CNKNG", "Cikupa Baru - Cengkareng", "SKTT", "CKBRU", "CNKNG", 150, None, 2, False, "ENERGIZED", 0.6, "B", "terkait kerawanan #5"),
+    ("PHT_CKBRU_BSH", "Cikupa Baru - BSH", "SKTT", "CKBRU", "BSH", 150, None, 1, False, "ENERGIZED", 0.5, "B", "BSH milik KTT"),
+    ("SUTT_DKSBI_CNKNG", "Durikosambi - Cengkareng", "SKTT", "DKSBI", "CNKNG", 150, None, 2, False, "ENERGIZED", 1.0, "B", "Kerawanan #5: N-1 tak terpenuhi saat GI Jatake/Jatake Baru/Tangerang/Cengkareng dipasok SS Muarakarang"),
+    ("PHT_NCKUPA_JTAKE", "GITET New Cikupa - Jatake (rencana)", "IBT_LINK", "NCKUPA", "JTAKE", 500, None, 2, False, "NEW_NOT_ENERGIZED", 0.4, "B",
      "Future: saat GITET New Cikupa COD, menyuntik di area Cikupa-Jatake. Belum energize."),
-    ("PHT_SPTAN_PSKBR", "Sepatan - Pasar Kemis Baru", "SKTT", "SPTAN", "PSKBR", 150, None, 2, False, "ENERGIZED", 0.5, "traced"),
-    ("PHT_SPTAN_SPTAN2", "Sepatan - Sepatan 2", "SKTT", "SPTAN", "SPTAN2", 150, None, 2, False, "ENERGIZED", 0.5, "Sepatan 2 dead-end"),
-    ("SUTT_PSKMS_PSKBR", "Pasar Kemis - Pasar Kemis Baru", "SKTT", "PSKMS", "PSKBR", 150, None, 1, True, "ENERGIZED", 1.0, "Kerawanan #3: single phi Pasar Kemis Baru-Gajah Tunggal-Pasar Kemis"),
-    ("SUTT_PSKBR_GJTGL", "Pasar Kemis Baru - Gajah Tunggal", "SKTT", "PSKBR", "GJTGL", 150, None, 1, True, "ENERGIZED", 1.0, "Kerawanan #3: single phi; KTT Gajah Tunggal padam saat N-1-1"),
-    ("SUTT_GJTGL_PSKMS", "Gajah Tunggal - Pasar Kemis", "SKTT", "GJTGL", "PSKMS", 150, None, 1, True, "ENERGIZED", 0.7, "Kerawanan #3: garis tipis semi-hilang di SLD, menutup loop single-phi"),
-    ("PHT_CNKNG_TGRNG", "Cengkareng - Tangerang", "SKTT", "CNKNG", "TGRNG", 150, None, 2, False, "ENERGIZED", 0.5, "Hotspot #5"),
-    ("PHT_TGRNG_JTKBR", "Tangerang - Jatake Baru", "SKTT", "TGRNG", "JTKBR", 150, None, 2, False, "ENERGIZED", 0.5, "traced"),
-    ("PHT_TGRNG_JTAKE", "Tangerang - Jatake", "SKTT", "TGRNG", "JTAKE", 150, None, 2, False, "ENERGIZED", 0.5, "Jatake sebagai output bay dari sisi Balaraja (label PDF blur 'ITAKE' = JTAKE)"),
+    ("PHT_SPTAN_PSKBR", "Sepatan - Pasar Kemis Baru", "SKTT", "SPTAN", "PSKBR", 150, None, 2, False, "ENERGIZED", 0.5, "B", "traced"),
+    ("PHT_SPTAN_SPTAN2", "Sepatan - Sepatan 2", "SKTT", "SPTAN", "SPTAN2", 150, None, 2, False, "ENERGIZED", 0.5, "B", "Sepatan 2 dead-end"),
+    ("SUTT_PSKMS_PSKBR", "Pasar Kemis - Pasar Kemis Baru", "SKTT", "PSKMS", "PSKBR", 150, None, 1, True, "ENERGIZED", 1.0, "B", "Kerawanan #3: single phi Pasar Kemis Baru-Gajah Tunggal-Pasar Kemis"),
+    ("SUTT_PSKBR_GJTGL", "Pasar Kemis Baru - Gajah Tunggal", "SKTT", "PSKBR", "GJTGL", 150, None, 1, True, "ENERGIZED", 1.0, "B", "Kerawanan #3: single phi; KTT Gajah Tunggal padam saat N-1-1"),
+    ("SUTT_GJTGL_PSKMS", "Gajah Tunggal - Pasar Kemis", "SKTT", "GJTGL", "PSKMS", 150, None, 1, True, "ENERGIZED", 0.7, "B", "Kerawanan #3: garis tipis semi-hilang di SLD, menutup loop single-phi"),
+    ("PHT_CNKNG_TGRNG", "Cengkareng - Tangerang", "SKTT", "CNKNG", "TGRNG", 150, None, 2, False, "ENERGIZED", 0.5, "B", "Hotspot #5"),
+    ("PHT_TGRNG_JTKBR", "Tangerang - Jatake Baru", "SKTT", "TGRNG", "JTKBR", 150, None, 2, False, "ENERGIZED", 0.5, "B", "traced"),
+    ("PHT_TGRNG_JTAKE", "Tangerang - Jatake", "SKTT", "TGRNG", "JTAKE", 150, None, 2, False, "ENERGIZED", 0.5, "B", "Jatake sebagai output bay dari sisi Balaraja (label PDF blur 'ITAKE' = JTAKE)"),
 ]
 
 # Risk records  (seq, title, condition, impact, mitigation, follow_up, priority,
@@ -347,26 +431,27 @@ def seed_ss_lbk(db: Session) -> None:
     ))
 
     subs: dict[str, Substation] = {}
-    side_of: dict[str, str] = {}
     role_in_ss: dict[str, str] = {}
-    tier_in_ss: dict[str, int] = {}
-    for (code, name, stype, kv, status, bcfg, bnote, role, ext_ss, tier, side,
-         has_tx, has_cap, sym_note, note) in SUBSTATIONS:
+    tier_k: dict[str, int | None] = {}
+    tier_b: dict[str, int | None] = {}
+    for d in SUBSTATIONS:
         s = Substation(
-            code=code, name=name, substation_type=stype, voltage_kv=kv, status=status,
-            busbar_config=bcfg, busbar_note=bnote,
-            has_transformer=has_tx, has_shunt_capacitor=has_cap, symbol_note=sym_note,
-            apb="UP2B Jakarta & Banten", uit="JBB", note=note, confidence=1.0,
+            code=d["code"], name=d["name"], substation_type=d["type"], voltage_kv=d["voltage"],
+            status=d["status"], busbar_config=d["busbar_config"], busbar_note=d["busbar_note"],
+            has_transformer=d["has_transformer"], has_shunt_capacitor=d["has_capacitor"],
+            symbol_note=d["symbol_note"], apb="UP2B Jakarta & Banten", uit="JBB",
+            note=d["note"], confidence=1.0,
         )
         db.add(s)
-        subs[code] = s
-        side_of[code] = "KB" if code == "JTAKE" else side
-        role_in_ss[code] = role
-        tier_in_ss[code] = tier
+        subs[d["code"]] = s
+        role_in_ss[d["code"]] = d["role"]
+        tier_k[d["code"]] = d["tier_k"]
+        tier_b[d["code"]] = d["tier_b"]
         db.flush()
         db.add(SubsystemMembership(
             subsystem_id=ss.id, node_kind="SUBSTATION", node_id=s.id,
-            role=role, external_subsystem=ext_ss, display_order=tier,
+            role=d["role"], external_subsystem=d["external_subsystem"],
+            display_order=d["tier_k"] or d["tier_b"],
         ))
 
     gens: dict[str, GeneratingUnit] = {}
@@ -403,13 +488,13 @@ def seed_ss_lbk(db: Session) -> None:
         ))
 
     circuits: dict[str, Circuit] = {}
-    for (code, name, ctype, fr, to, kv, txcode, ccnt, sphi, status, conf, note) in CIRCUITS:
+    for (code, name, ctype, fr, to, kv, txcode, ccnt, sphi, status, conf, side, note) in CIRCUITS:
         c = Circuit(
             code=code, name=name, circuit_type=ctype, voltage_kv=kv,
             from_substation_id=subs[fr].id, to_substation_id=subs[to].id,
             transformer_id=txs[txcode].id if txcode else None,
             circuit_count=ccnt, single_phi=sphi, status=status, scenario_id="NORMAL",
-            source_document_id=doc.id,
+            drawing_side=side, source_document_id=doc.id,
             note=("NEEDS_REVIEW; " + (note or "")) if conf < 0.9 else note,
             confidence=conf,
         )
@@ -453,44 +538,62 @@ def seed_ss_lbk(db: Session) -> None:
                 role=arole, coverage_note=cov,
             ))
 
-    # ---- analytical views: 2 layout projections of the same SS graph -------
+    # ---- analytical views: TWO layout projections of the same canonical SS
+    #      graph, one per SLD in the book. A merged single-diagram view is NOT
+    #      produced -- the two sides meet at intersection GIs (Cikupa, Suvarna,
+    #      Pasar Kemis, Jatake, Jatake Baru, Durikosambi) and stitching them into
+    #      one readable diagram needs a seam-aware layout that is not built yet.
+    #      The intersection GIs are still ONE physical object, present in both
+    #      views -- that part of the model already works.
     v_kem = AnalyticalView(
         view_key=f"{SS_CODE}_KEMBANGAN", view_type="SUBSYSTEM",
         name="SS Lontar-Balaraja-Kembangan - sisi Kembangan (SLD hal.69)",
-        rule_profile="SUBSYSTEM_150", subsystem_id=ss.id, layout_hint="KEMBANGAN_SIDE",
+        rule_profile="SUBSYSTEM_150", subsystem_id=ss.id,
+        layout_hint="KEMBANGAN_SIDE", drawing_side="K",
     )
     v_bal = AnalyticalView(
         view_key=f"{SS_CODE}_BALARAJA", view_type="SUBSYSTEM",
         name="SS Lontar-Balaraja-Kembangan - sisi Balaraja/Lontar (SLD hal.70)",
-        rule_profile="SUBSYSTEM_150", subsystem_id=ss.id, layout_hint="BALARAJA_SIDE",
+        rule_profile="SUBSYSTEM_150", subsystem_id=ss.id,
+        layout_hint="BALARAJA_SIDE", drawing_side="B",
     )
-    v_all = AnalyticalView(
-        view_key=f"{SS_CODE}_FULL", view_type="SUBSYSTEM",
-        name="SS Lontar-Balaraja-Kembangan - gabungan",
-        rule_profile="SUBSYSTEM_150", subsystem_id=ss.id, layout_hint="MERGED",
-    )
-    db.add_all([v_kem, v_bal, v_all])
+    db.add_all([v_kem, v_bal])
     db.flush()
 
-    def add_view_members(view: AnalyticalView, sides: set[str]):
-        for code, s in subs.items():
-            sd = side_of[code]
-            if not (sd in sides or sd == "KB" or sides == {"K", "B"}):
-                continue
-            role = role_in_ss[code]
-            seed = 1 if role == "SOURCE" and tier_in_ss[code] == 1 else None
-            db.add(ViewMembership(
-                view_id=view.id, node_kind="SUBSTATION", node_id=s.id,
-                role=role, tier_seed=seed, display_order=tier_in_ss[code],
-            ))
-        for code, g in gens.items():
-            db.add(ViewMembership(
-                view_id=view.id, node_kind="GENERATING_UNIT", node_id=g.id,
-                role="SOURCE", tier_seed=1, display_order=1,
-            ))
+    id_to_code = {s.id: code for code, s in subs.items()}
+    tier_for = {"K": tier_k, "B": tier_b}
 
-    add_view_members(v_kem, {"K"})
-    add_view_members(v_bal, {"B"})
-    add_view_members(v_all, {"K", "B"})
+    # a GI is in a side's view if it has a book Tier on that side OR is an
+    # endpoint of a circuit drawn on that side
+    side_subs: dict[str, set[int]] = {"K": set(), "B": set()}
+    for code, s in subs.items():
+        if tier_k[code] is not None:
+            side_subs["K"].add(s.id)
+        if tier_b[code] is not None:
+            side_subs["B"].add(s.id)
+    for (code, name, ctype, fr, to, kv, txcode, ccnt, sphi, status, conf, side, note) in CIRCUITS:
+        side_subs[side].add(subs[fr].id)
+        side_subs[side].add(subs[to].id)
+
+    def add_view_members(view: AnalyticalView, side: str):
+        tiers = tier_for[side]
+        for sid in side_subs[side]:
+            code = id_to_code[sid]
+            role = role_in_ss[code]
+            bt = tiers.get(code)
+            # ViewMembership.tier_seed carries the book Tier for this side
+            db.add(ViewMembership(
+                view_id=view.id, node_kind="SUBSTATION", node_id=sid,
+                role=role, tier_seed=bt, display_order=bt,
+            ))
+        for g in gens.values():
+            if g.outlet_substation_id in side_subs[side]:
+                db.add(ViewMembership(
+                    view_id=view.id, node_kind="GENERATING_UNIT", node_id=g.id,
+                    role="SOURCE", tier_seed=1, display_order=1,
+                ))
+
+    add_view_members(v_kem, "K")
+    add_view_members(v_bal, "B")
 
     db.commit()

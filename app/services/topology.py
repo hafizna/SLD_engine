@@ -64,7 +64,9 @@ RULE_PROFILES = {
 # NOT part of the connectivity / Tier graph. When such a project is actually
 # commissioned it is a structural change (new TopologyVersion, possibly a new
 # Subsystem), modelled through a change request -- not a toggle here.
-LIVE_STATUSES = {"ENERGIZED", "DE_ENERGIZED"}
+# OWNED_BY_CUSTOMER (a KTT asset drawn in a dashed box) IS in service -- it is a
+# real connected load, just not a PLN asset.
+LIVE_STATUSES = {"ENERGIZED", "DE_ENERGIZED", "OWNED_BY_CUSTOMER"}
 
 
 def _is_live(status: str | None) -> bool:
@@ -126,6 +128,8 @@ def get_view_graph(db: Session, view: AnalyticalView):
         for c in q.all():
             if c.scenario_id not in ("NORMAL", view.scenario_id):
                 continue
+            if view.drawing_side and c.drawing_side and c.drawing_side != view.drawing_side:
+                continue
             if not _is_live(c.status):
                 continue
             edges.append(c)
@@ -164,11 +168,66 @@ def get_view_graph(db: Session, view: AnalyticalView):
 
 
 def calculate_tier(db: Session, view: AnalyticalView) -> dict[tuple[str, int], int]:
-    """BFS hop count over the GI core graph. Returns {(kind, id): tier}."""
+    """Tier per substation for this view.
+
+    The Buku Kerawanan already assigns every GI on its SLD a Tier band
+    (TIER-1..6). That is the authority for the risk map -- we reproduce the
+    book, we do not recompute it. `ViewMembership.tier_seed` and, failing that,
+    `ViewMembership.display_order` carry the book's Tier. Only substations with
+    no book Tier fall back to a BFS hop count from the seeds.
+
+    `validate_tier` (separate) flags where a BFS hop count disagrees with the
+    book -- e.g. a "bay panjang" that crosses tiers -- for field review.
+    """
     profile = RULE_PROFILES.get(view.rule_profile, RULE_PROFILES["SUBSYSTEM_150"])
     if profile["tier_mode"] == "NONE":
         return {}
 
+    nodes, edges, roles, seeds, seed_override = get_view_graph(db, view)
+
+    members = {(m.node_kind, m.node_id): m for m in _members(db, view)}
+    live_sub_ids = {
+        k[1] for k, obj in nodes.items()
+        if k[0] == "SUBSTATION" and _is_live(obj.status)
+    }
+
+    tier: dict[tuple[str, int], int] = {}
+    no_book: list[int] = []
+    for (kind, nid), obj in nodes.items():
+        if kind != "SUBSTATION":
+            continue
+        if nid not in live_sub_ids:
+            continue  # not-yet-energised -> no Tier
+        m = members.get((kind, nid))
+        book_t = (m.tier_seed if m and m.tier_seed else
+                  (m.display_order if m and m.display_order else None))
+        if book_t is not None:
+            tier[(kind, nid)] = int(book_t)
+        else:
+            no_book.append(nid)
+
+    if not no_book:
+        return tier
+
+    # BFS fallback only for the GIs with no book Tier
+    adj: dict[int, set[int]] = defaultdict(set)
+    for c in edges:
+        adj[c.from_substation_id].add(c.to_substation_id)
+        adj[c.to_substation_id].add(c.from_substation_id)
+    q = deque(sid for (k, sid) in tier if k == "SUBSTATION")
+    while q:
+        u = q.popleft()
+        for v in adj[u]:
+            if v in no_book and ("SUBSTATION", v) not in tier:
+                tier[("SUBSTATION", v)] = tier[("SUBSTATION", u)] + 1
+                q.append(v)
+    return tier
+
+
+def _legacy_bfs_tier(db: Session, view: AnalyticalView):
+    profile = RULE_PROFILES.get(view.rule_profile, RULE_PROFILES["SUBSYSTEM_150"])
+    if profile["tier_mode"] == "NONE":
+        return {}
     nodes, edges, roles, seeds, seed_override = get_view_graph(db, view)
 
     downstream = {
@@ -214,3 +273,55 @@ def calculate_tier(db: Session, view: AnalyticalView) -> dict[tuple[str, int], i
             tier[b] = tier[a]
 
     return tier
+
+
+def validate_tier(db: Session, view: AnalyticalView):
+    """Compare the book's Tier (calculate_tier) with a pure BFS hop count and
+    report where they disagree -- a "bay panjang" that crosses Tier bands, a
+    missing feed, or a mis-traced edge. Returns a list of dicts for review.
+    """
+    book = calculate_tier(db, view)
+    bfs = _legacy_bfs_tier(db, view)
+    nodes, _, _, _, _ = get_view_graph(db, view)
+    out = []
+    for (kind, nid), obj in nodes.items():
+        if kind != "SUBSTATION":
+            continue
+        bt = book.get((kind, nid))
+        ft = bfs.get((kind, nid))
+        if bt is not None and ft is not None and bt != ft:
+            out.append({"code": obj.code, "name": obj.name, "book_tier": bt, "bfs_tier": ft})
+    return sorted(out, key=lambda r: abs(r["bfs_tier"] - r["book_tier"]), reverse=True)
+
+
+def classify_layout(db: Session, view: AnalyticalView):
+    """Split the view's substations into 'core' (own tier row) and 'spur'
+    (drawn as a short stub hanging off its single feeder).
+
+    A spur = a substation with graph degree 1 whose role is a context role
+    (BOUNDARY / EXTERNAL_CONTEXT / DOWNSTREAM_CONTEXT) or that has no transformer
+    of its own and only one connection. GI Jatake as an "output bay" on the
+    Balaraja side is a spur; a real next-tier GI is core.
+
+    Returns (core_ids, spur: {spur_sub_id: feeder_sub_id}).
+    """
+    nodes, edges, roles, _, _ = get_view_graph(db, view)
+    sub_ids = {k[1] for k in nodes if k[0] == "SUBSTATION"}
+
+    deg: dict[int, int] = defaultdict(int)
+    neigh: dict[int, list[int]] = defaultdict(list)
+    for c in edges:
+        deg[c.from_substation_id] += 1
+        deg[c.to_substation_id] += 1
+        neigh[c.from_substation_id].append(c.to_substation_id)
+        neigh[c.to_substation_id].append(c.from_substation_id)
+
+    context_roles = {"BOUNDARY", "EXTERNAL_CONTEXT", "DOWNSTREAM_CONTEXT"}
+    spur: dict[int, int] = {}
+    for sid in sub_ids:
+        role = roles.get(("SUBSTATION", sid), "")
+        if deg.get(sid, 0) == 1 and (role in context_roles):
+            spur[sid] = neigh[sid][0]
+
+    core_ids = sub_ids - set(spur)
+    return core_ids, spur

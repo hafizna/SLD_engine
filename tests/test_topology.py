@@ -21,14 +21,23 @@ def test_profiles_exist():
     assert {"BACKBONE_500", "IBT_500_150", "SUBSYSTEM_150"}.issubset(RULE_PROFILES)
 
 
+def test_two_views_only_no_merged(db):
+    from app.models import AnalyticalView
+    keys = {v.view_key for v in db.query(AnalyticalView).all()}
+    assert keys == {"SS_LBK_KEMBANGAN", "SS_LBK_BALARAJA"}
+
+
 def test_sources_are_tier_1(db):
-    t = _tier_by_code(db, _view(db, "SS_LBK_FULL"))
-    for code in ("KMBGN", "NBRJA", "LTKNG", "GITET_KMBGN", "GITET_NBRJA"):
+    t = _tier_by_code(db, _view(db, "SS_LBK_KEMBANGAN"))
+    for code in ("KMBGN", "GITET_KMBGN"):
+        assert t[code] == 1, f"{code} should be Tier 1, got {t[code]}"
+    t = _tier_by_code(db, _view(db, "SS_LBK_BALARAJA"))
+    for code in ("NBRJA", "LTKNG", "GITET_NBRJA"):
         assert t[code] == 1, f"{code} should be Tier 1, got {t[code]}"
 
 
 def test_tier_increases_downstream(db):
-    t = _tier_by_code(db, _view(db, "SS_LBK_FULL"))
+    t = _tier_by_code(db, _view(db, "SS_LBK_KEMBANGAN"))
     # New Senayan (fed from Kembangan) then Senayan (fed from New Senayan)
     assert t["NSYAN"] == 2
     assert t["SNYAN"] == 3
@@ -36,28 +45,38 @@ def test_tier_increases_downstream(db):
 
 def test_not_yet_energised_gitet_is_not_in_tier_graph(db):
     """GITET New Cikupa is NEW_NOT_ENERGIZED -> node exists, no Tier."""
-    t = _tier_by_code(db, _view(db, "SS_LBK_FULL"))
+    t = _tier_by_code(db, _view(db, "SS_LBK_BALARAJA"))
     assert "NCKUPA" in t
     assert t["NCKUPA"] is None
     assert t["TGBRU_3"] is None
 
 
 def test_jatake_tier_is_context_dependent(db):
-    """Jatake appears in both SLDs; Tier differs by which seed reaches it.
-    This is why Tier is computed per-view and never stored on Substation."""
+    """Jatake is drawn on BOTH SLDs at DIFFERENT Tiers (the book's own layout):
+    Tier 5 on the Kembangan drawing (a Cikupa spur), Tier 6 on the Balaraja
+    drawing (an output bay off Tier 6). This is why Tier is per-view, never a
+    column on Substation."""
     t_bal = _tier_by_code(db, _view(db, "SS_LBK_BALARAJA"))
     t_kem = _tier_by_code(db, _view(db, "SS_LBK_KEMBANGAN"))
-    assert t_bal["JTAKE"] == 5              # reached via Cikupa on the Balaraja side
-    assert t_kem["JTAKE"] is None           # the Kembangan SLD alone doesn't feed it
-    assert not hasattr(Substation, "tier")  # tier is never a column
+    assert t_kem["JTAKE"] == 5
+    assert t_bal["JTAKE"] == 6
+    assert not hasattr(Substation, "tier")
+
+
+def test_suvarna_tier_differs_by_drawing(db):
+    """Suvarna Sutra: Tier 5 on Kembangan (spur off Cikupa T4), Tier 3 on
+    Balaraja (fed from Sindang Jaya / Balaraja)."""
+    t_kem = _tier_by_code(db, _view(db, "SS_LBK_KEMBANGAN"))
+    t_bal = _tier_by_code(db, _view(db, "SS_LBK_BALARAJA"))
+    assert t_kem["SVRNA"] == 5
+    assert t_bal["SVRNA"] == 3
 
 
 def test_load_transformer_does_not_add_a_tier(db):
     """Ulujami is a dead-end GI (150/20 load only). It must not create a Tier-4
     '20 kV' node -- downstream load is not tier progression."""
-    v = _view(db, "SS_LBK_FULL")
+    v = _view(db, "SS_LBK_KEMBANGAN")
     nodes, edges, _, _, _ = get_view_graph(db, v)
-    # no circuit leaves Ulujami toward another substation
     ulj = db.query(Substation).filter_by(code="ULJMI").first()
     out = [c for c in edges if ulj.id in (c.from_substation_id, c.to_substation_id)]
     assert len(out) == 1  # only the feed from New Senayan

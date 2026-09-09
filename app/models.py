@@ -245,6 +245,10 @@ class Circuit(Base):
     single_phi: Mapped[bool] = mapped_column(Boolean, default=False)   # "single phi" configuration
     status: Mapped[str] = mapped_column(String(30), default="ENERGIZED")
     scenario_id: Mapped[str] = mapped_column(String(40), default="NORMAL")
+    # which SLD drawing this circuit is drawn on. A subsystem can span several
+    # book SLDs (SS_LBK: "K" = sisi Kembangan hal.69, "B" = sisi Balaraja hal.70);
+    # a view filters to its own drawing so the two are not force-merged.
+    drawing_side: Mapped[str | None] = mapped_column(String(8), nullable=True)
     from_bay_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     to_bay_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     source_document_id: Mapped[int | None] = mapped_column(ForeignKey("source_document.id"), nullable=True)
@@ -337,6 +341,8 @@ class AnalyticalView(Base):
     subsystem_id: Mapped[int | None] = mapped_column(ForeignKey("subsystem.id"), nullable=True)
     scenario_id: Mapped[str] = mapped_column(String(40), default="NORMAL")
     layout_hint: Mapped[str | None] = mapped_column(String(40), nullable=True)  # e.g. "KEMBANGAN_SIDE" / "BALARAJA_SIDE"
+    # restrict this view to circuits drawn on one book SLD ("K"/"B"); NULL = all
+    drawing_side: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
 
 class ViewMembership(Base):

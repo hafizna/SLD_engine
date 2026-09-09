@@ -37,29 +37,42 @@ def test_subsystems_lists_ss_lbk(client):
     assert any(s["code"] == "SS_LBK" for s in data)
 
 
+def test_two_views_no_merged(client):
+    keys = {v["view_key"] for v in client.get("/api/views").json()}
+    assert keys == {"SS_LBK_KEMBANGAN", "SS_LBK_BALARAJA"}
+
+
 def test_view_graph_contract(client):
     views = client.get("/api/views").json()
-    full = next(v for v in views if v["view_key"] == "SS_LBK_FULL")
-    g = client.get(f"/api/views/{full['id']}/graph").json()
+    bal = next(v for v in views if v["view_key"] == "SS_LBK_BALARAJA")
+    g = client.get(f"/api/views/{bal['id']}/graph").json()
 
     assert g["view"]["rule_profile"] == "SUBSYSTEM_150"
-    assert len(g["nodes"]) > 30
-    assert len(g["edges"]) > 30
+    assert len(g["nodes"]) > 20
+    assert len(g["edges"]) > 20
     assert len(g["overlays"]["risk"]) == 6
     assert len(g["overlays"]["defense_scheme"]) == 3
 
-    kmbgn = next(n for n in g["nodes"] if n.get("code") == "KMBGN")
-    assert kmbgn["tier"] == 1
-    assert kmbgn["role"] == "SOURCE"
+    nbrja = next(n for n in g["nodes"] if n.get("code") == "NBRJA")
+    assert nbrja["tier"] == 1
+    assert nbrja["role"] == "SOURCE"
 
     nckupa = next(n for n in g["nodes"] if n.get("code") == "NCKUPA")
     assert nckupa["status"] == "NEW_NOT_ENERGIZED"
     assert nckupa["tier"] is None
 
 
+def test_kembangan_view_has_kmbgn_tier_1(client):
+    views = client.get("/api/views").json()
+    kem = next(v for v in views if v["view_key"] == "SS_LBK_KEMBANGAN")
+    g = client.get(f"/api/views/{kem['id']}/graph").json()
+    kmbgn = next(n for n in g["nodes"] if n.get("code") == "KMBGN")
+    assert kmbgn["tier"] == 1
+
+
 def test_sld_svg_renders(client):
     views = client.get("/api/views").json()
-    full = next(v for v in views if v["view_key"] == "SS_LBK_FULL")
+    full = next(v for v in views if v["view_key"] == "SS_LBK_BALARAJA")
     r = client.get(f"/api/views/{full['id']}/sld.svg")
     assert r.status_code == 200
     assert r.headers["content-type"] == "image/svg+xml"
