@@ -1,0 +1,18 @@
+# Render.com blueprint -- https://render.com/docs/blueprint-spec
+# Free web service. SQLite is seeded on boot (SS_LBK), so no separate DB needed
+# for the demo. Move DATABASE_URL to a Render Postgres instance when the data
+# needs to persist across deploys.
+services:
+  - type: web
+    name: mantaps-topology-engine
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: DATABASE_URL
+        value: "sqlite:////tmp/mantaps.db"
