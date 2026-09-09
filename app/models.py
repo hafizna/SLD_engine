@@ -178,9 +178,11 @@ class GeneratingUnit(Base):
     voltage_kv: Mapped[float] = mapped_column(Float, default=150.0)
     rated_mw: Mapped[float | None] = mapped_column(Float, nullable=True)
     unit_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # connection point: the substation this plant feeds via its GSU / outlet
+    # connection point: the substation this plant feeds via its GSU / outlet,
+    # OR a circuit it taps in the middle (e.g. a small standby PLTD on a line).
     outlet_substation_id: Mapped[int | None] = mapped_column(ForeignKey("substation.id"), nullable=True)
-    status: Mapped[str] = mapped_column(String(30), default="ENERGIZED")
+    tap_circuit_id: Mapped[int | None] = mapped_column(ForeignKey("circuit.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="ENERGIZED")  # ENERGIZED / STANDBY / OFF
     operator: Mapped[str | None] = mapped_column(String(60), nullable=True)  # PIP / PNP / IPP
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=1.0)

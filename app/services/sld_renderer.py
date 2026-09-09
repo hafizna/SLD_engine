@@ -216,6 +216,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             row_of[sid] = float(tier[("SUBSTATION", sid)])
     gen_row: dict[int, float] = {}
     for g in gens.values():
+        if not g.outlet_substation_id:
+            continue  # tap-circuit generator: drawn on the circuit, not in a row
         ft = tier.get(("SUBSTATION", g.outlet_substation_id))
         gen_row[g.id] = (ft - 0.85) if ft else 0.2
 
@@ -223,7 +225,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     for sid, rk in row_of.items():
         rows[rk].append(sid)
 
-    # parent (feeder) of each GI, for x-nudging
+    # parent (the node to sit above/below) for x-nudging. For a normal edge the
+    # parent is the higher-Tier (upstream) end; for an UPWARD "bay panjang"
+    # (child Tier < feeder Tier) the child is nudged toward its FEEDER instead,
+    # so e.g. Cikupa lands above Curug rather than far away.
     parent: dict[int, int] = {}
     for c in line_edges:
         a, b = c.from_substation_id, c.to_substation_id
@@ -234,6 +239,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             parent.setdefault(b, a)
         elif tb < ta:
             parent.setdefault(a, b)
+            parent[b] = a          # upward: child (lower Tier) toward its feeder
     for hv, lv in gitet_feeds.items():
         parent[hv] = lv  # GITET nudged to its GI
 
@@ -422,13 +428,35 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # ---- generators --------------------------------------------
     p.append('<g id="generators">')
     for gid, g in gens.items():
+        standby = (g.status or "").upper() in ("STANDBY", "OFF")
+        col = "#7c9a6a" if standby else "#0a8a3a"
+        if g.tap_circuit_id:
+            # a small plant tapping a circuit -> a point + small symbol + label
+            # at the midpoint of that circuit's span
+            c = next((e for e in line_edges if e.id == g.tap_circuit_id), None)
+            a = pos.get(c.from_substation_id) if c else None
+            b = pos.get(c.to_substation_id) if c else None
+            if not a or not b:
+                continue
+            fx = port(c.from_substation_id, f"c{c.id}")
+            tx = port(c.to_substation_id, f"c{c.id}")
+            mx = (fx + tx) / 2
+            my = (a[1] + b[1]) / 2
+            p.append(f'<g><title>{esc(g.name)} ({esc(g.unit_type)}) - {esc(g.status)} - '
+                     f'tap ruas {esc(c.name)}</title>')
+            p.append(f'<circle cx="{mx:.1f}" cy="{my:.1f}" r="3.5" fill="{col}"/>')
+            p.append(f'<path d="M{mx:.1f},{my:.1f} h22" stroke="{col}" stroke-width="1.6"/>')
+            p.append(_sym_generator(mx + 22, my - 6, col))
+            p.append(f'<text x="{mx + 34:.1f}" y="{my - 2:.1f}" font-size="9" fill="{col}">'
+                     f'{esc(g.name)}{" (standby)" if standby else ""}</text>')
+            p.append('</g>')
+            continue
         outlet = pos.get(g.outlet_substation_id)
         gx = port(g.outlet_substation_id, f"gen{g.id}", gen_pos[gid][0]) if outlet else gen_pos[gid][0]
         gy = gen_pos[gid][1]
-        col = "#0a8a3a"
         p.append(_sym_generator(gx, gy - 30, col))
         p.append(f'<text x="{gx:.1f}" y="{gy - 42:.1f}" font-size="10" text-anchor="middle" '
-                 f'fill="#0a8a3a">{esc(g.name)}</text>')
+                 f'fill="{col}">{esc(g.name)}</text>')
         if outlet:
             p.append(f'<path d="M{gx:.1f},{gy:.1f} V{outlet[1] - CB_GAP:.1f}" fill="none" '
                      f'stroke="{col}" stroke-width="2"/>')
@@ -441,6 +469,14 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         s = subs[sid]
         x, y = pos[sid]
         bh = bus_half(sid)
+        # a GITET busbar must span the IBT chains that hang below it
+        if sid in [hv for (hv, lv) in ibt_links_by_pair]:
+            lv = gitet_feeds[sid]
+            base = port(lv, "ibt")
+            n = len(ibt_links_by_pair[(sid, lv)])
+            spanneed = (n - 1) * 26 / 2 + 26
+            lo, hi = min(x - bh, base - spanneed), max(x + bh, base + spanneed)
+            x, bh = (lo + hi) / 2, (hi - lo) / 2
         vcol = _vcol(s.voltage_kv)
         bstroke = STATUS_STROKE.get(s.status) or vcol
         bdash = STATUS_DASH.get(s.status, "none")

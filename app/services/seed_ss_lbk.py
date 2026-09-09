@@ -119,11 +119,6 @@ SUBSTATIONS = [
          busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
          tier_k=3, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
          note="GIS kawasan Zero Down Time (ZDT), disuplai radial dari SKTT New Senayan-Senayan. Kerawanan #6."),
-    dict(code="PLTD_SNYAN", name="PLTD Senayan", type="GIS", voltage=150, status="ENERGIZED",
-         busbar_config="UNKNOWN", busbar_note=None, role="DOWNSTREAM_CONTEXT", external_subsystem=None,
-         tier_k=3, tier_b=None, has_transformer=False, has_capacitor=False, symbol_note=None,
-         note="GIS kecil di jalur Senayan-Danayasa. PLTD standby (input langsung ke sistem). "
-              "TIDAK punya risk. Ruas Senayan-PLTD-Danayasa single phi (usulan double phi)."),
     dict(code="ULJMI", name="Ulujami", type="GI", voltage=150, status="ENERGIZED",
          busbar_config="UNKNOWN", busbar_note=None, role="CORE", external_subsystem=None,
          tier_k=3, tier_b=None, has_transformer=True, has_capacitor=False, symbol_note=None,
@@ -226,9 +221,11 @@ SUBSTATIONS = [
 ]
 
 # Generating units  (code, name, unit_type, voltage, rated_mw, unit_count, outlet_code, operator, status)
+# outlet_code may be a substation code (feeds that bus) or a circuit code
+# prefixed "@" (taps that circuit -- e.g. PLTD Senayan on the Senayan-Danayasa run).
 GENERATORS = [
     ("PLTU_LONTAR", "PLTU Lontar", "PLTU", 150, 945.0, 4, "LTKNG", "PIP", "ENERGIZED"),
-    ("PLTD_SNYAN_GEN", "PLTD Senayan", "PLTD", 150, None, None, "PLTD_SNYAN", "PLN", "STANDBY"),
+    ("PLTD_SNYAN_GEN", "PLTD Senayan", "PLTD", 150, None, None, "@SKTT_SNYAN_DNYSA_SP", "PLN", "STANDBY"),
 ]
 
 # Transformers  (code, name, type, substation_code, unit_no, rating_mva, windings[(no,kv,role)])
@@ -263,8 +260,7 @@ CIRCUITS = [
     ("SKTT_NSYAN_SNYAN", "New Senayan - Senayan", "SKTT", "NSYAN", "SNYAN", 150, None, 2, False, "ENERGIZED", 1.0, "K", "2 sirkit. Kerawanan #6: Senayan (GIS ZDT) hanya bersumber dari New Senayan (tidak ada backup GI lain); N-1-1 di hulu Kembangan-New Senayan -> Senayan padam."),
     ("PHT_NSYAN_ULJMI", "New Senayan - Ulujami", "SKTT", "NSYAN", "ULJMI", 150, None, 2, False, "ENERGIZED", 0.6, "K", "Ulujami dead-end load"),
     ("SKTT_SNYAN_DNYSA_DIRECT", "Senayan - Danayasa (direct)", "SKTT", "SNYAN", "DNYSA", 150, None, 1, False, "ENERGIZED", 0.5, "K", "1 sirkit direct. DNYSA boundary -> Gandul 2,4"),
-    ("SKTT_SNYAN_PLTDSNYAN", "Senayan - PLTD Senayan", "SKTT", "SNYAN", "PLTD_SNYAN", 150, None, 1, True, "ENERGIZED", 0.5, "K", "Single phi. Sirkit ke-2 Senayan-Danayasa mampir PLTD Senayan."),
-    ("SKTT_PLTDSNYAN_DNYSA", "PLTD Senayan - Danayasa", "SKTT", "PLTD_SNYAN", "DNYSA", 150, None, 1, True, "ENERGIZED", 0.5, "K", "Single phi. Sistem single-phi Senayan-PLTD-Danayasa; usulan double phi."),
+    ("SKTT_SNYAN_DNYSA_SP", "Senayan - Danayasa (via PLTD Senayan, single phi)", "SKTT", "SNYAN", "DNYSA", 150, None, 1, True, "ENERGIZED", 0.5, "K", "Sirkit ke-2 'mampir' PLTD Senayan (standby). Sistem single-phi Senayan-PLTD-Danayasa; usulan double phi."),
     ("SKTT_SNYAN_ABDGP", "Senayan - Abadi Guna Papan", "SKTT", "SNYAN", "ABDGP", 150, None, 1, False, "PLANNED", 0.4, "K", "Bay abu -> PLANNED (belum jadi)"),
     ("PHT_CLDUG_ALTRA", "Ciledug - Alam Sutera", "SKTT", "CLDUG", "ALTRA", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
     ("PHT_ALTRA_SGS", "Alam Sutera - Summarecon Gading Serpong", "SKTT", "ALTRA", "SGS", 150, None, 2, False, "ENERGIZED", 0.6, "K", "traced"),
@@ -478,21 +474,9 @@ def seed_ss_lbk(db: Session) -> None:
             display_order=d["tier_k"] or d["tier_b"],
         ))
 
-    gens: dict[str, GeneratingUnit] = {}
-    for (code, name, utype, kv, mw, ucnt, outlet, op, status) in GENERATORS:
-        g = GeneratingUnit(
-            code=code, name=name, unit_type=utype, voltage_kv=kv, rated_mw=mw,
-            unit_count=ucnt, outlet_substation_id=subs[outlet].id, operator=op,
-            status=status,
-        )
-        db.add(g)
-        gens[code] = g
-    db.flush()
-    for code in gens:
-        db.add(SubsystemMembership(
-            subsystem_id=ss.id, node_kind="GENERATING_UNIT", node_id=gens[code].id,
-            role="SOURCE", display_order=1,
-        ))
+    # circuits are created below; a generator that taps a circuit is wired
+    # after the circuits pass, so defer those.
+    _gen_defs = list(GENERATORS)
 
     txs: dict[str, Transformer] = {}
     for (code, name, ttype, scode, unit, mva, windings) in TRANSFORMERS:
@@ -526,6 +510,24 @@ def seed_ss_lbk(db: Session) -> None:
         db.add(c)
         circuits[code] = c
     db.flush()
+
+    gens: dict[str, GeneratingUnit] = {}
+    for (code, name, utype, kv, mw, ucnt, outlet, op, status) in _gen_defs:
+        kw = dict(code=code, name=name, unit_type=utype, voltage_kv=kv, rated_mw=mw,
+                  unit_count=ucnt, operator=op, status=status)
+        if outlet.startswith("@"):
+            kw["tap_circuit_id"] = circuits[outlet[1:]].id
+        else:
+            kw["outlet_substation_id"] = subs[outlet].id
+        g = GeneratingUnit(**kw)
+        db.add(g)
+        gens[code] = g
+    db.flush()
+    for code in gens:
+        db.add(SubsystemMembership(
+            subsystem_id=ss.id, node_kind="GENERATING_UNIT", node_id=gens[code].id,
+            role="SOURCE", display_order=1,
+        ))
 
     from app.models import Bay
     for (gi, feeder, side, status, note) in BAYS:
@@ -595,6 +597,7 @@ def seed_ss_lbk(db: Session) -> None:
     db.flush()
 
     id_to_code = {s.id: code for code, s in subs.items()}
+    circuits_by_id = {c.id: c for c in circuits.values()}
     tier_for = {"K": tier_k, "B": tier_b}
 
     # a GI is in a side's view if it has a book Tier on that side OR is an
@@ -621,10 +624,18 @@ def seed_ss_lbk(db: Session) -> None:
                 role=role, tier_seed=bt, display_order=bt,
             ))
         for g in gens.values():
-            if g.outlet_substation_id in side_subs[side]:
+            in_side = (g.outlet_substation_id in side_subs[side]) or (
+                g.tap_circuit_id is not None
+                and {circuits_by_id[g.tap_circuit_id].from_substation_id,
+                     circuits_by_id[g.tap_circuit_id].to_substation_id} & side_subs[side]
+            )
+            if in_side:
+                # a standby plant is not a Tier-1 seed
+                seed = 1 if g.status == "ENERGIZED" else None
                 db.add(ViewMembership(
                     view_id=view.id, node_kind="GENERATING_UNIT", node_id=g.id,
-                    role="SOURCE", tier_seed=1, display_order=1,
+                    role="SOURCE" if seed else "DOWNSTREAM_CONTEXT",
+                    tier_seed=seed, display_order=seed,
                 ))
 
     add_view_members(v_kem, "K")
