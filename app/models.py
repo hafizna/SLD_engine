@@ -429,6 +429,9 @@ class RiskRecord(Base):
     subsystem_id: Mapped[int | None] = mapped_column(ForeignKey("subsystem.id"), nullable=True)
     view_id: Mapped[int | None] = mapped_column(ForeignKey("analytical_view.id"), nullable=True)
     seq_no: Mapped[int | None] = mapped_column(Integer, nullable=True)  # "No" column in the book table
+    # contingency category of the vulnerability: N-1 / N-2 / N-1-1, or N-0 for
+    # a non-contingency vulnerability (bottleneck MTU, single-phi, ZDT, ...)
+    category: Mapped[str | None] = mapped_column(String(12), nullable=True)
     uit: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # what it attaches to (GI, circuit, transformer, ...)
     attach_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -507,14 +510,59 @@ class TopologyVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class ChangeRequest(Base):
+    """One proposed topology change -- a group of ChangeSet lines applied
+    together. PROBIS_KONSEP.md step 01-05:
+
+        DRAFT  -> user is still filling the form / adding lines
+        SUBMITTED -> sent for validation
+        VALIDATED -> automatic checks passed (no isolated GI, seed intact, ...)
+        REVIEWED  -> a P2B peer read the diff and approved
+        PUBLISHED -> applied to the canonical tables; a TopologyVersion is
+                     created ACTIVE and the previous one SUPERSEDED
+        REJECTED  -> not applied; kept as a record
+
+    A structural change (GITET COD, line commissioned/de-energised for years,
+    subsystem split). Operating-pattern changes go through scenario_id, not
+    here.
+    """
+
+    __tablename__ = "change_request"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    cr_key: Mapped[str] = mapped_column(String(60), unique=True)   # CR-2026-0007
+    title: Mapped[str] = mapped_column(String(255))
+    kind: Mapped[str] = mapped_column(String(20), default="STRUCTURAL")  # STRUCTURAL / OPERATING
+    subsystem_id: Mapped[int | None] = mapped_column(ForeignKey("subsystem.id"), nullable=True)
+    view_id: Mapped[int | None] = mapped_column(ForeignKey("analytical_view.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="DRAFT")
+    effective_date: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "berlaku sejak"
+    source_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)     # RUPTL / surat / DS
+    submitted_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    validation_json: Mapped[str | None] = mapped_column(Text, nullable=True)   # last auto-check result
+    impact_json: Mapped[str | None] = mapped_column(Text, nullable=True)       # last impact preview
+    published_version_id: Mapped[int | None] = mapped_column(ForeignKey("topology_version.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class ChangeSet(Base):
+    """One line of a ChangeRequest -- the automatic change log (PROBIS §3:
+    'setiap baris yang diedit dicatat sebagai satu entri ChangeSet')."""
+
     __tablename__ = "change_set"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     change_key: Mapped[str] = mapped_column(String(60), unique=True)
+    change_request_id: Mapped[int | None] = mapped_column(ForeignKey("change_request.id"), nullable=True)
     version_id: Mapped[int | None] = mapped_column(ForeignKey("topology_version.id"), nullable=True)
-    action: Mapped[str] = mapped_column(String(30))  # ADD_GI / ADD_BAY / COMMISSION_LINE / MOVE_BAY / MODEL / ...
+    seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # SET_STATUS / ADD_CIRCUIT / REMOVE_CIRCUIT / PATCH_CIRCUIT / ADD_GI /
+    # REMOVE_GI / PATCH_GI / MOVE_MEMBERSHIP / ADD_SUBSYSTEM / SET_RISK
+    action: Mapped[str] = mapped_column(String(30))
     target_kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
     target_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # the change data
     description: Mapped[str] = mapped_column(Text, default="")
-    status: Mapped[str] = mapped_column(String(20), default="PROPOSED")
+    status: Mapped[str] = mapped_column(String(20), default="PROPOSED")   # PROPOSED / APPLIED / SKIPPED

@@ -15,6 +15,7 @@ def client():
     importlib.reload(db_mod)
     for name in ("app.models", "app.services.topology", "app.services.reconciliation",
                  "app.services.sld_renderer", "app.services.ingestion",
+                 "app.services.editor", "app.services.editor_risks",
                  "app.services.seed_ss_lbk", "app.services.seed_ss_bll",
                  "app.services.seed", "app.api.routes", "app.main"):
         importlib.reload(importlib.import_module(name))
@@ -166,3 +167,78 @@ def test_layout_roundtrip(client):
     assert abs(float(m.group(1)) - 900.0) < 5
     assert abs(float(m.group(2)) - 640.0) < 5
     assert client.delete(f"/api/views/{vid}/layout").json()["cleared"] == 1
+
+
+def test_change_request_workflow(client):
+    """PROBIS_KONSEP.md: a structural change is a ChangeRequest -> validate ->
+    impact preview -> review -> publish (new TopologyVersion, old superseded)."""
+    views = client.get("/api/views").json()
+    vid = next(v["id"] for v in views if v["view_key"] == "SS_LBK_BALARAJA")
+
+    # NCKUPA is NEW_NOT_ENERGIZED -> not in the graph; edit does not touch canon yet
+    g0 = client.get(f"/api/views/{vid}/graph").json()
+    n0 = next((n for n in g0["nodes"] if n.get("code") == "NCKUPA"), None)
+    assert n0 is not None and n0["status"] == "NEW_NOT_ENERGIZED"
+
+    cr = client.post(f"/api/views/{vid}/change-requests", json={
+        "title": "COD GITET New Cikupa", "effective_date": "2026-11-01",
+        "source_ref": "RUPTL 2025-2034",
+    }).json()
+    crid = cr["id"]
+    assert cr["status"] == "DRAFT"
+
+    client.post(f"/api/change-requests/{crid}/lines", json={
+        "action": "SET_STATUS", "target_kind": "SUBSTATION", "target_ref": "NCKUPA",
+        "payload": {"status": "ENERGIZED"}})
+    client.post(f"/api/change-requests/{crid}/lines", json={
+        "action": "SET_STATUS", "target_kind": "CIRCUIT", "target_ref": "PHT_NCKUPA_JTAKE",
+        "payload": {"status": "ENERGIZED"}})
+
+    # canon unchanged until publish
+    assert next(n for n in client.get(f"/api/views/{vid}/graph").json()["nodes"]
+                if n.get("code") == "NCKUPA")["status"] == "NEW_NOT_ENERGIZED"
+
+    val = client.post(f"/api/change-requests/{crid}/validate").json()
+    assert val["ok"] is True
+
+    imp = client.post(f"/api/change-requests/{crid}/impact").json()
+    assert "PHT_NCKUPA_JTAKE" in imp["circuit_added"]
+    assert any(t["code"] == "NCKUPA" for t in imp["tier_changes"])
+
+    client.post(f"/api/change-requests/{crid}/review", json={"reviewed_by": "tester"})
+    pub = client.post(f"/api/change-requests/{crid}/publish", json={"reviewed_by": "tester"}).json()
+    assert pub["version"].startswith("TV-SS_LBK-CR-")
+    assert pub["superseded"] == "TV-SS_LBK-2026-06"
+    assert pub["applied"] == 2
+
+    # now the canon reflects it
+    nf = next(n for n in client.get(f"/api/views/{vid}/graph").json()["nodes"]
+              if n.get("code") == "NCKUPA")
+    assert nf["status"] == "ENERGIZED"
+    assert nf["tier"] is not None
+
+
+def test_cr_validation_blocks_isolating_a_gi(client):
+    views = client.get("/api/views").json()
+    vid = next(v["id"] for v in views if v["view_key"] == "SS_BLL_FULL")
+    crid = client.post(f"/api/views/{vid}/change-requests", json={"title": "bad"}).json()["id"]
+    # de-energise the only feed into Tigaraksa -> it should become isolated
+    client.post(f"/api/change-requests/{crid}/lines", json={
+        "action": "REMOVE_CIRCUIT", "target_kind": "CIRCUIT", "target_ref": "SUTT_CITRA_TGRSA"})
+    val = client.post(f"/api/change-requests/{crid}/validate").json()
+    assert val["ok"] is False
+    assert any("terisolasi" in p for p in val["problems"])
+
+
+def test_kerawanan_category_dropdown(client):
+    views = client.get("/api/views").json()
+    vid = next(v["id"] for v in views if v["view_key"] == "SS_BLL_FULL")
+    r = client.post(f"/api/views/{vid}/risks", json={
+        "category": "N-1-1", "title": "uji", "condition": "x",
+        "mitigation": "y", "follow_up": "z", "priority": "High",
+        "attach_kind": "CIRCUIT", "attach_code": "SUTT_LKBRU_SRPNG"}).json()
+    assert r["category"] == "N-1-1"
+    rk = r["risk_key"]
+    r2 = client.patch(f"/api/risks/{rk}", json={"category": "N-0"}).json()
+    assert r2["category"] == "N-0"
+    assert client.delete(f"/api/risks/{rk}").json()["deleted"] == rk

@@ -9,6 +9,7 @@ toggle layers.
 from __future__ import annotations
 
 import io
+import json
 import tempfile
 from datetime import datetime
 
@@ -29,7 +30,19 @@ from app.models import (
     Subsystem,
     Transformer,
 )
-from app.schemas import CreateViewIn, LayoutPatchIn, ObservationBatchIn
+from app.schemas import (
+    CRCreateIn,
+    CRLineIn,
+    CRRejectIn,
+    CRReviewIn,
+    CreateViewIn,
+    LayoutPatchIn,
+    ObservationBatchIn,
+    RiskIn,
+    RiskPatch,
+)
+from app.services import editor, editor_risks
+from app.services.editor import EditError
 from app.services.excel_register import export_register
 from app.services.ingestion import save_observation_batch
 from app.services.reconciliation import classify, find_candidates
@@ -134,9 +147,10 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
     if v.subsystem_id:
         for r in db.query(RiskRecord).filter(RiskRecord.subsystem_id == v.subsystem_id).order_by(RiskRecord.seq_no).all():
             risks.append({
-                "risk_key": r.risk_key, "seq_no": r.seq_no, "title": r.title,
-                "condition": r.condition, "impact": r.impact, "mitigation": r.mitigation,
-                "follow_up": r.follow_up, "priority": r.priority, "status": r.status,
+                "risk_key": r.risk_key, "seq_no": r.seq_no, "category": r.category,
+                "title": r.title, "condition": r.condition, "impact": r.impact,
+                "mitigation": r.mitigation, "follow_up": r.follow_up,
+                "horizon": r.horizon, "priority": r.priority, "status": r.status,
                 "attach_kind": r.attach_kind, "attach_id": r.attach_id, "attach_label": r.attach_label,
             })
         rel_by_scheme: dict[int, list] = {}
@@ -243,6 +257,169 @@ def reset_layout(view_id: int, db: Session = Depends(get_db)):
     n = db.query(DiagramNodePosition).filter(DiagramNodePosition.view_id == view_id).delete()
     db.commit()
     return {"view_id": view_id, "cleared": n}
+
+
+# ---- topology change requests (PROBIS_KONSEP.md) --------------------
+# Edits from the SLD do NOT touch the canonical tables directly. They become
+# lines of a ChangeRequest that is validated, previewed, reviewed, then
+# published as a new TopologyVersion.
+
+def _cr_out(cr, db):
+    return {
+        "id": cr.id, "cr_key": cr.cr_key, "title": cr.title, "kind": cr.kind,
+        "status": cr.status, "effective_date": cr.effective_date,
+        "source_ref": cr.source_ref, "submitted_by": cr.submitted_by,
+        "reviewed_by": cr.reviewed_by, "view_id": cr.view_id,
+        "validation": json.loads(cr.validation_json) if cr.validation_json else None,
+        "impact": json.loads(cr.impact_json) if cr.impact_json else None,
+        "lines": [
+            {"change_key": l.change_key, "seq": l.seq, "action": l.action,
+             "target_kind": l.target_kind, "target_ref": l.target_ref,
+             "payload": json.loads(l.payload_json or "{}"),
+             "description": l.description, "status": l.status}
+            for l in editor.lines(db, cr.id)
+        ],
+    }
+
+
+@router.get("/change-requests")
+def list_crs(db: Session = Depends(get_db)):
+    from app.models import ChangeRequest
+    return [_cr_out(cr, db) for cr in
+            db.query(ChangeRequest).order_by(ChangeRequest.id.desc()).all()]
+
+
+@router.get("/change-requests/{cr_id}")
+def get_cr(cr_id: int, db: Session = Depends(get_db)):
+    from app.models import ChangeRequest
+    cr = db.get(ChangeRequest, cr_id)
+    if not cr:
+        raise HTTPException(404, "CR not found")
+    return _cr_out(cr, db)
+
+
+@router.post("/views/{view_id}/change-requests")
+def open_cr(view_id: int, payload: CRCreateIn, db: Session = Depends(get_db)):
+    try:
+        cr = editor.create_cr(db, view_id, payload.title, payload.effective_date,
+                              payload.source_ref, payload.submitted_by, payload.kind)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+    return _cr_out(cr, db)
+
+
+@router.post("/change-requests/{cr_id}/lines")
+def add_cr_line(cr_id: int, payload: CRLineIn, db: Session = Depends(get_db)):
+    try:
+        editor.add_change(db, cr_id, payload.action, payload.target_kind,
+                          payload.target_ref, payload.payload, payload.description)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+    from app.models import ChangeRequest
+    return _cr_out(db.get(ChangeRequest, cr_id), db)
+
+
+@router.delete("/change-requests/{cr_id}/lines/{change_key}")
+def del_cr_line(cr_id: int, change_key: str, db: Session = Depends(get_db)):
+    try:
+        editor.remove_change(db, cr_id, change_key)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+    from app.models import ChangeRequest
+    return _cr_out(db.get(ChangeRequest, cr_id), db)
+
+
+@router.post("/change-requests/{cr_id}/validate")
+def validate_cr(cr_id: int, db: Session = Depends(get_db)):
+    try:
+        return editor.validate(db, cr_id)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/change-requests/{cr_id}/impact")
+def impact_cr(cr_id: int, db: Session = Depends(get_db)):
+    try:
+        return editor.impact(db, cr_id)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/change-requests/{cr_id}/review")
+def review_cr(cr_id: int, payload: CRReviewIn, db: Session = Depends(get_db)):
+    try:
+        cr = editor.review(db, cr_id, payload.reviewed_by)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+    return _cr_out(cr, db)
+
+
+@router.post("/change-requests/{cr_id}/publish")
+def publish_cr(cr_id: int, payload: CRReviewIn, db: Session = Depends(get_db)):
+    try:
+        return editor.publish(db, cr_id, payload.reviewed_by)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/change-requests/{cr_id}/reject")
+def reject_cr(cr_id: int, payload: CRRejectIn, db: Session = Depends(get_db)):
+    try:
+        cr = editor.reject(db, cr_id, payload.reason)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+    return _cr_out(cr, db)
+
+
+# ---- kerawanan (risk points) -- direct edit; a kerawanan is an overlay,
+#      not structural topology, so it does not need the version workflow.
+
+def _risk_out(r):
+    return {"risk_key": r.risk_key, "seq_no": r.seq_no, "category": r.category,
+            "title": r.title, "condition": r.condition, "impact": r.impact,
+            "mitigation": r.mitigation, "follow_up": r.follow_up,
+            "horizon": r.horizon, "priority": r.priority, "status": r.status,
+            "attach_kind": r.attach_kind, "attach_code": r.attach_label}
+
+
+@router.get("/views/{view_id}/risks")
+def list_risks(view_id: int, db: Session = Depends(get_db)):
+    v = db.get(AnalyticalView, view_id)
+    if not v:
+        raise HTTPException(404, "View not found")
+    q = db.query(RiskRecord)
+    if v.subsystem_id:
+        q = q.filter(RiskRecord.subsystem_id == v.subsystem_id)
+    else:
+        q = q.filter(RiskRecord.view_id == v.id)
+    return [_risk_out(r) for r in q.order_by(RiskRecord.seq_no).all()]
+
+
+@router.post("/views/{view_id}/risks")
+def create_risk(view_id: int, payload: RiskIn, db: Session = Depends(get_db)):
+    try:
+        r = editor_risks.add_risk(db, view_id, payload)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+    return _risk_out(r)
+
+
+@router.patch("/risks/{risk_key}")
+def update_risk(risk_key: str, payload: RiskPatch, db: Session = Depends(get_db)):
+    try:
+        r = editor_risks.patch_risk(db, risk_key, payload)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+    return _risk_out(r)
+
+
+@router.delete("/risks/{risk_key}")
+def remove_risk(risk_key: str, db: Session = Depends(get_db)):
+    try:
+        editor_risks.delete_risk(db, risk_key)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+    return {"deleted": risk_key}
 
 
 # ---- observations / reconciliation -----------------------------------

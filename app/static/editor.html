@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MANTAPS &mdash; Editor Topologi &amp; Kerawanan</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #eef4fb; color: #0f274a; }
+  header { padding: 12px 20px; background: #0b5cab; color: #fff; display: flex; align-items: baseline; gap: 14px; }
+  header b { font-size: 15px; } header .sub { font-size: 12px; opacity: .85; }
+  header a { color: #cfe4ff; font-size: 12px; margin-left: auto; }
+  main { display: grid; grid-template-columns: 190px 1fr 380px; gap: 10px; padding: 10px; align-items: start; }
+  .card { background: #fff; border: 1px solid #dbe5f0; border-radius: 10px; padding: 12px; }
+  h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #5c6b7f; }
+  h4 { margin: 12px 0 4px; font-size: 12px; color: #33415c; }
+  button.view { width: 100%; text-align: left; padding: 8px 9px; margin: 3px 0; border: 1px solid #dbe5f0;
+    background: #fff; border-radius: 7px; cursor: pointer; font: inherit; font-size: 12px; }
+  button.view.active { border-color: #0b5cab; background: #eaf3ff; }
+  .small { font-size: 11px; color: #64748b; }
+  .svgwrap { overflow: auto; max-height: 80vh; border: 1px solid #dbe5f0; border-radius: 8px; background: #fff; }
+  .svgwrap svg { display: block; }
+  .svgwrap .sld-node, .svgwrap .sld-bay, .svgwrap g[data-circuit-id] { cursor: pointer; }
+  .svgwrap .sld-node:hover line, .svgwrap g[data-circuit-id]:hover path { stroke: #0b5cab !important; }
+  .sel-outline { outline: 2px dashed #0b5cab; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+  .tabs button { flex: 1; padding: 6px 4px; border: 1px solid #dbe5f0; background: #f7fafd;
+    border-radius: 6px; cursor: pointer; font: inherit; font-size: 11px; }
+  .tabs button.on { background: #0b5cab; color: #fff; border-color: #0b5cab; }
+  label { display: block; font-size: 11px; color: #47566b; margin: 6px 0 2px; font-weight: 600; }
+  input, select, textarea { width: 100%; padding: 6px 7px; border: 1px solid #cdd9e6; border-radius: 6px;
+    font: inherit; font-size: 12px; background: #fff; }
+  textarea { min-height: 42px; resize: vertical; }
+  .row { display: flex; gap: 6px; } .row > * { flex: 1; }
+  .act { margin-top: 9px; display: flex; gap: 6px; }
+  .act button { flex: 1; padding: 8px; border: 0; border-radius: 7px; cursor: pointer; font: inherit; font-weight: 700; font-size: 12px; }
+  .btn-primary { background: #0b5cab; color: #fff; } .btn-danger { background: #c0392b; color: #fff; }
+  .btn-ghost { background: #eef2f7; color: #33415c; } .btn-go { background: #1f7a3d; color: #fff; }
+  .msg { margin-top: 7px; font-size: 12px; padding: 7px 9px; border-radius: 6px; display: none; }
+  .msg.ok { background: #eaf7ee; color: #1f7a3d; display: block; }
+  .msg.err { background: #fdeceb; color: #b3261e; display: block; white-space: pre-wrap; }
+  .cs-line { font-size: 11px; padding: 5px 7px; margin: 3px 0; background: #f6f8fb; border-left: 3px solid #0b5cab; border-radius: 4px; display: flex; gap: 6px; align-items: center; }
+  .cs-line .x { margin-left: auto; cursor: pointer; color: #b3261e; font-weight: 700; }
+  .pill { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 10px; background: #e7edf5; color: #34506e; font-weight: 700; }
+  .pill.st-DRAFT,.pill.st-SUBMITTED { background: #eef2f7; }
+  .pill.st-VALIDATED { background: #e3f0ff; color: #1350a0; }
+  .pill.st-REVIEWED { background: #fef3d6; color: #8a5b00; }
+  .pill.st-PUBLISHED { background: #e2f5e8; color: #1f7a3d; }
+  .pill.st-REJECTED { background: #fde2e0; color: #b3261e; }
+  .impact { font-size: 11px; background: #f7fbff; border: 1px solid #dbe9f7; border-radius: 6px; padding: 8px; margin-top: 6px; }
+  .impact li { margin: 2px 0; }
+  .selinfo { font-size: 12px; background: #eef4fb; padding: 6px 8px; border-radius: 6px; margin-bottom: 8px; }
+  .risk-item { border-left: 3px solid #F6C000; padding: 6px 8px; margin: 5px 0; background: #fffdf5; border-radius: 4px; cursor: pointer; }
+  hr { border: 0; border-top: 1px solid #e3eaf2; margin: 10px 0; }
+</style>
+</head>
+<body>
+<header>
+  <b>MANTAPS &mdash; Editor</b>
+  <span class="sub">Perubahan struktural lewat Change Request (validasi &rarr; pratinjau dampak &rarr; terbit versi). Kerawanan = overlay, edit langsung.</span>
+  <a href="/">&larr; viewer</a>
+</header>
+<main>
+  <div class="card">
+    <h3>View</h3>
+    <div id="views"></div>
+    <div class="small" style="margin-top:8px">Klik busbar / penghantar di SLD untuk memilih objek target.</div>
+    <div class="act" style="margin-top:10px">
+      <button class="btn-ghost" onclick="resetLayout()">Reset layout</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="svgwrap" id="svgwrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button data-tab="cr" class="on">Change Request</button>
+      <button data-tab="risk">Kerawanan</button>
+    </div>
+    <div id="sel" class="selinfo" hidden></div>
+
+    <!-- ============== CHANGE REQUEST ============== -->
+    <section id="tab-cr">
+      <div id="cr_open" >
+        <h4>Buka Change Request baru</h4>
+        <label>Judul</label><input id="cr_title" placeholder="mis. COD GITET New Cikupa">
+        <div class="row">
+          <div><label>Berlaku sejak</label><input id="cr_eff" type="date"></div>
+          <div><label>Sumber</label><input id="cr_src" placeholder="RUPTL / surat / DS"></div>
+        </div>
+        <label>Pengusul</label><input id="cr_by" placeholder="nama / NIP">
+        <div class="act"><button class="btn-primary" onclick="openCR()">Buka CR</button></div>
+      </div>
+
+      <div id="cr_work" hidden>
+        <h4 style="display:flex;align-items:center;gap:8px">
+          <span id="cr_key"></span> <span id="cr_status" class="pill"></span>
+          <span class="x" style="margin-left:auto;cursor:pointer;color:#b3261e" onclick="closeCR()">&times; tutup</span>
+        </h4>
+        <div id="cr_lines"></div>
+
+        <hr>
+        <h4>Tambah baris perubahan</h4>
+        <label>Aksi</label>
+        <select id="a_action" onchange="actionForm()">
+          <option value="SET_STATUS">Ubah status objek</option>
+          <option value="ADD_CIRCUIT">Tambah penghantar</option>
+          <option value="REMOVE_CIRCUIT">Lepas penghantar</option>
+          <option value="PATCH_CIRCUIT">Ubah atribut penghantar</option>
+          <option value="ADD_GI">Tambah GI / Bus</option>
+          <option value="REMOVE_GI">Hapus GI</option>
+          <option value="PATCH_GI">Ubah atribut GI</option>
+          <option value="MOVE_MEMBERSHIP">Pindah keanggotaan subsistem</option>
+          <option value="ADD_SUBSYSTEM">Buat subsistem baru</option>
+        </select>
+        <div id="a_fields"></div>
+        <div class="act"><button class="btn-primary" onclick="addLine()">Tambah baris</button></div>
+        <div id="a_msg" class="msg"></div>
+
+        <hr>
+        <div class="act">
+          <button class="btn-ghost" onclick="doValidate()">1. Validasi</button>
+          <button class="btn-ghost" onclick="doImpact()">2. Pratinjau dampak</button>
+        </div>
+        <div id="cr_check"></div>
+        <div class="act">
+          <button class="btn-ghost" onclick="doReview()">3. Tinjau (setuju)</button>
+          <button class="btn-go" onclick="doPublish()">4. Terbitkan versi</button>
+        </div>
+        <div class="act">
+          <button class="btn-danger" onclick="doReject()">Tolak CR</button>
+        </div>
+        <div id="cr_msg" class="msg"></div>
+      </div>
+
+      <hr>
+      <h4>Change Request lain</h4>
+      <div id="cr_list" class="small"></div>
+    </section>
+
+    <!-- ============== KERAWANAN ============== -->
+    <section id="tab-risk" hidden>
+      <div id="risk_list"></div>
+      <hr>
+      <label>Nomor titik</label><input id="r_seq" type="number" min="1" placeholder="auto">
+      <label>Kategori kontingensi</label>
+      <select id="r_cat">
+        <option value="N-1">N-1 &mdash; satu elemen gangguan</option>
+        <option value="N-2">N-2 &mdash; dua elemen serentak</option>
+        <option value="N-1-1">N-1-1 &mdash; gangguan beruntun</option>
+        <option value="N-0">N-0 &mdash; non-kontingensi (bottleneck / single-phi / ZDT)</option>
+      </select>
+      <label>Menempel pada objek</label>
+      <div class="row">
+        <div><select id="r_akind"><option value="">&mdash;</option><option value="SUBSTATION">GI / Bus</option><option value="CIRCUIT">Penghantar</option><option value="TRANSFORMER">Trafo</option></select></div>
+        <div><input id="r_acode" placeholder="kode objek"></div>
+      </div>
+      <label>Judul</label><input id="r_title">
+      <label>Kondisi / Permasalahan</label><textarea id="r_cond"></textarea>
+      <label>Dampak</label><textarea id="r_impact"></textarea>
+      <label>Mitigasi</label><textarea id="r_mit"></textarea>
+      <label>Usulan / Solusi</label><textarea id="r_fu"></textarea>
+      <div class="row">
+        <div><label>Horizon</label><select id="r_hz"><option value="">&mdash;</option><option>PENDEK</option><option>MENENGAH</option><option>PANJANG</option></select></div>
+        <div><label>Prioritas</label><select id="r_prio"><option value="">&mdash;</option><option>High</option><option>Medium</option><option>Low</option></select></div>
+      </div>
+      <label>Status</label>
+      <select id="r_status"><option>OPEN</option><option>MATERIALIZED</option><option>MITIGATED</option><option>REASSESS</option></select>
+      <div class="act">
+        <button class="btn-primary" onclick="saveRisk()">Simpan</button>
+        <button class="btn-danger" id="r_del" onclick="delRisk()" hidden>Hapus</button>
+        <button class="btn-ghost" onclick="clearRisk()">Baru</button>
+      </div>
+      <div id="r_msg" class="msg"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+let VIEWS=[], VIEW=null, TAB='cr', SELECTED=null, CR=null, EDIT_RISK=null;
+const $ = s => document.querySelector(s);
+function msg(el, t, ok){ const m=$(el); m.textContent=t; m.className='msg '+(ok?'ok':'err'); if(ok) setTimeout(()=>m.className='msg',4000); }
+async function api(method,url,body){
+  const r=await fetch(url,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.detail||r.statusText); return j;
+}
+
+async function loadViews(){
+  VIEWS=await api('GET','/api/views'); const box=$('#views'); box.innerHTML='';
+  VIEWS.forEach((v,i)=>{ const b=document.createElement('button'); b.className='view'; b.textContent=v.view_key; b.title=v.name;
+    b.onclick=()=>selectView(v.id,b); box.appendChild(b); });
+  if(VIEWS[0]) selectView(VIEWS[0].id, box.firstChild);
+}
+async function selectView(id,btn){
+  document.querySelectorAll('button.view').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+  VIEW=id; SELECTED=null; CR=null; updateSel(); $('#cr_open').hidden=false; $('#cr_work').hidden=true;
+  await renderSVG(); loadCRList(); if(TAB==='risk') loadRisks();
+}
+async function renderSVG(){
+  const wrap=$('#svgwrap');
+  wrap.innerHTML=await (await fetch(`/api/views/${VIEW}/sld.svg?ts=${Date.now()}`)).text();
+  const svg=wrap.querySelector('svg'); if(!svg) return;
+  svg.querySelectorAll('.sld-node,.sld-bay').forEach(g=>g.addEventListener('click',e=>{e.stopPropagation();pick('SUBSTATION',g.dataset.code);}));
+  svg.querySelectorAll('g[data-circuit-id]').forEach(g=>g.addEventListener('click',e=>{e.stopPropagation();pick('CIRCUIT',g.dataset.circuitCode);}));
+  svg.addEventListener('dblclick',()=>{SELECTED=null;updateSel();hl();});
+  hl();
+}
+function hl(){
+  document.querySelectorAll('.sel-outline').forEach(e=>e.classList.remove('sel-outline'));
+  if(!SELECTED) return;
+  const el = SELECTED.kind==='CIRCUIT'
+    ? document.querySelector(`g[data-circuit-code="${SELECTED.code}"]`)
+    : document.querySelector(`[data-code="${SELECTED.code}"]`);
+  if(el) el.classList.add('sel-outline');
+}
+function updateSel(){
+  const el=$('#sel'); if(!SELECTED){el.hidden=true;return;}
+  el.hidden=false; el.innerHTML=`Target: <b>${SELECTED.code}</b> <span class="pill">${SELECTED.kind}</span>`;
+}
+function pick(kind,code){
+  SELECTED={kind,code}; updateSel(); hl();
+  // pre-fill whichever form is open
+  if(TAB==='cr'){ const t=$('#a_st_target'); if(t){t.value=code; $('#a_st_kind').value=kind;} prefillLineTargets(code,kind); }
+  if(TAB==='risk'){ $('#r_akind').value=kind; $('#r_acode').value=code; }
+}
+function prefillLineTargets(code,kind){
+  ['a_patchc_code','a_removec_code','a_gi_code_p','a_removegi_code','a_move_code'].forEach(id=>{ const e=$('#'+id); if(e) e.value=code; });
+}
+
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  TAB=b.dataset.tab;
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  ['cr','risk'].forEach(t=>$('#tab-'+t).hidden=t!==TAB);
+  if(TAB==='risk') loadRisks();
+});
+
+// ---- CR lifecycle -----------------------------------------------
+async function openCR(){
+  try{
+    CR=await api('POST',`/api/views/${VIEW}/change-requests`,{
+      title:$('#cr_title').value.trim(), effective_date:$('#cr_eff').value||null,
+      source_ref:$('#cr_src').value.trim()||null, submitted_by:$('#cr_by').value.trim()||null });
+    showCR();
+  }catch(e){ alert(e.message); }
+}
+function closeCR(){ CR=null; $('#cr_open').hidden=false; $('#cr_work').hidden=true; loadCRList(); }
+async function refreshCR(){ CR=await api('GET',`/api/change-requests/${CR.id}`); showCR(); }
+function showCR(){
+  $('#cr_open').hidden=true; $('#cr_work').hidden=false;
+  $('#cr_key').textContent=CR.cr_key;
+  const s=$('#cr_status'); s.textContent=CR.status; s.className='pill st-'+CR.status;
+  const box=$('#cr_lines'); box.innerHTML=CR.lines.length?'':'<div class="small">Belum ada baris perubahan.</div>';
+  CR.lines.forEach(l=>{
+    const d=document.createElement('div'); d.className='cs-line';
+    d.innerHTML=`<span class="pill">${l.action}</span> <b>${l.target_ref||''}</b>
+      <span class="small">${JSON.stringify(l.payload)}</span>
+      <span class="x" title="hapus baris">&times;</span>`;
+    d.querySelector('.x').onclick=async()=>{ CR=await api('DELETE',`/api/change-requests/${CR.id}/lines/${l.change_key}`); showCR(); renderSVG(); };
+    box.appendChild(d);
+  });
+  const c=$('#cr_check'); c.innerHTML='';
+  if(CR.validation){
+    const v=CR.validation;
+    c.innerHTML+=`<div class="impact"><b>Validasi:</b> ${v.ok?'&#10003; lolos':'&#10007; ada masalah'}
+      ${v.problems.map(p=>`<li style="color:#b3261e">${p}</li>`).join('')}
+      ${v.warnings.map(w=>`<li style="color:#8a5b00">${w}</li>`).join('')}</div>`;
+  }
+  if(CR.impact){
+    const im=CR.impact;
+    const li=[];
+    if(im.gi_added.length) li.push(`GI baru: ${im.gi_added.join(', ')}`);
+    if(im.gi_removed.length) li.push(`GI keluar: ${im.gi_removed.join(', ')}`);
+    if(im.circuit_added.length) li.push(`Penghantar tambah: ${im.circuit_added.join(', ')}`);
+    if(im.circuit_removed.length) li.push(`Penghantar lepas: ${im.circuit_removed.join(', ')}`);
+    im.tier_changes.forEach(t=>li.push(`Tier ${t.code}: ${t.from??'-'} &rarr; ${t.to??'-'}`));
+    im.risk_reassess.forEach(r=>li.push(`&#9888; Kerawanan #${r.seq_no} (${r.attach}) &mdash; ${r.why||'perlu dinilai ulang'}`));
+    if(im.isolated_after.length) li.push(`&#9888; terisolasi: ${im.isolated_after.join(', ')}`);
+    c.innerHTML+=`<div class="impact"><b>Pratinjau dampak:</b>${li.length?li.map(x=>`<li>${x}</li>`).join(''):'<li class="small">tidak ada perubahan terhitung</li>'}</div>`;
+  }
+}
+async function doValidate(){ try{ await api('POST',`/api/change-requests/${CR.id}/validate`); await refreshCR(); msg('#cr_msg','Validasi dijalankan.',true);}catch(e){msg('#cr_msg',e.message,false);} }
+async function doImpact(){ try{ await api('POST',`/api/change-requests/${CR.id}/impact`); await refreshCR(); msg('#cr_msg','Pratinjau dihitung.',true);}catch(e){msg('#cr_msg',e.message,false);} }
+async function doReview(){ try{ await api('POST',`/api/change-requests/${CR.id}/review`,{reviewed_by:prompt('Nama peninjau:')||null}); await refreshCR(); msg('#cr_msg','CR ditinjau.',true);}catch(e){msg('#cr_msg',e.message,false);} }
+async function doPublish(){
+  if(!confirm('Terbitkan versi baru? Topologi kanonik akan berubah.')) return;
+  try{ const r=await api('POST',`/api/change-requests/${CR.id}/publish`,{reviewed_by:CR.reviewed_by||null});
+    msg('#cr_msg',`Terbit: ${r.version}. Superseded: ${r.superseded||'-'}. ${r.kerawanan_reassess.length} kerawanan perlu dinilai ulang.`,true);
+    await refreshCR(); renderSVG(); loadCRList();
+  }catch(e){ msg('#cr_msg',e.message,false); }
+}
+async function doReject(){ const why=prompt('Alasan tolak:'); if(why===null) return;
+  try{ await api('POST',`/api/change-requests/${CR.id}/reject`,{reason:why||null}); await refreshCR(); msg('#cr_msg','CR ditolak.',true);}catch(e){msg('#cr_msg',e.message,false);} }
+
+async function loadCRList(){
+  const list=await api('GET','/api/change-requests');
+  const box=$('#cr_list'); box.innerHTML=list.length?'':'Belum ada.';
+  list.filter(x=>x.view_id===VIEW).forEach(cr=>{
+    const d=document.createElement('div'); d.className='cs-line'; d.style.cursor='pointer';
+    d.innerHTML=`<span class="pill st-${cr.status}">${cr.status}</span> <b>${cr.cr_key}</b> <span class="small">${cr.title}</span>`;
+    d.onclick=async()=>{ CR=await api('GET',`/api/change-requests/${cr.id}`); showCR(); };
+    box.appendChild(d);
+  });
+}
+
+// ---- dynamic action form -------------------------------------
+function actionForm(){
+  const a=$('#a_action').value, f=$('#a_fields'); let h='';
+  const statusSel = `<select id="__s"><option>ENERGIZED</option><option>NEW_NOT_ENERGIZED</option><option>PLANNED</option><option>DE_ENERGIZED</option><option>OWNED_BY_CUSTOMER</option></select>`;
+  if(a==='SET_STATUS') h=`
+    <label>Jenis objek</label><select id="a_st_kind"><option>SUBSTATION</option><option>CIRCUIT</option></select>
+    <label>Kode objek</label><input id="a_st_target" placeholder="klik di SLD atau ketik">
+    <label>Status baru</label>${statusSel.replace('__s','a_st_status')}`;
+  else if(a==='ADD_CIRCUIT') h=`
+    <div class="row"><div><label>Dari</label><input id="a_c_from"></div><div><label>Ke</label><input id="a_c_to"></div></div>
+    <div class="row"><div><label>Jenis</label><select id="a_c_type"><option>SUTT</option><option>SUTET</option><option>SKTT</option><option>SKLT</option><option>IBT_LINK</option></select></div>
+    <div><label>Sirkit</label><input id="a_c_cct" type="number" value="2"></div></div>
+    <label>Status</label>${statusSel.replace('__s','a_c_status')}`;
+  else if(a==='REMOVE_CIRCUIT') h=`<label>Kode penghantar</label><input id="a_removec_code" placeholder="klik di SLD">`;
+  else if(a==='PATCH_CIRCUIT') h=`
+    <label>Kode penghantar</label><input id="a_patchc_code">
+    <div class="row"><div><label>Jenis</label><select id="a_pc_type"><option value="">(tetap)</option><option>SUTT</option><option>SKTT</option><option>IBT_LINK</option></select></div>
+    <div><label>Sirkit</label><input id="a_pc_cct" type="number" placeholder="(tetap)"></div></div>
+    <label>Status</label><select id="a_pc_status"><option value="">(tetap)</option><option>ENERGIZED</option><option>DE_ENERGIZED</option><option>NEW_NOT_ENERGIZED</option><option>PLANNED</option></select>`;
+  else if(a==='ADD_GI') h=`
+    <div class="row"><div><label>Kode</label><input id="a_gi_code"></div><div><label>Nama</label><input id="a_gi_name"></div></div>
+    <div class="row"><div><label>Tipe</label><select id="a_gi_type"><option>GI</option><option>GIS</option><option>GITET</option><option>KTT</option></select></div>
+    <div><label>kV</label><select id="a_gi_kv"><option>150</option><option>500</option><option>20</option></select></div></div>
+    <div class="row"><div><label>Tier</label><input id="a_gi_tier" type="number"></div><div><label>Peran</label><select id="a_gi_role"><option>CORE</option><option>SOURCE</option><option>BOUNDARY</option><option>EXTERNAL_CONTEXT</option></select></div></div>
+    <label>Digambar sbg bay dari (opsional)</label><input id="a_gi_bay" placeholder="kode feeder">`;
+  else if(a==='REMOVE_GI') h=`<label>Kode GI</label><input id="a_removegi_code" placeholder="klik di SLD"><div class="small">Semua penghantarnya harus dilepas dulu.</div>`;
+  else if(a==='PATCH_GI') h=`
+    <label>Kode GI</label><input id="a_gi_code_p">
+    <div class="row"><div><label>Tier</label><input id="a_pg_tier" type="number" placeholder="(tetap)"></div>
+    <div><label>Status</label><select id="a_pg_status"><option value="">(tetap)</option><option>ENERGIZED</option><option>NEW_NOT_ENERGIZED</option><option>DE_ENERGIZED</option><option>PLANNED</option></select></div></div>
+    <div class="row"><div><label>Trafo?</label><select id="a_pg_tr"><option value="">(tetap)</option><option value="true">ya</option><option value="false">tidak</option></select></div>
+    <div><label>Kapasitor?</label><select id="a_pg_cap"><option value="">(tetap)</option><option value="true">ya</option><option value="false">tidak</option></select></div></div>`;
+  else if(a==='MOVE_MEMBERSHIP') h=`
+    <label>Kode GI</label><input id="a_move_code">
+    <div class="row"><div><label>Dari subsistem (kode)</label><input id="a_move_from"></div><div><label>Ke subsistem (kode)</label><input id="a_move_to"></div></div>
+    <label>Peran di subsistem tujuan</label><select id="a_move_role"><option>CORE</option><option>SOURCE_BOUNDARY</option><option>BOUNDARY</option></select>`;
+  else if(a==='ADD_SUBSYSTEM') h=`
+    <div class="row"><div><label>Kode</label><input id="a_ss_code"></div><div><label>APB</label><input id="a_ss_apb"></div></div>
+    <label>Nama</label><input id="a_ss_name">
+    <label>Sumber</label><input id="a_ss_src" placeholder="RUPTL">`;
+  f.innerHTML=h;
+  if(SELECTED){ const t=$('#a_st_target'); if(t){t.value=SELECTED.code; $('#a_st_kind').value=SELECTED.kind;} }
+}
+async function addLine(){
+  const a=$('#a_action').value; let body={action:a,payload:{}};
+  try{
+    if(a==='SET_STATUS'){ body.target_kind=$('#a_st_kind').value; body.target_ref=$('#a_st_target').value.trim(); body.payload={status:$('#a_st_status').value}; }
+    else if(a==='ADD_CIRCUIT'){ body.target_kind='CIRCUIT'; body.payload={from_code:$('#a_c_from').value.trim(),to_code:$('#a_c_to').value.trim(),circuit_type:$('#a_c_type').value,circuit_count:+$('#a_c_cct').value,status:$('#a_c_status').value}; }
+    else if(a==='REMOVE_CIRCUIT'){ body.target_kind='CIRCUIT'; body.target_ref=$('#a_removec_code').value.trim(); }
+    else if(a==='PATCH_CIRCUIT'){ body.target_kind='CIRCUIT'; body.target_ref=$('#a_patchc_code').value.trim();
+      const p={}; if($('#a_pc_type').value)p.circuit_type=$('#a_pc_type').value; if($('#a_pc_cct').value)p.circuit_count=+$('#a_pc_cct').value; if($('#a_pc_status').value)p.status=$('#a_pc_status').value; body.payload=p; }
+    else if(a==='ADD_GI'){ body.target_kind='SUBSTATION'; body.payload={code:$('#a_gi_code').value.trim(),name:$('#a_gi_name').value.trim(),substation_type:$('#a_gi_type').value,voltage_kv:+$('#a_gi_kv').value,tier:$('#a_gi_tier').value?+$('#a_gi_tier').value:null,role:$('#a_gi_role').value,as_bay_of:$('#a_gi_bay').value.trim()||null}; }
+    else if(a==='REMOVE_GI'){ body.target_kind='SUBSTATION'; body.target_ref=$('#a_removegi_code').value.trim(); }
+    else if(a==='PATCH_GI'){ body.target_kind='SUBSTATION'; body.target_ref=$('#a_gi_code_p').value.trim();
+      const p={}; if($('#a_pg_tier').value)p.tier=+$('#a_pg_tier').value; if($('#a_pg_status').value)p.status=$('#a_pg_status').value;
+      if($('#a_pg_tr').value)p.has_transformer=$('#a_pg_tr').value==='true'; if($('#a_pg_cap').value)p.has_shunt_capacitor=$('#a_pg_cap').value==='true'; body.payload=p; }
+    else if(a==='MOVE_MEMBERSHIP'){ body.target_kind='SUBSTATION'; body.target_ref=$('#a_move_code').value.trim(); body.payload={from_subsystem:$('#a_move_from').value.trim()||null,to_subsystem:$('#a_move_to').value.trim(),role:$('#a_move_role').value}; }
+    else if(a==='ADD_SUBSYSTEM'){ body.target_kind='SUBSYSTEM'; body.payload={code:$('#a_ss_code').value.trim(),name:$('#a_ss_name').value.trim(),apb:$('#a_ss_apb').value.trim()||null,source_ref:$('#a_ss_src').value.trim()||null}; }
+    CR=await api('POST',`/api/change-requests/${CR.id}/lines`,body);
+    showCR(); msg('#a_msg','Baris ditambahkan.',true);
+  }catch(e){ msg('#a_msg',e.message,false); }
+}
+
+// ---- kerawanan (direct edit) ---------------------------------
+async function loadRisks(){
+  const list=await api('GET',`/api/views/${VIEW}/risks`);
+  const box=$('#risk_list'); box.innerHTML=list.length?'':'<div class="small">Belum ada titik kerawanan.</div>';
+  list.forEach(r=>{ const d=document.createElement('div'); d.className='risk-item';
+    d.innerHTML=`<b>#${r.seq_no??'-'} &middot; ${r.title||'(tanpa judul)'}</b>
+      <div class="small"><span class="pill">${r.category||'?'}</span> ${r.attach_kind||''} ${r.attach_code||''} &middot; ${r.status}</div>`;
+    d.onclick=()=>fillRisk(r); box.appendChild(d); });
+}
+function fillRisk(r){
+  EDIT_RISK=r.risk_key;
+  $('#r_seq').value=r.seq_no??''; $('#r_cat').value=r.category||'N-1';
+  $('#r_akind').value=r.attach_kind||''; $('#r_acode').value=r.attach_code||'';
+  $('#r_title').value=r.title||''; $('#r_cond').value=r.condition||''; $('#r_impact').value=r.impact||'';
+  $('#r_mit').value=r.mitigation||''; $('#r_fu').value=r.follow_up||'';
+  $('#r_hz').value=r.horizon||''; $('#r_prio').value=r.priority||''; $('#r_status').value=r.status||'OPEN';
+  $('#r_del').hidden=false;
+}
+function clearRisk(){ EDIT_RISK=null; ['r_seq','r_acode','r_title','r_cond','r_impact','r_mit','r_fu'].forEach(i=>$('#'+i).value='');
+  $('#r_cat').value='N-1'; $('#r_akind').value=''; $('#r_hz').value=''; $('#r_prio').value=''; $('#r_status').value='OPEN'; $('#r_del').hidden=true; }
+async function saveRisk(){
+  const body={ seq_no:$('#r_seq').value?+$('#r_seq').value:null, category:$('#r_cat').value,
+    title:$('#r_title').value.trim(), condition:$('#r_cond').value.trim(), impact:$('#r_impact').value.trim(),
+    mitigation:$('#r_mit').value.trim(), follow_up:$('#r_fu').value.trim(),
+    horizon:$('#r_hz').value||null, priority:$('#r_prio').value||null, status:$('#r_status').value,
+    attach_kind:$('#r_akind').value||null, attach_code:$('#r_acode').value.trim()||null };
+  try{
+    if(EDIT_RISK){ await api('PATCH',`/api/risks/${EDIT_RISK}`,body); msg('#r_msg','Diperbarui.',true); }
+    else { await api('POST',`/api/views/${VIEW}/risks`,body); msg('#r_msg','Ditambahkan.',true); }
+    clearRisk(); loadRisks(); renderSVG();
+  }catch(e){ msg('#r_msg',e.message,false); }
+}
+async function delRisk(){ if(!EDIT_RISK||!confirm('Hapus titik kerawanan?')) return;
+  try{ await api('DELETE',`/api/risks/${EDIT_RISK}`); msg('#r_msg','Dihapus.',true); clearRisk(); loadRisks(); renderSVG(); }catch(e){ msg('#r_msg',e.message,false); } }
+
+async function resetLayout(){ if(!confirm('Kembalikan tata letak ke auto?')) return; await api('DELETE',`/api/views/${VIEW}/layout`); renderSVG(); }
+
+actionForm();
+loadViews();
+</script>
+</body>
+</html>

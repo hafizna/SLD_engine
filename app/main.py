@@ -40,3 +40,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/")
 def home():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/editor")
+def editor_page():
+    return FileResponse(STATIC_DIR / "editor.html")
