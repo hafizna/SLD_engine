@@ -506,6 +506,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             _sp_adj0[c.from_substation_id].add(c.to_substation_id)
             _sp_adj0[c.to_substation_id].add(c.from_substation_id)
     _tri = {n for n, nb in _sp_adj0.items() if len(nb) >= 2 and n in pos}
+    _snapped_rows: set[float] = set()
     if 2 <= len(_tri) <= 4:
         by_row: dict[float, list[int]] = defaultdict(list)
         for n in _tri:
@@ -519,6 +520,23 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                     continue
                 for j, n in enumerate(sorted(members, key=lambda m: pos[m][0])):
                     pos[n] = (cx_top + (j - (len(members) - 1) / 2) * 90, pos[n][1])
+                _snapped_rows.add(rk)
+
+    # the triangle snap moved a lower single-phi member without regard for the
+    # rest of its Tier row -- re-run the authoritative de-overlap on any row it
+    # touched, pushing OTHER buses aside (the snapped member keeps its x).
+    for rk in _snapped_rows:
+        order = sorted(rows.get(rk, []), key=lambda s: pos[s][0])
+        for i in range(1, len(order)):
+            prev, cur = order[i - 1], order[i]
+            g = _min_gap(prev, cur)
+            if pos[cur][0] - pos[prev][0] < g:
+                pos[cur] = (pos[prev][0] + g, pos[cur][1])
+        for i in range(len(order) - 2, -1, -1):
+            nxt, cur = order[i + 1], order[i]
+            g = _min_gap(cur, nxt)
+            if pos[nxt][0] - pos[cur][0] < g:
+                pos[cur] = (pos[nxt][0] - g, pos[cur][1])
 
     # a GITET busbar sits directly above the LV bus it feeds (its IBT chains
     # rise straight into that bus); the DFS cursor placed it as a loose root.
