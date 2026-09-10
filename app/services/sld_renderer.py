@@ -277,6 +277,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     #      stay on the diagram, drawn black, just not Tier-counted).
     drawn_ids = [sid for sid in core_ids
                  if sid not in bay_gi_ids and _row_tier(sid) is not None]
+    # a GITET that feeds a drawn bus must be drawn too, even when classify_layout
+    # filed it as a spur (happens when it has a single IBT link). Its IBT chain
+    # is anchored to that GITET's own layout position.
+    for _hv, _lv in gitet_feeds.items():
+        if _hv not in drawn_ids and _lv in drawn_ids and _row_tier(_hv) is not None:
+            drawn_ids.append(_hv)
 
     # count attachments -> busbar width. Every distinct thing that touches the
     # busbar takes one slot: incoming feed, each outgoing circuit, each bay,
@@ -286,7 +292,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         s = subs[sid]
         n = (1 if s.has_transformer and sid not in gitet_feeds else 0) + (1 if s.has_shunt_capacitor else 0)
         n += len(bays_by_feeder.get(sid, []))
-        n += sum(1 for spr, fd in spur.items() if fd == sid and spr not in bay_gi_ids)
+        n += sum(1 for spr, fd in spur.items()
+                 if fd == sid and spr not in bay_gi_ids and spr not in gitet_feeds)
         n += sum(1 for c in line_edges if sid in (c.from_substation_id, c.to_substation_id))
         n += sum(1 for (hv, lv) in gitet_feeds.items() if lv == sid)
         att[sid] = max(n, 2)
@@ -653,7 +660,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             kind = "in" if (t_oth is not None and t_self is not None and t_oth < t_self) else "out"
             bus_attach[sid].append((f"c{c.id}", kind, pos.get(oth, (pos[sid][0],))[0]))
     for hv, lv in gitet_feeds.items():
-        if lv in pos:
+        if lv in pos and hv in pos:
             bus_attach[lv].append(("ibt", "ibt", pos[hv][0]))
     for g in gens.values():
         if g.outlet_substation_id in pos:
@@ -669,7 +676,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             for b in blist:
                 bus_attach[feeder_id].append((f"bay{b.id}", "bay", None))
     for spur_id, feeder_id in spur.items():
-        if spur_id not in bay_gi_ids and feeder_id in pos:
+        if spur_id not in bay_gi_ids and spur_id not in gitet_feeds and feeder_id in pos:
             bus_attach[feeder_id].append((f"spur{spur_id}", "bay", None))
 
     top_port_x: dict[int, list[float]] = defaultdict(list)   # x of each top attachment
@@ -1071,7 +1078,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     p.append('<g id="bays">')
     stub_items: list[tuple[int, str, object, str, str]] = []
     for spur_id, feeder_id in spur.items():
-        if spur_id not in bay_gi_ids and feeder_id in pos:
+        # a GITET spur is drawn as its own busbar + IBT chain, not a hanging stub
+        if spur_id not in bay_gi_ids and spur_id not in gitet_feeds and feeder_id in pos:
             stub_items.append((feeder_id, f"spur{spur_id}", subs[spur_id],
                                subs[spur_id].status, roles.get(("SUBSTATION", spur_id), "")))
     for feeder_id, blist in bays_by_feeder.items():

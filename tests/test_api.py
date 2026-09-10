@@ -104,6 +104,41 @@ def test_sld_svg_renders(client):
     assert b"overlay-risk" in r.content
 
 
+def test_gitet_with_single_ibt_renders(client):
+    """A GITET with exactly one IBT link (GITET Depok in SS Cawang 2,3-Depok 1)
+    used to be filed as a spur by classify_layout and then crash the renderer at
+    pos[hv][0]. It must render as its own busbar -- not a hanging stub, not an
+    audit row. seed_ss_cwd is a parser-test fixture, imported only here."""
+    # import without reload -- the client fixture already reloaded app.models;
+    # reloading here would redefine the mapped tables.
+    from app.services.seed_ss_cwd import seed_ss_cwd
+    import app.db as db_mod
+
+    with db_mod.SessionLocal() as db:
+        seed_ss_cwd(db)
+
+    views = client.get("/api/views").json()
+    cwd = next(v for v in views if v["view_key"] == "SS_CWD_FULL")
+    r = client.get(f"/api/views/{cwd['id']}/sld.svg")
+    assert r.status_code == 200
+    svg = r.content.decode()
+    assert "<svg" in svg
+
+    g = client.get(f"/api/views/{cwd['id']}/graph").json()
+    depok_gitet = next(n for n in g["nodes"] if n.get("code") == "GITET_DEPOK")
+    # drawn as a real busbar node, and NOT parked in the mapping-audit strip
+    assert f'data-node-id="{depok_gitet["id"]}"' in svg
+    assert 'data-audit-code="GITET_DEPOK"' not in svg
+    # nothing lost: every substation is drawn or stubbed or audited
+    import re
+    drawn = set(map(int, re.findall(r'data-node-id="(\d+)"', svg)))
+    audit = set(re.findall(r'data-audit-code="([^"]+)"', svg))
+    for n in g["nodes"]:
+        if n["kind"] != "SUBSTATION":
+            continue
+        assert n["id"] in drawn or n["name"] in svg or n["code"] in audit
+
+
 def test_svg_accounts_for_every_mapped_object(client):
     """Nothing from the parse may vanish: every substation, circuit and bay is
     either drawn (data-node / a circuit path / a bay stub) or listed in the
