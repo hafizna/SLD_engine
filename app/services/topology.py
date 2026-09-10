@@ -118,6 +118,15 @@ def get_view_graph(db: Session, view: AnalyticalView):
         for t in db.query(Transformer).filter(Transformer.id.in_(tx_ids)).all():
             nodes[("TRANSFORMER", t.id)] = t
 
+    # A view reproduces ONE book SLD as it is drawn. SS_LBK spans two pages
+    # (sisi Kembangan hal.69, sisi Balaraja hal.70) -- and that split is
+    # analytically real, not just a paper artefact: from the Kembangan side
+    # Cikupa is fed via Curug, from the Balaraja side via Suvarna Sutra, and
+    # its Tier context differs. So `drawing_side` IS a filter here. What each
+    # view leaves out is reported in the mapping-audit strip with a pointer to
+    # the other view -- nothing is hidden silently.
+    # A NOT-YET-ENERGIZED circuit on THIS side is still drawn (black dashed) --
+    # planning information; it just does not carry Tier.
     edges: list[Circuit] = []
     if sub_ids:
         q = db.query(Circuit).filter(
@@ -130,13 +139,8 @@ def get_view_graph(db: Session, view: AnalyticalView):
                 continue
             if view.drawing_side and c.drawing_side and c.drawing_side != view.drawing_side:
                 continue
-            # a circuit scoped to another subsystem does not belong to this view
-            # (New Balaraja's IBT 1,2 are SS_LBK's; IBT 3,4 are SS_BLL's, even
-            # though both GITET and the 150 bus sit in both subsystems)
             if (c.subsystem_id is not None and view.subsystem_id is not None
                     and c.subsystem_id != view.subsystem_id):
-                continue
-            if not _is_live(c.status):
                 continue
             edges.append(c)
 
@@ -215,9 +219,12 @@ def calculate_tier(db: Session, view: AnalyticalView) -> dict[tuple[str, int], i
     if not no_book:
         return tier
 
-    # BFS fallback only for the GIs with no book Tier
+    # BFS fallback only for the GIs with no book Tier. Only LIVE edges carry
+    # Tier progression -- a not-yet-energised line is drawn but does not feed.
     adj: dict[int, set[int]] = defaultdict(set)
     for c in edges:
+        if not _is_live(c.status):
+            continue
         adj[c.from_substation_id].add(c.to_substation_id)
         adj[c.to_substation_id].add(c.from_substation_id)
     q = deque(sid for (k, sid) in tier if k == "SUBSTATION")
@@ -240,9 +247,11 @@ def _legacy_bfs_tier(db: Session, view: AnalyticalView):
         key for key, role in roles.items() if role in profile["downstream_roles"]
     }
 
-    # adjacency over substation nodes only (the GI core network)
+    # adjacency over substation nodes only (the GI core network), live edges only
     adj: dict[int, set[int]] = defaultdict(set)
     for c in edges:
+        if not _is_live(c.status):
+            continue
         a = ("SUBSTATION", c.from_substation_id)
         b = ("SUBSTATION", c.to_substation_id)
         if a in downstream or b in downstream:

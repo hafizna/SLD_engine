@@ -215,8 +215,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 risk_on[(r.attach_kind, r.attach_id)].append(r.seq_no or 0)
 
     # ---- IBT structure --------------------------------------------------
+    # An IBT chain (triple circle + CBs) is only drawn for a LIVE GITET feeding
+    # a LIVE bus. A planned GITET's link is drawn as a plain black dashed line
+    # and the GITET as a plain black busbar.
     gitet_feeds: dict[int, int] = {}
     ibt_links_by_pair: dict[tuple[int, int], list] = defaultdict(list)
+    _ibt_as_line: set[int] = set()   # circuit ids to route like a normal line
     for c in edges:
         if c.circuit_type != "IBT_LINK":
             continue
@@ -224,18 +228,41 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         hv = a if (subs.get(a) and subs[a].voltage_kv >= subs.get(b, subs[a]).voltage_kv) else b
         lv = b if hv == a else a
         if subs.get(hv) and subs[hv].substation_type == "GITET":
-            gitet_feeds[hv] = lv
-            ibt_links_by_pair[(hv, lv)].append(c)
+            if _is_live(subs[hv].status) and _is_live(subs.get(lv, subs[hv]).status) and _is_live(c.status):
+                gitet_feeds[hv] = lv
+                ibt_links_by_pair[(hv, lv)].append(c)
+            else:
+                _ibt_as_line.add(c.id)
 
     line_edges = [c for c in edges
-                  if c.circuit_type != "IBT_LINK"
+                  if (c.circuit_type != "IBT_LINK" or c.id in _ibt_as_line)
                   and c.from_substation_id not in bay_gi_ids
                   and c.to_substation_id not in bay_gi_ids
                   and c.from_substation_id in subs and c.to_substation_id in subs]
 
-    # ---- which GIs get a row (core, energised, not bay-only) -----------
+    # book Tier band per GI (ViewMembership.tier_seed, else display_order) --
+    # used to place a GI the Tier engine did not rank because it is not yet
+    # energised. The book still drew it in a band; we honour that band.
+    from app.models import ViewMembership as _VM
+    _vm = {m.node_id: m for m in
+           db.query(_VM).filter(_VM.view_id == view.id, _VM.node_kind == "SUBSTATION").all()}
+
+    def _book_band(sid):
+        m = _vm.get(sid)
+        if not m:
+            return None
+        return m.tier_seed if m.tier_seed else m.display_order
+
+    def _row_tier(sid):
+        """Tier row for layout: the computed Tier if any, else the book band."""
+        t = tier.get(("SUBSTATION", sid))
+        return t if t is not None else _book_band(sid)
+
+    # ---- which GIs get a busbar row: core (not bay-only) with either a
+    #      computed Tier OR a book band (not-yet-energised planning objects
+    #      stay on the diagram, drawn black, just not Tier-counted).
     drawn_ids = [sid for sid in core_ids
-                 if sid not in bay_gi_ids and tier.get(("SUBSTATION", sid)) is not None]
+                 if sid not in bay_gi_ids and _row_tier(sid) is not None]
 
     # count attachments -> busbar width. Every distinct thing that touches the
     # busbar takes one slot: incoming feed, each outgoing circuit, each bay,
@@ -254,15 +281,16 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         return max(BUS_MIN_HALF, att[sid] * BAY_SLOT / 2)
 
     # ---- rows keyed by fractional Tier --------------------------------
+    # a GITET whose IBT chain feeds a LIVE bus sits just above that bus. A
+    # GITET that is only planning info (NCKUPA, black bus) keeps its own book
+    # band -- it is not really feeding anything yet.
     row_of: dict[int, float] = {}
     for sid in drawn_ids:
-        if sid in gitet_feeds:
-            ft = tier.get(("SUBSTATION", gitet_feeds[sid]))
-            # sit the GITET well above its LV bus so the IBT chain has room for
-            # the inline symbol + a unit label
+        if sid in gitet_feeds and _is_live(subs[sid].status) and _is_live(subs[gitet_feeds[sid]].status):
+            ft = _row_tier(gitet_feeds[sid])
             row_of[sid] = (ft - 0.78) if ft else 0.35
         else:
-            row_of[sid] = float(tier[("SUBSTATION", sid)])
+            row_of[sid] = float(_row_tier(sid))
     gen_row: dict[int, float] = {}
     for g in gens.values():
         if not g.outlet_substation_id:
@@ -509,15 +537,15 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         H = max(H, max(all_y) + MARGIN_Y + 170)
 
     # ---- mapping-audit list ------------------------------------------
-    # GUARANTEE: every object out of the parse -- busbar, bay, GITET, IBT,
-    # penghantar -- appears SOMEWHERE. Whatever the main Tier drawing leaves
-    # out (not energised, drawn on another book SLD, a bay on the far side)
-    # goes in this list, with its reason, so a reviewer can confirm nothing
-    # was dropped silently. Computed here so the canvas can reserve height.
+    # GUARANTEE: nothing from the parse vanishes silently. This view reproduces
+    # ONE book SLD; the relations that belong to the OTHER side of the same
+    # subsystem are listed here with a pointer to that view -- the SS is wide,
+    # and from each direction it reaches different GIs at different Tiers.
     drawn_sub_ids = set(drawn_ids)
     _ibt_drawn = {c.id for links in ibt_links_by_pair.values() for c in links}
     drawn_circ_ids = {c.id for c in line_edges} | _ibt_drawn
     drawn_bay_ids = {b.id for b in bay_rows if b.feeder_substation_id in pos}
+    _other_side = {"K": "sisi Balaraja", "B": "sisi Kembangan"}.get(view.drawing_side or "", "sisi lain")
 
     audit: list[tuple[str, str, str, str]] = []   # (kind, code, label, reason)
     for sid, s in subs.items():
@@ -525,9 +553,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             continue
         t = tier.get(("SUBSTATION", sid))
         if not _is_live(s.status):
-            reason = f"status {s.status}"
+            reason = f"status {s.status} -- info perencanaan, tidak dihitung Tier"
         elif t is None:
-            reason = "tidak terhubung ke Tier graph di view ini"
+            reason = f"relasi GI ini ada dari {_other_side} -- buka view SS itu"
         else:
             reason = "tidak tergambar (cek layout)"
         audit.append(("GI/BUS", s.code, s.name, reason))
@@ -562,9 +590,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         fr, to = subs.get(c.from_substation_id), subs.get(c.to_substation_id)
         nm = c.name or (f"{fr.code}-{to.code}" if fr and to else c.code)
         if side_mismatch:
-            reason = f"digambar di SLD sisi {c.drawing_side}"
+            _sd = {"K": "sisi Kembangan", "B": "sisi Balaraja"}.get(c.drawing_side, c.drawing_side)
+            reason = f"ruas dari {_sd} SS ini -- buka view SS {_sd}"
         elif not _is_live(c.status):
-            reason = f"status {c.status}"
+            reason = f"status {c.status} -- info perencanaan, tidak dihitung Tier"
         elif a_stub and b_stub:
             reason = "ruas antara dua GI yang sama-sama digambar sebagai bay/spur"
         else:
@@ -724,8 +753,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             continue
         stroke, dash = _circuit_style(c)
         w = 1.3 if c.single_phi else 2.2
-        ta = tier.get(("SUBSTATION", af))
-        tb = tier.get(("SUBSTATION", at))
+        # routing uses the row a GI sits on -- computed Tier, else book band --
+        # so a not-yet-energised line still routes as a clean Z, not a diagonal
+        ta = _row_tier(af)
+        tb = _row_tier(at)
         key = f"c{c.id}"
         fx0, fy0 = port(af, key), pos[af][1]
         tx0, ty0 = port(at, key), pos[at][1]

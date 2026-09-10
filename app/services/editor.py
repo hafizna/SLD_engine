@@ -300,20 +300,27 @@ def _apply_line(db: Session, cr: ChangeRequest, cs: ChangeSet) -> None:
 # validate  (automatic checks -- PROBIS step 02)
 # ---------------------------------------------------------------------------
 
+_LIVE = {"ENERGIZED", "DE_ENERGIZED", "OWNED_BY_CUSTOMER"}
+
+
 def _graph_snapshot(db: Session, view_id: int) -> dict:
     v = db.get(AnalyticalView, view_id)
     nodes, edges, roles, seeds, _ = get_view_graph(db, v)
     tier = calculate_tier(db, v)
     sub = {k[1]: o for k, o in nodes.items() if k[0] == "SUBSTATION"}
+    live_edges = [c for c in edges if (c.status or "ENERGIZED") in _LIVE]
     return {
         "codes": {s.code for s in sub.values()},
+        "codes_live": {s.code for s in sub.values() if (s.status or "ENERGIZED") in _LIVE},
         "tier": {sub[nid].code: tier.get(("SUBSTATION", nid))
                  for nid in sub if ("SUBSTATION", nid) in tier},
         "edges": {c.code for c in edges},
+        "edges_live": {c.code for c in live_edges},
         "seeds": {k[1] for k in seeds if k[0] == "SUBSTATION"},
         "isolated": sorted(
             s.code for nid, s in sub.items()
-            if not any(nid in (c.from_substation_id, c.to_substation_id) for c in edges)
+            if (s.status or "ENERGIZED") in _LIVE
+            and not any(nid in (c.from_substation_id, c.to_substation_id) for c in live_edges)
             and roles.get(("SUBSTATION", nid)) not in ("EXTERNAL_CONTEXT",)),
     }
 
@@ -348,9 +355,9 @@ def validate(db: Session, cr_id: int) -> dict:
             warnings.append(f"{len(moved)} GI berubah Tier: "
                             + ", ".join(f"{c} {before['tier'][c]}->{after['tier'][c]}"
                                         for c in sorted(moved)))
-        gone = set(before.get("codes", [])) - set(after.get("codes", []))
+        gone = set(before.get("codes_live", [])) - set(after.get("codes_live", []))
         if gone:
-            warnings.append(f"{len(gone)} GI keluar dari view: {', '.join(sorted(gone))}")
+            warnings.append(f"{len(gone)} GI keluar dari jaringan aktif: {', '.join(sorted(gone))}")
 
     res = {"ok": not problems, "problems": problems, "warnings": warnings}
     cr.validation_json = json.dumps(res, ensure_ascii=False)
@@ -402,10 +409,11 @@ def impact(db: Session, cr_id: int) -> dict:
     finally:
         sp.rollback()
     res = {
-        "gi_added": sorted(after["codes"] - before["codes"]),
-        "gi_removed": sorted(before["codes"] - after["codes"]),
-        "circuit_added": sorted(after["edges"] - before["edges"]),
-        "circuit_removed": sorted(before["edges"] - after["edges"]),
+        # "added" = new object OR an existing one that became energised
+        "gi_added": sorted(after["codes_live"] - before["codes_live"]),
+        "gi_removed": sorted(before["codes_live"] - after["codes_live"]),
+        "circuit_added": sorted(after["edges_live"] - before["edges_live"]),
+        "circuit_removed": sorted(before["edges_live"] - after["edges_live"]),
         "tier_changes": tier_changes,
         "risk_reassess": risk_reassess,
         "isolated_after": after["isolated"],
