@@ -53,6 +53,16 @@
   .selinfo { font-size: 12px; background: #eef4fb; padding: 6px 8px; border-radius: 6px; margin-bottom: 8px; }
   .risk-item { border-left: 3px solid #F6C000; padding: 6px 8px; margin: 5px 0; background: #fffdf5; border-radius: 4px; cursor: pointer; }
   hr { border: 0; border-top: 1px solid #e3eaf2; margin: 10px 0; }
+  .sstree .ss { display:flex; align-items:center; gap:6px; padding:6px 4px; font-weight:700; font-size:13px; cursor:pointer; border-radius:6px; }
+  .sstree .ss:hover { background:#f1f6fc; }
+  .sstree .ss .tw { width:11px; color:#7a8aa0; transition:transform .12s; }
+  .sstree .ss.open .tw { transform:rotate(90deg); }
+  .sstree .ss small { font-weight:400; color:#7a8aa0; }
+  .sstree .kids { margin:0 0 4px 14px; border-left:2px solid #e3eaf2; }
+  .sstree .kids[hidden] { display:none; }
+  .sstree .pov { display:block; width:100%; text-align:left; padding:5px 9px; margin:2px 0; border:1px solid transparent; background:none; font:inherit; font-size:12px; color:#0f274a; cursor:pointer; border-radius:6px; }
+  .sstree .pov:hover { background:#eef6ff; }
+  .sstree .pov.active { background:#eaf3ff; border-color:#0b5cab; font-weight:700; }
 </style>
 </head>
 <body>
@@ -63,9 +73,10 @@
 </header>
 <main>
   <div class="card">
-    <h3>View</h3>
-    <div id="views"></div>
-    <div class="small" style="margin-top:8px">Klik busbar / penghantar di SLD untuk memilih objek target.</div>
+    <h3>Subsistem &amp; proyeksi</h3>
+    <div id="views" class="sstree"></div>
+    <div class="small" style="margin-top:8px">Pilih subsistem yang mau diubah, lalu klik busbar / penghantar di SLD untuk memilih objek target.</div>
+    <div class="small" style="margin-top:4px">Subsistem <b>baru</b> dibuat lewat <a href="/ingest">/ingest</a>.</div>
     <div class="act" style="margin-top:10px">
       <button class="btn-ghost" onclick="resetLayout()">Reset layout</button>
     </div>
@@ -188,14 +199,30 @@ async function api(method,url,body){
   const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.detail||r.statusText); return j;
 }
 
+let SUBS=[];
 async function loadViews(){
-  VIEWS=await api('GET','/api/views'); const box=$('#views'); box.innerHTML='';
-  VIEWS.forEach((v,i)=>{ const b=document.createElement('button'); b.className='view'; b.textContent=v.view_key; b.title=v.name;
-    b.onclick=()=>selectView(v.id,b); box.appendChild(b); });
-  if(VIEWS[0]) selectView(VIEWS[0].id, box.firstChild);
+  [VIEWS, SUBS] = await Promise.all([api('GET','/api/views'), api('GET','/api/subsystems')]);
+  const box=$('#views'); box.innerHTML='';
+  const groups=[];
+  VIEWS.forEach(v=>{ let g=groups.find(g=>g.sid===v.subsystem_id);
+    if(!g){ g={sid:v.subsystem_id, views:[]}; groups.push(g); } g.views.push(v); });
+  const ssName = id => (SUBS.find(s=>s.id===id)||{}).name || 'Lain-lain';
+  groups.forEach(g=>{
+    const head=document.createElement('div'); head.className='ss open';
+    head.innerHTML=`<span class="tw">&#9656;</span><span>SS ${ssName(g.sid)}</span>`
+      +(g.views.length>1?` <small>&middot; ${g.views.length} sudut pandang</small>`:'');
+    const kids=document.createElement('div'); kids.className='kids';
+    g.views.forEach(v=>{ const b=document.createElement('button'); b.className='pov';
+      b.dataset.viewId=v.id; b.textContent=v.name;
+      b.onclick=()=>selectView(v.id,b); kids.appendChild(b); });
+    head.onclick=()=>{ head.classList.toggle('open'); kids.hidden=!head.classList.contains('open'); };
+    box.appendChild(head); box.appendChild(kids);
+  });
+  if(VIEWS[0]) selectView(VIEWS[0].id, box.querySelector('.pov'));
 }
 async function selectView(id,btn){
-  document.querySelectorAll('button.view').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+  document.querySelectorAll('.sstree .pov').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
   VIEW=id; SELECTED=null; CR=null; updateSel(); $('#cr_open').hidden=false; $('#cr_work').hidden=true;
   await renderSVG(); loadCRList(); if(TAB==='risk') loadRisks();
 }
