@@ -143,6 +143,7 @@
   .muted { color: var(--muted); }
   .count { font-weight: 400; color: var(--muted); }
   a.dl { font-size: 12px; }
+  code { background: #eef1f5; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 
   .sstree { font-size: 13px; }
   .sstree .ss {
@@ -233,7 +234,12 @@
         <span><i class="dot" style="background:var(--ds)"></i> cakupan defense scheme</span>
       </div>
       <p style="margin-top:12px"><a class="dl" href="data/register.xlsx">&#8681; Corporate Topology Register (.xlsx)</a></p>
-      <p class="muted" style="font-size:11px">Snapshot dari canonical engine. API hidup + menu editor: jalankan repo lokal (lihat DEPLOY.md).</p>
+      <p class="muted" style="font-size:11px">
+        Ini <b>snapshot statis</b> (GitHub Pages) &mdash; hanya lihat.
+        Menu <b>upload SLD baru</b> (<code>/ingest</code>) dan <b>editor</b>
+        (<code>/editor</code>) butuh engine hidup: jalankan
+        <code>uvicorn app.main:app</code> lokal atau deploy (lihat DEPLOY.md).
+      </p>
     </div>
   </div>
 
