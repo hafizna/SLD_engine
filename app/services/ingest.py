@@ -576,12 +576,14 @@ def render_draft_svg(db: Session, draft: dict) -> str:
 
 
 def publish(db: Session, draft: dict, code: str, name: str,
-            effective_date: str | None) -> dict:
+            effective_date: str | None, apb: str | None = None) -> dict:
     draft = _clean(draft)
     code = (code or "").strip().upper()
     name = (name or "").strip()
     if not code or not name:
         raise IngestError("kode dan nama subsistem wajib diisi")
+    if apb and apb.strip():
+        draft["subsystem"]["apb"] = apb.strip()
     v = validate(db, draft)
     if not v["ok"]:
         raise IngestError("validasi gagal: " + "; ".join(v["problems"]))
@@ -593,8 +595,10 @@ def publish(db: Session, draft: dict, code: str, name: str,
 
     from app.services.topology import calculate_tier
     tiers = calculate_tier(db, view)
+    ss = db.query(Subsystem).filter(Subsystem.code == code).first()
     return {
         "subsystem_code": code, "view_id": view.id, "view_key": view.view_key,
+        "apb": ss.apb if ss else None,
         "tier_count": len(set(tiers.values())),
     }
 

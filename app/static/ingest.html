@@ -26,8 +26,8 @@
   header a:hover { background: rgba(255,255,255,.12); }
 
   main { flex: 1; min-height: 0;
-         display: grid; grid-template-columns: 270px minmax(360px, 1fr) 520px; gap: 10px; padding: 10px; }
-  @media (max-width: 1300px) { main { grid-template-columns: 1fr; } }
+         display: grid; grid-template-columns: 280px minmax(340px, 1fr) minmax(420px, 1.15fr); gap: 10px; padding: 10px; }
+  @media (max-width: 1400px) { main { grid-template-columns: 1fr; } }
   .col { min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
   .card { background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 12px 13px; }
   .card h3 { margin: 0 0 9px; font-size: 11px; text-transform: uppercase;
@@ -101,12 +101,38 @@
   details.risk .g { margin-top: 6px; }
   .muted { color: var(--muted); }
   .err { color: #b91c1c; font-size: 12px; }
+
+  /* --- empty-state guide in the centre --- */
+  .guide { max-width: 620px; margin: 6vh auto; padding: 0 24px; }
+  .guide h2 { font-size: 17px; margin: 0 0 6px; }
+  .guide p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .guide ol { counter-reset: g; list-style: none; padding: 0; margin: 18px 0; }
+  .guide ol li { position: relative; padding: 10px 12px 10px 44px; margin: 8px 0;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+  .guide ol li::before { counter-increment: g; content: counter(g);
+    position: absolute; left: 12px; top: 10px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--blue); color: #fff; font-weight: 700; font-size: 12px;
+    display: grid; place-items: center; }
+  .guide ol li b { display: block; margin-bottom: 2px; }
+  .guide .flow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    font-size: 11.5px; color: var(--muted); margin-top: 10px; }
+  .guide .flow span { background: #eef1f5; border-radius: 6px; padding: 3px 8px; }
+  .guide .flow b { color: var(--blue-d); }
+
+  /* --- review panel: instruction banner + column help --- */
+  .howto { background: #f2f7fc; border: 1px solid #d5e3f2; border-radius: 9px;
+    padding: 9px 11px; font-size: 12px; line-height: 1.55; margin-bottom: 9px; }
+  .howto b { color: var(--blue-d); }
+  .colhelp { font-size: 11px; color: var(--muted); margin: 3px 0 8px; line-height: 1.5; }
+  .rev-legend { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--warn); }
+  .rev-legend i { width: 10px; height: 10px; background: #fffaf1; border: 1px solid #f0d9a8; border-radius: 2px; }
+  table.grid tr.rev td:first-child { border-left: 3px solid var(--warn); }
 </style>
 </head>
 <body>
 <header>
-  <div><b>MANTAPS</b> &mdash; <span class="sub">Ingest SLD &amp; kerawanan</span>
-    <div class="sub">upload &rarr; bangun relasi &rarr; <b>konfirmasi</b> &rarr; terbitkan versi &rarr; render</div>
+  <div><b>MANTAPS</b> &mdash; <span class="sub">Daftarkan subsistem baru dari SLD</span>
+    <div class="sub">SLD + tabel kerawanan (dari dokumen) &rarr; <b>periksa &amp; konfirmasi</b> &rarr; terbitkan</div>
   </div>
   <div class="spacer"></div>
   <a href="/">&larr; Peta kerawanan</a>
@@ -117,18 +143,24 @@
   <!-- LEFT -->
   <div class="col">
     <div class="card">
-      <h3><span class="step">1</span>Upload</h3>
+      <h3><span class="step">1</span>Unggah data subsistem</h3>
       <p class="muted" style="font-size:11px;margin:0 0 8px">
-        Template Excel subsistem PLN (.xlsx) &mdash; sheet Jalur_Transmisi,
-        Gardu_Induk_dan_Aset, Data_Kerawanan_Detail (+ Info, Bay opsional).
-        Hand-off JSON juga diterima. PDF/vision belum diimplementasi.</p>
+        Isi <b>template Excel</b> dari SLD &amp; tabel kerawanan di dokumen
+        (Buku Kerawanan / gambar SLD), lalu unggah di sini.
+        <br><span style="color:var(--warn)">Ekstraksi otomatis dari PDF/foto belum ada
+        &mdash; pengisian template masih manual.</span></p>
+      <a class="btn sm ghost" href="/api/ingest/sample" download style="text-decoration:none;display:block;text-align:center;margin-bottom:8px">
+        &#8681; Unduh template kosong (contoh SS_CWD)</a>
       <input type="file" id="file" accept=".xlsx,.xlsm,.json" style="font-size:12px">
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn sm" id="up">Unggah</button>
-        <button class="btn sm ghost" id="sample">Pakai contoh SS_CWD</button>
-        <a class="btn sm ghost" href="/api/ingest/sample" download style="text-decoration:none">&#8681; Template contoh</a>
+        <button class="btn sm" id="up">Unggah &amp; periksa</button>
+        <button class="btn sm ghost" id="sample">Coba dengan contoh</button>
       </div>
       <div id="upErr" class="err" style="margin-top:6px"></div>
+      <p class="muted" style="font-size:10.5px;margin:8px 0 0">
+        3 sheet wajib: <b>Gardu_Induk_dan_Aset</b> (daftar GI),
+        <b>Jalur_Transmisi</b> (Dari GI &rarr; Ke GI), <b>Data_Kerawanan_Detail</b>.
+        Opsional: <b>Info</b> (kode/nama SS), <b>Bay</b> (GI yang digambar menggantung).</p>
     </div>
 
     <div class="card" id="draftCard" hidden>
@@ -141,31 +173,63 @@
     </div>
 
     <div class="card" id="valCard" hidden>
-      <h3><span class="step">3</span>Validasi</h3>
+      <h3><span class="step">3</span>Status pemeriksaan</h3>
       <div class="valid" id="valid"></div>
     </div>
 
     <div class="card" id="pubCard" hidden>
-      <h3><span class="step">5</span>Terbitkan versi</h3>
+      <h3><span class="step">4</span>Terbitkan ke Peta Kerawanan</h3>
       <p class="muted" style="font-size:11px;margin:0 0 6px">
-        Preview di tengah &amp; validasi berjalan tanpa menyimpan apa pun.
-        <b>Terbitkan</b> adalah satu-satunya langkah yang menulis ke basis data.</p>
+        Pemeriksaan &amp; gambar di atas berjalan tanpa menyimpan apa pun.
+        <b>Terbitkan</b> memasukkan subsistem ini ke Peta Kerawanan
+        <span id="pubApb" style="font-weight:700"></span>.</p>
       <label class="fld">Kode subsistem</label>
       <input type="text" id="pcode">
       <label class="fld">Nama subsistem</label>
       <input type="text" id="pname">
+      <label class="fld">UP2B</label>
+      <input type="text" id="papb" placeholder="UP2B Jakarta &amp; Banten">
       <label class="fld">Berlaku sejak</label>
       <input type="text" id="pdate" placeholder="2026-06-30">
-      <button class="btn" id="publish" style="margin-top:10px;width:100%" disabled>Terbitkan &amp; render</button>
+      <button class="btn" id="publish" style="margin-top:10px;width:100%" disabled>Terbitkan ke Peta Kerawanan</button>
       <div id="pubMsg" style="margin-top:6px;font-size:12px"></div>
     </div>
   </div>
 
   <!-- CENTER -->
   <div class="card viewer">
-    <div id="stage"></div>
-    <div class="stale" id="stale">preview belum diperbarui &mdash; klik untuk refresh</div>
-    <div class="zoomctl">
+    <div id="guide" class="guide">
+      <h2>Belum ada data</h2>
+      <p>Halaman ini mengubah <b>SLD + tabel kerawanan satu subsistem</b> menjadi
+        peta kerawanan di MANTAPS. Sumbernya dokumen (Buku Kerawanan, gambar SLD) &mdash;
+        yang dituangkan ke <b>template Excel</b> dulu, lalu diperiksa di sini.</p>
+      <ol>
+        <li><b>Isi template Excel</b>
+          Daftar GI, hubungan antar-GI (Dari &rarr; Ke), dan tabel kerawanan &mdash;
+          dibaca dari SLD &amp; Buku Kerawanan. Unduh template kosong di panel kiri.</li>
+        <li><b>Unggah di sini</b>
+          Sistem membangun draft SLD sementara (belum masuk basis data) dan
+          menandai bagian yang perlu Anda pastikan.</li>
+        <li><b>Periksa &amp; konfirmasi di panel kanan</b>
+          Cocokkan GI ke data yang sudah ada, betulkan hubungan yang salah baca,
+          tautkan tiap kerawanan ke titiknya. Gambar di sini ikut berubah.</li>
+        <li><b>Terbitkan</b>
+          Kalau sudah benar, subsistem masuk MANTAPS dan muncul di Peta Kerawanan.</li>
+      </ol>
+      <div class="flow">
+        <span>SLD + Buku Kerawanan</span> &rarr;
+        <span>template Excel</span> &rarr;
+        <span><b>unggah</b></span> &rarr;
+        <span><b>periksa</b></span> &rarr;
+        <span>terbitkan</span> &rarr;
+        <span>Peta Kerawanan</span>
+      </div>
+      <p style="margin-top:14px">Belum punya data? Klik <b>Coba dengan contoh</b> di panel kiri
+        untuk melihat seluruh alurnya dengan SS Cawang 2,3 &ndash; Depok 1.</p>
+    </div>
+    <div id="stage" hidden></div>
+    <div class="stale" id="stale">gambar belum diperbarui &mdash; klik untuk segarkan</div>
+    <div class="zoomctl" id="zoomctl" hidden>
       <button id="zin">+</button><button id="zfit" style="font-size:10px;font-weight:700">FIT</button><button id="zout">&minus;</button>
     </div>
   </div>
@@ -181,39 +245,64 @@
     </div>
 
     <div class="card" id="reviewCard" hidden>
-      <h3><span class="step">2</span>Review draft &mdash; konfirmasi sebelum render</h3>
+      <h3><span class="step">2</span>Periksa &amp; konfirmasi</h3>
+      <div class="howto" id="howto"></div>
       <div class="tabs">
-        <button data-tab="nodes" class="active">GI / node</button>
-        <button data-tab="edges">Penghantar</button>
-        <button data-tab="risks">Kerawanan</button>
+        <button data-tab="nodes" class="active">Gardu Induk <span id="cnt-n" class="muted"></span></button>
+        <button data-tab="edges">Penghantar <span id="cnt-e" class="muted"></span></button>
+        <button data-tab="risks">Kerawanan <span id="cnt-r" class="muted"></span></button>
       </div>
 
       <div class="pane active" id="pane-nodes">
-        <div style="overflow:auto;max-height:62vh">
+        <div class="colhelp">
+          <b>Kode</b> = singkatan GI di SLD (mis. CWBRU). &nbsp;
+          <b>Cocokkan</b> = kalau GI ini sudah terdaftar di MANTAPS, pilih dari daftar
+          (skor % = kemiripan); biarkan &ldquo;&mdash; GI baru &mdash;&rdquo; kalau memang belum ada. &nbsp;
+          <b>Tier</b> = level dari sumber (GITET = 1). &nbsp;
+          <b>Bay</b> = centang kalau GI ini digambar menggantung, bukan busbar sendiri.
+          <br><span class="rev-legend"><i></i> baris kuning = parser ragu, cocokkan dengan SLD asli.</span>
+        </div>
+        <div style="overflow:auto;max-height:60vh">
           <table class="grid" id="tblNodes"></table>
         </div>
       </div>
 
       <div class="pane" id="pane-edges">
+        <div class="colhelp">
+          Tiap baris = satu ruas penghantar (2 sirkit = 1 baris). Betulkan arah
+          <b>Dari &rarr; Ke</b>, jumlah sirkit, dan status. Baris kuning = parser
+          menariknya dari garis yang tidak jelas / putus-putus di SLD &mdash; pastikan benar.
+          <b>Hapus</b> yang salah, <b>+ Tambah</b> yang terlewat.
+        </div>
         <div style="margin-bottom:6px;display:flex;gap:5px;align-items:end;flex-wrap:wrap">
-          <div><label class="fld">Dari</label><select id="eFrom" class="mini"></select></div>
-          <div><label class="fld">Ke</label><select id="eTo" class="mini"></select></div>
-          <div><label class="fld">Sirkit</label><input type="number" id="eCnt" value="2" class="conf"></div>
+          <div><label class="fld">Dari GI</label><select id="eFrom"></select></div>
+          <div><label class="fld">Ke GI</label><select id="eTo"></select></div>
+          <div><label class="fld">Sirkit</label><input type="number" id="eCnt" value="2" style="width:52px"></div>
           <button class="btn sm" id="eAdd">+ Tambah</button>
         </div>
-        <div style="overflow:auto;max-height:56vh"><table class="grid" id="tblEdges"></table></div>
+        <div style="overflow:auto;max-height:54vh"><table class="grid" id="tblEdges"></table></div>
       </div>
 
       <div class="pane" id="pane-risks">
-        <div id="riskList" style="max-height:62vh;overflow:auto"></div>
+        <div class="colhelp">
+          Setiap kerawanan <b>wajib ditautkan</b> ke objeknya (GI atau ruas) lewat
+          &ldquo;Tautkan ke objek&rdquo; &mdash; itu yang jadi titik nomor di SLD.
+          Isi/koreksi kategori (N-1/N-2/&hellip;), kondisi, dampak, mitigasi, usulan.
+        </div>
+        <div id="riskList" style="max-height:60vh;overflow:auto"></div>
       </div>
     </div>
-    <div class="card muted" id="hintCard" style="font-size:12px">
-      Unggah <b>template Excel subsistem PLN (.xlsx)</b> &mdash; 3 sheet
-      (Jalur_Transmisi, Gardu_Induk_dan_Aset, Data_Kerawanan_Detail) &mdash;
-      atau klik <b>Pakai contoh</b>.
-      Node &amp; penghantar dengan <span class="badge warn">NEEDS_REVIEW</span> (confidence &lt; 0.9)
-      adalah yang parser tidak yakin &mdash; periksa sebelum menerbitkan.
+
+    <div class="card" id="hintCard" style="font-size:12px">
+      <b>Yang muncul di panel ini setelah Anda unggah:</b>
+      <ul style="margin:6px 0 0;padding-left:18px;line-height:1.6">
+        <li><b>Gardu Induk</b> &mdash; tiap GI dari SLD, untuk dicocokkan / dinamai</li>
+        <li><b>Penghantar</b> &mdash; tiap ruas, untuk dibetulkan arah &amp; jumlah sirkit</li>
+        <li><b>Kerawanan</b> &mdash; tiap titik dari Buku Kerawanan, untuk ditautkan ke objeknya</li>
+      </ul>
+      <p class="muted" style="margin:8px 0 0">
+        Yang ditandai <span class="badge warn">PERLU DICEK</span> adalah bagian yang
+        parser tidak yakin &mdash; cocokkan dengan SLD asli sebelum menerbitkan.</p>
     </div>
   </div>
 </main>
@@ -261,11 +350,13 @@ function persist(){ try { localStorage.setItem(LS_KEY, JSON.stringify(slimDraft(
     $$('.pane').forEach(p => p.classList.toggle('active', p.id === 'pane-'+b.dataset.tab));
   });
   $('#eAdd').onclick = addEdge;
-  ['pcode','pname','pdate'].forEach(id => $('#'+id).onchange = () => {
+  ['pcode','pname','papb','pdate'].forEach(id => $('#'+id).onchange = () => {
     DRAFT.subsystem.code = $('#pcode').value.trim();
     DRAFT.subsystem.name = $('#pname').value.trim();
+    DRAFT.subsystem.apb = $('#papb').value.trim() || null;
     DRAFT.meta = DRAFT.meta || {};
     DRAFT.meta.effective_date = $('#pdate').value.trim() || null;
+    $('#pubApb').textContent = $('#papb').value.trim() ? '— ' + $('#papb').value.trim() : '';
     persist();
   });
 
@@ -303,6 +394,9 @@ async function openBlob(draft, fromStorage){
         method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(draft) })
     : draft;
   persist();
+  $('#guide').hidden = true;
+  $('#stage').hidden = false;
+  $('#zoomctl').hidden = false;
   $('#hintCard').hidden = true;
   $('#reviewCard').hidden = false;
   $('#draftCard').hidden = false;
@@ -310,7 +404,9 @@ async function openBlob(draft, fromStorage){
   $('#pubCard').hidden = false;
   $('#pcode').value = DRAFT.subsystem.code || '';
   $('#pname').value = DRAFT.subsystem.name || '';
+  $('#papb').value = DRAFT.subsystem.apb || 'UP2B Jakarta & Banten';
   $('#pdate').value = (DRAFT.meta && DRAFT.meta.effective_date) || '';
+  $('#pubApb').textContent = $('#papb').value ? '— ' + $('#papb').value : '';
   renderAll();
   await refreshPreview();
 }
@@ -340,10 +436,31 @@ async function sync(){
 function renderAll(){
   renderDraftInfo();
   renderExisting();
+  renderHowto();
   renderNodes();
   renderEdges();
   renderRisks();
   renderValidation();
+  const nRev = DRAFT.nodes.filter(n=>n.needs_review).length + DRAFT.edges.filter(e=>e.needs_review).length;
+  const nUnpin = DRAFT.risks.filter(r=>!r.pin_key).length;
+  $('#cnt-n').textContent = `(${DRAFT.nodes.length})`;
+  $('#cnt-e').textContent = `(${DRAFT.edges.length})`;
+  $('#cnt-r').textContent = nUnpin ? `(${nUnpin} belum ditautkan)` : `(${DRAFT.risks.length})`;
+  if (nUnpin) $('#cnt-r').style.color = 'var(--warn)'; else $('#cnt-r').style.color = '';
+}
+
+function renderHowto(){
+  const nRev = DRAFT.nodes.filter(n=>n.needs_review).length + DRAFT.edges.filter(e=>e.needs_review).length;
+  const nUnpin = DRAFT.risks.filter(r=>!r.pin_key).length;
+  let parts = [];
+  if (nRev) parts.push(`<b>${nRev}</b> baris ditandai <span class="badge warn">PERLU DICEK</span> &mdash; parser ragu, cocokkan dengan SLD asli`);
+  if (nUnpin) parts.push(`<b>${nUnpin}</b> kerawanan belum ditautkan ke objek`);
+  const todo = parts.length
+    ? `Yang perlu Anda kerjakan: ` + parts.join('; ') + '.'
+    : `Semua sudah dikonfirmasi. Periksa sekali lagi, lalu <b>Terbitkan</b> di panel kiri.`;
+  $('#howto').innerHTML =
+    `Data di sini adalah <b>hasil baca template</b> &mdash; belum final, belum masuk basis data.
+     Betulkan yang salah, gambar SLD di tengah ikut berubah. ${todo}`;
 }
 
 function renderExisting(){
@@ -370,18 +487,18 @@ function renderNodes(){
   const t = $('#tblNodes');
   t.innerHTML = `<colgroup><col class="c-raw"><col><col><col><col>
       <col class="c-num"><col><col class="c-num"><col class="c-num"><col></colgroup>
-    <tr><th>Raw</th><th>Cocokkan</th><th>Kode</th><th>Nama</th>
-    <th>Tipe</th><th>Tier</th><th>Status</th><th>Bay</th><th>Conf</th><th></th></tr>`;
+    <tr><th>Dari SLD</th><th>Cocokkan</th><th>Kode</th><th>Nama</th>
+    <th>Tipe</th><th>Tier</th><th>Status</th><th>Bay</th><th>Yakin</th><th></th></tr>`;
   DRAFT.nodes.forEach((n, idx) => {
     const tr = document.createElement('tr');
     if (n.needs_review) tr.className = 'rev';
-    const candOpts = ['<option value="">-- GI baru --</option>'].concat(
+    const candOpts = ['<option value="">&mdash; GI baru &mdash;</option>'].concat(
       (n.candidates||[]).map(c =>
         `<option value="${c.substation_id}" ${n.canonical_id===c.substation_id?'selected':''}>`
         + `${esc(c.code)} (${Math.round(c.score*100)}%)</option>`)).join('');
     tr.innerHTML = `
       <td class="nowrap">${esc(n.raw_label)}<br><span class="muted">${esc(n.external_key)}</span>
-        ${n.needs_review?'<br><span class="badge warn">REVIEW</span>':''}</td>
+        ${n.needs_review?'<br><span class="badge warn">PERLU DICEK</span>':''}</td>
       <td><select data-f="cand">${candOpts}</select></td>
       <td><input type="text" data-f="confirmed_code" value="${esc(n.confirmed_code||'')}"
            ${n.resolution==='MATCH'?'disabled':''}></td>
@@ -427,8 +544,8 @@ function renderEdges(){
   $('#eFrom').innerHTML = sel();
   $('#eTo').innerHTML = sel();
   const t = $('#tblEdges');
-  t.innerHTML = `<tr><th>Dari</th><th>Ke</th><th>Tipe</th><th>Status</th>
-    <th>Sirkit</th><th>Conf</th><th>OK</th><th></th></tr>`;
+  t.innerHTML = `<tr><th>Dari GI</th><th>Ke GI</th><th>Tipe</th><th>Status</th>
+    <th>Sirkit</th><th>Yakin</th><th>Sudah&nbsp;dicek</th><th></th></tr>`;
   DRAFT.edges.forEach((e, idx) => {
     const tr = document.createElement('tr');
     if (e.needs_review) tr.className = 'rev';
@@ -472,23 +589,25 @@ function renderRisks(){
   DRAFT.risks.forEach((r, i) => {
     const d = document.createElement('details');
     d.className = 'risk';
-    const pinOpts = ['<option value="">-- pilih --</option>']
-      .concat(keys.map(k=>`<option value="${esc(k)}" ${r.pin_key===k?'selected':''}>${esc(k)} (GI)</option>`))
+    const pinOpts = ['<option value="">&mdash; pilih GI atau ruas &mdash;</option>']
+      .concat(keys.map(k=>`<option value="${esc(k)}" ${r.pin_key===k?'selected':''}>GI ${esc(k)}</option>`))
       .concat(DRAFT.edges.map(e=>{
         const key = `${e.from_key}-${e.to_key}`;
-        return `<option value="${esc(key)}" ${r.pin_key===key?'selected':''}>${esc(key)} (ruas)</option>`;
+        return `<option value="${esc(key)}" ${r.pin_key===key?'selected':''}>Ruas ${esc(e.from_key)} &ndash; ${esc(e.to_key)}</option>`;
       })).join('');
-    d.innerHTML = `<summary>#${r.seq_no ?? (i+1)} &middot; ${esc(r.title||'(tanpa judul)')}</summary>
+    const unpin = !r.pin_key;
+    d.innerHTML = `<summary>#${r.seq_no ?? (i+1)} &middot; ${esc(r.title||'(tanpa judul)')}
+        ${unpin?'<span class="badge warn">belum ditautkan</span>':''}</summary>
       <div class="g">
-        <label class="fld">Kategori</label>
+        <label class="fld">Tautkan ke objek &mdash; jadi titik nomor #${r.seq_no ?? (i+1)} di SLD</label>
+        <select data-f="pin_key" ${unpin?'style="border-color:var(--warn)"':''}>${pinOpts}</select>
+        <label class="fld">Kategori kontingensi</label>
         <select data-f="category">${CATS.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select>
-        <label class="fld">Judul</label><input type="text" data-f="title" value="${esc(r.title||'')}">
+        <label class="fld">Judul singkat</label><input type="text" data-f="title" value="${esc(r.title||'')}">
         <label class="fld">Kondisi / permasalahan</label><textarea data-f="condition">${esc(r.condition||'')}</textarea>
         <label class="fld">Dampak</label><textarea data-f="impact">${esc(r.impact||'')}</textarea>
         <label class="fld">Mitigasi</label><textarea data-f="mitigation">${esc(r.mitigation||'')}</textarea>
         <label class="fld">Usulan / solusi</label><textarea data-f="follow_up">${esc(r.follow_up||'')}</textarea>
-        <label class="fld">Tautkan ke objek (titik kerawanan)</label>
-        <select data-f="pin_key">${pinOpts}</select>
       </div>`;
     const risk = DRAFT.risks[i];
     d.querySelectorAll('[data-f]').forEach(el => {
@@ -524,9 +643,11 @@ async function doPublish(){
       body: JSON.stringify({ draft: slimDraft(DRAFT),
         subsystem_code:$('#pcode').value.trim(),
         subsystem_name:$('#pname').value.trim(),
+        apb:$('#papb').value.trim()||null,
         effective_date:$('#pdate').value.trim()||null }) });
-    $('#pubMsg').innerHTML = `<span class="badge ok">terbit</span> ${esc(r.view_key)} &mdash;
-      <a href="/">buka di peta kerawanan &rarr;</a>`;
+    $('#pubMsg').innerHTML =
+      `<span class="badge ok">terbit</span> masuk ke Peta Kerawanan
+       ${esc(r.apb || '')} &mdash; <a href="/">buka Peta Kerawanan &rarr;</a>`;
     $('#publish').disabled = true;
     localStorage.removeItem(LS_KEY);
   } catch(e){ $('#pubMsg').innerHTML = '<span class="err">'+esc(e.message)+'</span>'; }

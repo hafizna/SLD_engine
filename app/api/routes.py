@@ -538,4 +538,4 @@ def ingest_publish(body: dict, db: Session = Depends(get_db)):
     draft = body.get("draft") or {}
     return _ingest_guard(lambda: ingest_svc.publish(
         db, draft, body.get("subsystem_code", ""), body.get("subsystem_name", ""),
-        body.get("effective_date")))
+        body.get("effective_date"), body.get("apb")))

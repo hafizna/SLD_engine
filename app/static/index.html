@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MANTAPS &mdash; Peta Kerawanan</title>
+<title>Peta Kerawanan &mdash; MANTAPS</title>
 <style>
   :root {
     color-scheme: light;
@@ -151,6 +151,9 @@
 
   /* ---- SS -> POV tree ---- */
   .sstree { font-size: 13px; }
+  .sstree .apb { font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--muted); margin: 10px 0 2px; }
+  .sstree .apb:first-child { margin-top: 0; }
   .sstree .ss {
     display: flex; align-items: center; gap: 6px; padding: 7px 4px;
     font-weight: 700; cursor: pointer; border-radius: 6px;
@@ -174,20 +177,20 @@
 <body>
 <header>
   <div class="brand">
-    <b>MANTAPS</b> &nbsp;<span class="sub">Peta Kerawanan &middot; Topology Engine</span>
-    <div class="sub">Satu topologi kanonik &middot; Tier per proyeksi &middot; overlay semantik</div>
+    <b>MANTAPS</b> &nbsp;<span class="sub">Peta Kerawanan</span>
+    <div class="sub">Subsistem transmisi per UP2B &middot; Tier per sudut pandang &middot; overlay kerawanan</div>
   </div>
   <div class="spacer"></div>
   <span class="hint" id="crumb"></span>
   <select id="scensel" title="Pola operasi"></select>
-  <a class="navlink" href="/ingest" title="Bootstrap subsistem baru dari SLD">+ Ingest SLD</a>
+  <a class="navlink" href="/ingest" title="Tambah subsistem baru dari SLD">+ Tambah subsistem</a>
 </header>
 
 <main>
   <!-- LEFT -->
   <div class="col">
     <div class="card">
-      <h3>Sistem &amp; proyeksi</h3>
+      <h3>UP2B &amp; subsistem</h3>
       <div id="sstree" class="sstree"></div>
     </div>
 
@@ -300,47 +303,60 @@ async function txt(p){ const r = await fetch(API + p); if(!r.ok) throw new Error
   if (VIEWS.length) selectView(VIEWS[0].id);
 })().catch(e => { $('#stage').innerHTML = '<p style="padding:16px;color:#b91c1c">'+esc(e.message)+'</p>'; });
 
-// ---------- SS -> POV tree ----------
-function ssName(id){
-  const s = SUBS.find(s => s.id === id);
-  return s ? s.name : 'Lain-lain';
-}
+// ---------- UP2B -> SS -> point-of-view tree ----------
+function ssOf(id){ return SUBS.find(s => s.id === id) || null; }
+function ssName(id){ const s = ssOf(id); return s ? s.name : 'Lain-lain'; }
+function apbOf(id){ const s = ssOf(id); return (s && s.apb) || 'UP2B lain'; }
+
 function buildTree(){
   const box = $('#sstree');
   box.innerHTML = '';
-  // group views by subsystem, in first-seen order
-  const groups = [];
+  // UP2B -> SS -> views
+  const apbs = [];
   VIEWS.forEach(v => {
-    let g = groups.find(g => g.sid === v.subsystem_id);
-    if (!g) { g = { sid: v.subsystem_id, views: [] }; groups.push(g); }
+    const apb = apbOf(v.subsystem_id);
+    let a = apbs.find(x => x.apb === apb);
+    if (!a) { a = { apb, ss: [] }; apbs.push(a); }
+    let g = a.ss.find(g => g.sid === v.subsystem_id);
+    if (!g) { g = { sid: v.subsystem_id, views: [] }; a.ss.push(g); }
     g.views.push(v);
   });
-  groups.forEach((g, gi) => {
-    const head = document.createElement('div');
-    head.className = 'ss open';
-    head.innerHTML = `<span class="tw">&#9656;</span>`
-      + `<span>SS ${esc(ssName(g.sid))}</span>`
-      + (g.views.length > 1 ? ` <small>&middot; ${g.views.length} sudut pandang</small>` : '');
-    const kids = document.createElement('div');
-    kids.className = 'kids';
-    g.views.forEach(v => {
-      const b = document.createElement('button');
-      b.className = 'pov';
-      b.dataset.viewId = v.id;
-      const sub = g.views.length > 1 ? '<small>sudut pandang</small>' : '';
-      b.innerHTML = `${esc(v.name)}${sub}`;
-      b.onclick = () => selectView(v.id);
-      kids.appendChild(b);
+
+  apbs.forEach(a => {
+    if (apbs.length > 1) {
+      const ah = document.createElement('div');
+      ah.className = 'apb';
+      ah.textContent = a.apb;
+      box.appendChild(ah);
+    }
+    a.ss.forEach(g => {
+      const head = document.createElement('div');
+      head.className = 'ss open';
+      head.innerHTML = `<span class="tw">&#9656;</span>`
+        + `<span>SS ${esc(ssName(g.sid))}</span>`
+        + (g.views.length > 1 ? ` <small>&middot; ${g.views.length} sudut pandang</small>` : '');
+      const kids = document.createElement('div');
+      kids.className = 'kids';
+      g.views.forEach(v => {
+        const b = document.createElement('button');
+        b.className = 'pov';
+        b.dataset.viewId = v.id;
+        const sub = g.views.length > 1 ? '<small>sudut pandang</small>' : '';
+        b.innerHTML = `${esc(v.name)}${sub}`;
+        b.onclick = () => selectView(v.id);
+        kids.appendChild(b);
+      });
+      head.onclick = () => { head.classList.toggle('open'); kids.hidden = !head.classList.contains('open'); };
+      box.appendChild(head);
+      box.appendChild(kids);
     });
-    head.onclick = () => { head.classList.toggle('open'); kids.hidden = !head.classList.contains('open'); };
-    box.appendChild(head);
-    box.appendChild(kids);
   });
 }
 function markTree(id){
   $$('#sstree .pov').forEach(b => b.classList.toggle('active', +b.dataset.viewId === id));
   const v = VIEWS.find(v => v.id === id);
-  $('#crumb').textContent = v ? `SS ${ssName(v.subsystem_id)}  ›  ${v.name}` : '';
+  $('#crumb').textContent = v
+    ? `${apbOf(v.subsystem_id)}  ›  SS ${ssName(v.subsystem_id)}  ›  ${v.name}` : '';
 }
 
 // ---------- view load ----------
