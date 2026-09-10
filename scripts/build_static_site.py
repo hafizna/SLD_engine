@@ -34,12 +34,17 @@ def build() -> None:
     from app.models import AnalyticalView
     from app.services.excel_register import export_register
     from app.services.seed import seed_demo
+    from app.services.seed_ss_cwd import seed_ss_cwd
     from app.services.sld_renderer import render_view_svg
     from fastapi.testclient import TestClient
 
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_demo(db)
+        # SS Cawang 2,3-Depok 1 (Sec 2.7): authored via /ingest in the live
+        # engine, seeded straight into the snapshot here. Kept out of seed_demo
+        # so the /ingest test suite can still publish under code SS_CWD.
+        seed_ss_cwd(db)
 
     from app.main import app  # imports after DB is ready
 
