@@ -304,6 +304,7 @@ def seed_ss_bll(db: Session) -> None:
         c = Circuit(
             code=code, name=name, circuit_type=ctype, voltage_kv=kv,
             from_substation_id=subs[fr].id, to_substation_id=subs[to].id,
+            subsystem_id=ss.id,
             transformer_id=txs[txcode].id if txcode else None,
             circuit_count=ccnt, single_phi=sphi, status=status, scenario_id="NORMAL",
             drawing_side=None, source_document_id=doc.id,

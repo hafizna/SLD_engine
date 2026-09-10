@@ -240,6 +240,11 @@ class Circuit(Base):
     voltage_kv: Mapped[float] = mapped_column(Float, default=150.0)
     from_substation_id: Mapped[int] = mapped_column(ForeignKey("substation.id"))
     to_substation_id: Mapped[int] = mapped_column(ForeignKey("substation.id"))
+    # The two endpoint GIs can each sit in several subsystems (New Balaraja is
+    # Tier-1 in both SS_LBK and SS_BLL). This circuit still belongs to ONE
+    # subsystem's SLD -- IBT 1,2 New Balaraja are drawn in SS_LBK, IBT 3,4 in
+    # SS_BLL. NULL = shared / applies everywhere the endpoints match.
+    subsystem_id: Mapped[int | None] = mapped_column(ForeignKey("subsystem.id"), nullable=True)
     # optional: the transformer this edge represents (IBT link) instead of a line
     transformer_id: Mapped[int | None] = mapped_column(ForeignKey("transformer.id"), nullable=True)
     circuit_count: Mapped[int | None] = mapped_column(Integer, nullable=True)  # sirkit count

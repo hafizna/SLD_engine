@@ -130,6 +130,12 @@ def get_view_graph(db: Session, view: AnalyticalView):
                 continue
             if view.drawing_side and c.drawing_side and c.drawing_side != view.drawing_side:
                 continue
+            # a circuit scoped to another subsystem does not belong to this view
+            # (New Balaraja's IBT 1,2 are SS_LBK's; IBT 3,4 are SS_BLL's, even
+            # though both GITET and the 150 bus sit in both subsystems)
+            if (c.subsystem_id is not None and view.subsystem_id is not None
+                    and c.subsystem_id != view.subsystem_id):
+                continue
             if not _is_live(c.status):
                 continue
             edges.append(c)

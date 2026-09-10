@@ -25,6 +25,7 @@ toward their parent's x.
 from __future__ import annotations
 
 import html
+import re
 from collections import defaultdict
 
 from sqlalchemy.orm import Session
@@ -221,7 +222,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     for sid in drawn_ids:
         if sid in gitet_feeds:
             ft = tier.get(("SUBSTATION", gitet_feeds[sid]))
-            row_of[sid] = (ft - 0.55) if ft else 0.45
+            # sit the GITET well above its LV bus so the IBT chain has room for
+            # the inline symbol + a unit label
+            row_of[sid] = (ft - 0.78) if ft else 0.35
         else:
             row_of[sid] = float(tier[("SUBSTATION", sid)])
     gen_row: dict[int, float] = {}
@@ -229,7 +232,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if not g.outlet_substation_id:
             continue  # tap-circuit generator: drawn on the circuit, not in a row
         ft = tier.get(("SUBSTATION", g.outlet_substation_id))
-        gen_row[g.id] = (ft - 0.85) if ft else 0.2
+        gen_row[g.id] = (ft - 0.42) if ft else 0.45
 
     rows: dict[float, list[int]] = defaultdict(list)
     for sid, rk in row_of.items():
@@ -331,20 +334,62 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     content_w = cursor[0] - (MARGIN_X + EDGE_MARGIN)
     W = MARGIN_X * 2 + EDGE_MARGIN * 2 + max(content_w, lane_w(roots[0]) if roots else 200)
 
-    # de-overlap within each row
-    for rk in sorted(rows):
-        order = sorted(rows[rk], key=lambda s: pos[s][0])
+    # ---- barycenter layer-sweep: pull every node toward the average x of its
+    #      graph neighbours (parents, children, same-tier links), then push
+    #      apart to clear overlap. This is what stops two subtrees whose only
+    #      link is a same-tier tie (Balaraja <-> Sindang Jaya) from landing at
+    #      opposite ends of the diagram.
+    neighbours: dict[int, set[int]] = defaultdict(set)
+    for c in line_edges:
+        a, b = c.from_substation_id, c.to_substation_id
+        if a in row_of and b in row_of:
+            neighbours[a].add(b)
+            neighbours[b].add(a)
+    for hv, lv in gitet_feeds.items():
+        if hv in row_of and lv in row_of:
+            neighbours[hv].add(lv)
+            neighbours[lv].add(hv)
+
+    def _min_gap(a, b):
+        return bus_half(a) + bus_half(b) + GUTTER * 0.9
+
+    def _spread_row(order):
         for i in range(1, len(order)):
             prev, cur = order[i - 1], order[i]
-            min_gap = bus_half(prev) + bus_half(cur) + GUTTER * 0.55
-            if pos[cur][0] - pos[prev][0] < min_gap:
-                pos[cur] = (pos[prev][0] + min_gap, pos[cur][1])
-        # keep parents roughly centred over their (possibly shifted) children
-        for s in order:
-            kids = [k for k in children.get(s, []) if k in pos]
-            if kids:
-                cx = sum(pos[k][0] for k in kids) / len(kids)
-                pos[s] = (0.5 * pos[s][0] + 0.5 * cx, pos[s][1])
+            g = _min_gap(prev, cur)
+            if pos[cur][0] - pos[prev][0] < g:
+                pos[cur] = (pos[prev][0] + g, pos[cur][1])
+
+    for _ in range(30):
+        for rk in sorted(rows):
+            order = sorted(rows[rk], key=lambda s: pos[s][0])
+            for s in order:
+                nb = [n for n in neighbours.get(s, ()) if n in pos]
+                if nb:
+                    want = sum(pos[n][0] for n in nb) / len(nb)
+                    pos[s] = (0.55 * want + 0.45 * pos[s][0], pos[s][1])
+            order = sorted(rows[rk], key=lambda s: pos[s][0])
+            _spread_row(order)
+            for i in range(len(order) - 2, -1, -1):
+                nxt, cur = order[i + 1], order[i]
+                g = _min_gap(cur, nxt)
+                if pos[nxt][0] - pos[cur][0] < g:
+                    pos[cur] = (pos[nxt][0] - g, pos[cur][1])
+
+    # a degree-1 node whose only neighbour is on the SAME row (Jatake Baru <-
+    # Jatake) belongs right next to it, not wherever the DFS cursor left it.
+    for sid in list(row_of):
+        nb = [n for n in neighbours.get(sid, ()) if n in pos]
+        if len(nb) == 1 and row_of[nb[0]] == row_of[sid]:
+            anchor = nb[0]
+            g = _min_gap(anchor, sid)
+            side = 1 if pos[sid][0] >= pos[anchor][0] else -1
+            pos[sid] = (pos[anchor][0] + side * g, pos[sid][1])
+
+    # authoritative final de-overlap: one left-to-right pass per row, no
+    # barycenter tug afterwards, so nothing is left touching.
+    for rk in sorted(rows):
+        _spread_row(sorted(rows[rk], key=lambda s: pos[s][0]))
 
     gen_pos: dict[int, tuple[float, float]] = {}
     for gid, rk in gen_row.items():
@@ -365,6 +410,30 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             pos[nid] = (sx, sy)
         elif kind == "GENERATING_UNIT" and nid in gen_pos:
             gen_pos[nid] = (sx, sy)
+
+    # ---- single-phi triangle: keep the three members as a tight cluster.
+    #      In the book the Pasar Kemis / Pasar Kemis Baru / Gajah Tunggal loop
+    #      is drawn compact -- the two upper buses side by side, the lower one
+    #      centred just below them. Snap the lower member under the pair.
+    _sp_adj0: dict[int, set[int]] = defaultdict(set)
+    for c in line_edges:
+        if c.single_phi:
+            _sp_adj0[c.from_substation_id].add(c.to_substation_id)
+            _sp_adj0[c.to_substation_id].add(c.from_substation_id)
+    _tri = {n for n, nb in _sp_adj0.items() if len(nb) >= 2 and n in pos}
+    if 2 <= len(_tri) <= 4:
+        by_row: dict[float, list[int]] = defaultdict(list)
+        for n in _tri:
+            by_row[row_of[n]].append(n)
+        if len(by_row) >= 2:
+            top_rk = min(by_row)
+            top = by_row[top_rk]
+            cx_top = sum(pos[n][0] for n in top) / len(top)
+            for rk, members in by_row.items():
+                if rk == top_rk:
+                    continue
+                for j, n in enumerate(sorted(members, key=lambda m: pos[m][0])):
+                    pos[n] = (cx_top + (j - (len(members) - 1) / 2) * 90, pos[n][1])
 
     # a GITET busbar sits directly above the LV bus it feeds (its IBT chains
     # rise straight into that bus); the DFS cursor placed it as a loose root.
@@ -435,6 +504,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     ).all():
         if c.id in drawn_circ_ids:
             continue
+        if (c.subsystem_id is not None and view.subsystem_id is not None
+                and c.subsystem_id != view.subsystem_id):
+            continue   # belongs to another subsystem's SLD
         # a GI drawn as a stub -- a Bay row, or a degree-1 spur -- carries its
         # single feeding circuit as that stub.
         stub_gis = bay_gi_ids | set(spur)
@@ -574,8 +646,14 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             tb_ = tier.get(("SUBSTATION", c.to_substation_id))
             if ta_ is not None and tb_ is not None and ta_ != tb_:
                 loop_close_ids.add(c.id)   # the up/down edge closing the triangle
+    # is the loop small & clustered enough to route locally? (Pasar Kemis
+    # triangle after the cluster snap). If so, drop the far-right channel.
+    loop_local = False
+    if 2 <= len(loop_members) <= 4 and all(m in pos for m in loop_members):
+        span = max(pos[m][0] for m in loop_members) - min(pos[m][0] for m in loop_members)
+        loop_local = span < 320
     loop_x = None
-    if loop_members:
+    if loop_members and not loop_local:
         loop_x = max(pos[m][0] + bus_half(m) for m in loop_members if m in pos) + 34
 
     p.append('<g id="circuits">')
@@ -605,10 +683,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # instead of around the diagram edge
         straight_up = upward and abs(fx0 - tx0) < 135
 
-        # single-phi loop-closing edge: one clean run just outside the group
+        # single-phi loop-closing edge that still needs the far-side channel
+        # (a big loop). A small clustered triangle falls through to the normal
+        # elbow routing below -- its members are now stacked tightly so the
+        # plain down-elbow already reads as a compact triangle.
         if c.id in loop_close_ids and loop_x is not None:
             (ex, ey), (sx2, sy2) = ((fx0, fy0), (tx0, ty0)) if fy0 > ty0 else ((tx0, ty0), (fx0, fy0))
-            edir = 1 if ey > sy2 else -1   # lower end: line leaves downward? no, sideways
             d = (f'M{ex:.1f},{ey + CB_GAP:.1f} V{ey + 24:.1f} H{loop_x:.1f} '
                  f'V{sy2 - CB_GAP:.1f} H{sx2:.1f} V{sy2 - CB_GAP:.1f}')
             p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
@@ -617,6 +697,20 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             p.append(_cbs(tx0, ty0 + (1 if ty0 > fy0 else -1) * CB_GAP, stroke, n_cct))
             p.append('</g>')
             continue
+        # a short same-tier single-phi tie (Pasar Kemis <-> Pasar Kemis Baru):
+        # one clean horizontal run just below the two buses, no down-U.
+        adjacent_tie = (same_tier and c.single_phi and abs(fx0 - tx0) < 300)
+        if adjacent_tie:
+            yb = fy0 + 24
+            (lx, _), (rx, _) = sorted([(fx0, af), (tx0, at)])
+            d = (f'M{fx0:.1f},{fy0 + CB_GAP:.1f} V{yb:.1f} H{tx0:.1f} V{ty0 + CB_GAP:.1f}')
+            p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
+                     f'stroke-dasharray="{dash}">{title}</path>')
+            p.append(_cb(fx0, fy0 + CB_GAP, stroke))
+            p.append(_cb(tx0, ty0 + CB_GAP, stroke))
+            p.append('</g>')
+            continue
+
         if same_tier:
             fdir = tdir = 1
         elif upward:
@@ -629,18 +723,23 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         else:
             fdir, tdir = -1, 1
 
-        # stagger the elbow depth per circuit so same-tier ties don't stack
-        stagger = (hash(c.id) % 3) * 9
+        # stagger the mid-elbow height per circuit so several links between the
+        # same two rows don't share one horizontal line
+        stagger = (hash(c.id) % 3) * 12
 
+        # A 2-sirkit line is two parallel routes. Separate them on the VERTICAL
+        # legs by dx, and on the HORIZONTAL leg by dy, so they never cross --
+        # offsetting x on a near-horizontal run just makes an X.
         for k, off in enumerate(offs):
             fx, tx = fx0 + off, tx0 + off
+            dyoff = off  # horizontal-leg separation
             tt = title if k == 0 else ""
             if same_tier:
-                yb = max(fy0, ty0) + 46 + stagger + abs(off)
+                yb = max(fy0, ty0) + 44 + stagger + abs(off)
                 d = f'M{fx:.1f},{fy0 + CB_GAP:.1f} V{yb:.1f} H{tx:.1f} V{ty0 + CB_GAP:.1f}'
             elif straight_up:
                 (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
-                gap_y = (by + uy) / 2 + off
+                gap_y = (by + uy) / 2 + dyoff
                 d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{gap_y:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
             elif upward:
                 (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
@@ -648,8 +747,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{by + 30 + abs(off):.1f} H{ch:.1f} '
                      f'V{uy - CB_GAP:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
             else:
+                # parent above child: down from source port, across at a
+                # per-circuit height, down into the target port
                 (ux, uy), (lx, ly) = ((fx, fy0), (tx, ty0)) if fy0 <= ty0 else ((tx, ty0), (fx, fy0))
-                gap_y = (uy + ly) / 2 + off + stagger
+                gap_y = (uy + ly) / 2 + stagger + dyoff
                 d = f'M{ux:.1f},{uy + CB_GAP:.1f} V{gap_y:.1f} H{lx:.1f} V{ly - CB_GAP:.1f}'
             p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
                      f'stroke-dasharray="{dash}">{tt}</path>')
@@ -660,6 +761,24 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     p.append('</g>')
 
     # ---- IBT chains (each chain at the LV busbar's 'ibt' port) --------
+    # We draw only the IBTs that belong to THIS view (New Balaraja shows IBT 3,4
+    # in SS_BLL, IBT 1,2 in SS_LBK). Each chain is labelled with its unit no so
+    # a reader can tell which transformer it is.
+    _ibt_unit: dict[int, str] = {}
+    _ibt_tx_ids = {c.transformer_id for links in ibt_links_by_pair.values()
+                   for c in links if c.transformer_id}
+    if _ibt_tx_ids:
+        for t in db.query(Transformer).filter(Transformer.id.in_(_ibt_tx_ids)).all():
+            _ibt_unit[t.id] = t.unit_no or ""
+
+    def _ibt_label(c) -> str:
+        u = _ibt_unit.get(c.transformer_id, "")
+        if u:
+            return f"IBT {u}"
+        # fall back to a trailing number in the circuit name / code
+        m = re.search(r"(\d+)", (c.name or c.code).split("-")[0])
+        return f"IBT {m.group(1)}" if m else "IBT"
+
     p.append('<g id="ibt-links">')
     for (hv, lv), links in ibt_links_by_pair.items():
         hp, lp = pos.get(hv), pos.get(lv)
@@ -668,8 +787,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         hv_col, lv_col = _vcol(subs[hv].voltage_kv), _vcol(subs[lv].voltage_kv)
         base = port(lv, "ibt")
         n = len(links)
-        for i, c in enumerate(sorted(links, key=lambda z: z.code)):
-            cx = base + (i - (n - 1) / 2) * 26
+        slinks = sorted(links, key=lambda z: (_ibt_unit.get(z.transformer_id, ""), z.code))
+        IBT_DX = 46   # room for the inline symbol + a unit label per chain
+        for i, c in enumerate(slinks):
+            cx = base + (i - (n - 1) / 2) * IBT_DX
             hy, ly = hp[1], lp[1]
             mid = (hy + ly) / 2
             da = f' stroke-dasharray="{STATUS_DASH.get(c.status, "none")}"' if c.status != "ENERGIZED" else ""
@@ -680,6 +801,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             p.append(_cb(cx, hy + CB_GAP, hv_col))
             p.append(_sym_ibt_inline(cx, mid - 4))
             p.append(_cb(cx, ly - CB_GAP, lv_col))
+            # unit label below the inline symbol (clear of both the circles and
+            # the neighbouring chain)
+            p.append(f'<text x="{cx:.1f}" y="{mid + 20:.1f}" font-size="8.5" '
+                     f'fill="#8a6a3a" font-weight="700" text-anchor="middle">{esc(_ibt_label(c))}</text>')
             p.append('</g>')
     p.append('</g>')
 
@@ -744,7 +869,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             base = port(lv, "ibt")
             n = len(ibt_links_by_pair.get((sid, lv), [1]))
             x = base
-            bh = max((n - 1) * 26 / 2 + 30, 40)
+            bh = max((n - 1) * 46 / 2 + 26, 40)
         vcol = _vcol(s.voltage_kv)
         bstroke = STATUS_STROKE.get(s.status) or vcol
         bdash = STATUS_DASH.get(s.status, "none")
@@ -757,8 +882,24 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                  f'<title>{esc(s.name)} [{esc(s.code)}] {esc(s.substation_type)} '
                  f'{esc(int(s.voltage_kv))} kV - {esc(s.status)} - role {esc(role)}'
                  f'{" - " + esc(s.busbar_note) if s.busbar_note else ""}</title>')
-        p.append(f'<text x="{x:.1f}" y="{y - 15:.1f}" font-size="11" font-weight="700" '
-                 f'text-anchor="middle" fill="#0f274a">{esc(s.name)}</text>')
+        # label placement:
+        #   * a GITET bus -> above its bar (nothing else is up there)
+        #   * a Tier-1 / IBT-fed / generator-fed bus -> above-left, angled clear
+        #     of the chain and CB stack that rise into its centre
+        #   * everything else -> centred above, clear of the incoming-feed CBs
+        is_gitet = sid in gitet_feeds
+        fed_from_above = is_gitet or any(
+            g.outlet_substation_id == sid for g in gens.values()
+        ) or (sid in set(gitet_feeds.values()))
+        if is_gitet:
+            p.append(f'<text x="{x:.1f}" y="{y - 12:.1f}" font-size="11" font-weight="700" '
+                     f'text-anchor="middle" fill="#0f274a">{esc(s.name)}</text>')
+        elif fed_from_above:
+            p.append(f'<text x="{x - bh - 6:.1f}" y="{y - 14:.1f}" font-size="11" '
+                     f'font-weight="700" text-anchor="end" fill="#0f274a">{esc(s.name)}</text>')
+        else:
+            p.append(f'<text x="{x:.1f}" y="{y - 26:.1f}" font-size="11" font-weight="700" '
+                     f'text-anchor="middle" fill="#0f274a">{esc(s.name)}</text>')
         p.append(f'<line x1="{x - bh:.1f}" x2="{x + bh:.1f}" y1="{y:.1f}" y2="{y:.1f}" '
                  f'stroke="{bstroke}" stroke-width="6"{da}/>')
         if s.busbar_config in ("DOUBLE_1CB", "DOUBLE_SECTIONALIZED"):
