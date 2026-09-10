@@ -1,6 +1,6 @@
 # MANTAPS Topology Engine — Architecture Summary
 
-The detailed domain explanation is in `README.md`. This file is intentionally the compact technical map.
+The current-state recap is in `README.md`; the full domain rationale is in `CONCEPT.md`. This file is intentionally the compact technical map.
 
 ```text
                          ┌─────────────────────┐
