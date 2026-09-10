@@ -118,15 +118,14 @@ def get_view_graph(db: Session, view: AnalyticalView):
         for t in db.query(Transformer).filter(Transformer.id.in_(tx_ids)).all():
             nodes[("TRANSFORMER", t.id)] = t
 
-    # A view reproduces ONE book SLD as it is drawn. SS_LBK spans two pages
-    # (sisi Kembangan hal.69, sisi Balaraja hal.70) -- and that split is
-    # analytically real, not just a paper artefact: from the Kembangan side
-    # Cikupa is fed via Curug, from the Balaraja side via Suvarna Sutra, and
-    # its Tier context differs. So `drawing_side` IS a filter here. What each
-    # view leaves out is reported in the mapping-audit strip with a pointer to
-    # the other view -- nothing is hidden silently.
-    # A NOT-YET-ENERGIZED circuit on THIS side is still drawn (black dashed) --
-    # planning information; it just does not carry Tier.
+    # A view reproduces ONE book SLD page as it is drawn. The canonical DB
+    # holds EVERY relation of the subsystem (from every page) -- so from the
+    # two SS_LBK pages we know Cikupa->Jatake AND Cikupa->Pasar Kemis -- but
+    # each view only DRAWS the relations on its own page. What its page leaves
+    # out is reported in the audit strip as "tersimpan di DB, tergambar di
+    # halaman <lain>" (NOT dropped, NOT represented elsewhere).
+    #   filtered: another scenario, another subsystem's circuit, the other page
+    #   NOT filtered: NOT-YET-ENERGIZED status (drawn black, no Tier)
     edges: list[Circuit] = []
     if sub_ids:
         q = db.query(Circuit).filter(

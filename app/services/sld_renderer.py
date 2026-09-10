@@ -537,15 +537,17 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         H = max(H, max(all_y) + MARGIN_Y + 170)
 
     # ---- mapping-audit list ------------------------------------------
-    # GUARANTEE: nothing from the parse vanishes silently. This view reproduces
-    # ONE book SLD; the relations that belong to the OTHER side of the same
-    # subsystem are listed here with a pointer to that view -- the SS is wide,
-    # and from each direction it reaches different GIs at different Tiers.
+    # GUARANTEE: nothing vanishes silently. This view draws ONE book page. The
+    # canonical DB still holds every relation of the subsystem; a relation that
+    # belongs to the OTHER page is listed here as "tersimpan, tergambar di
+    # halaman <lain>" -- NOT dropped, NOT represented elsewhere. Removing it
+    # would change the subsystem.
     drawn_sub_ids = set(drawn_ids)
     _ibt_drawn = {c.id for links in ibt_links_by_pair.values() for c in links}
     drawn_circ_ids = {c.id for c in line_edges} | _ibt_drawn
     drawn_bay_ids = {b.id for b in bay_rows if b.feeder_substation_id in pos}
-    _other_side = {"K": "sisi Balaraja", "B": "sisi Kembangan"}.get(view.drawing_side or "", "sisi lain")
+    _pg = {"K": "sisi Balaraja (hal.70)", "B": "sisi Kembangan (hal.69)"}.get(view.drawing_side or "", "halaman lain")
+    _pg_of = {"K": "sisi Kembangan (hal.69)", "B": "sisi Balaraja (hal.70)"}
 
     audit: list[tuple[str, str, str, str]] = []   # (kind, code, label, reason)
     for sid, s in subs.items():
@@ -555,7 +557,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if not _is_live(s.status):
             reason = f"status {s.status} -- info perencanaan, tidak dihitung Tier"
         elif t is None:
-            reason = f"relasi GI ini ada dari {_other_side} -- buka view SS itu"
+            reason = f"relasi GI ini tersimpan di DB, tergambar di {_pg}"
         else:
             reason = "tidak tergambar (cek layout)"
         audit.append(("GI/BUS", s.code, s.name, reason))
@@ -570,15 +572,15 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             continue
         if (c.subsystem_id is not None and view.subsystem_id is not None
                 and c.subsystem_id != view.subsystem_id):
-            continue   # belongs to another subsystem's SLD
+            continue   # belongs to another subsystem
+        other_page = bool(view.drawing_side and c.drawing_side
+                          and c.drawing_side != view.drawing_side)
         # a GI drawn as a stub -- a Bay row, or a degree-1 spur -- carries its
         # single feeding circuit as that stub.
         stub_gis = bay_gi_ids | set(spur)
         a_stub = c.from_substation_id in stub_gis
         b_stub = c.to_substation_id in stub_gis
-        side_mismatch = bool(view.drawing_side and c.drawing_side
-                             and c.drawing_side != view.drawing_side)
-        if (a_stub ^ b_stub) and _is_live(c.status) and not side_mismatch:
+        if (a_stub ^ b_stub) and _is_live(c.status) and not other_page:
             feeder = c.to_substation_id if a_stub else c.from_substation_id
             stub_gi = c.from_substation_id if a_stub else c.to_substation_id
             drawn_as_stub = feeder in pos and (
@@ -589,9 +591,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 continue
         fr, to = subs.get(c.from_substation_id), subs.get(c.to_substation_id)
         nm = c.name or (f"{fr.code}-{to.code}" if fr and to else c.code)
-        if side_mismatch:
-            _sd = {"K": "sisi Kembangan", "B": "sisi Balaraja"}.get(c.drawing_side, c.drawing_side)
-            reason = f"ruas dari {_sd} SS ini -- buka view SS {_sd}"
+        if other_page:
+            reason = (f"ruas ini tersimpan di DB, tergambar di "
+                      f"{_pg_of.get(c.drawing_side, 'halaman ' + str(c.drawing_side))}")
         elif not _is_live(c.status):
             reason = f"status {c.status} -- info perencanaan, tidak dihitung Tier"
         elif a_stub and b_stub:
