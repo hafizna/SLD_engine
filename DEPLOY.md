@@ -63,10 +63,35 @@ the existing `Dockerfile` with `fly launch`.
 ```bash
 pip install -r requirements.txt
 uvicorn app.main:app --reload
-# http://localhost:8000
+# http://localhost:8000        peta kerawanan (viewer)
+# http://localhost:8000/ingest  bootstrap a new subsystem from an SLD hand-off
+# http://localhost:8000/editor  change-request editor
 ```
 
 To share a local instance briefly without deploying: `ngrok http 8000`.
+
+### `/ingest` -- bootstrap a NEW subsystem from an SLD
+
+Upload the **PLN subsystem Excel template** (3 sheets: `Jalur_Transmisi`,
+`Gardu_Induk_dan_Aset`, `Data_Kerawanan_Detail`; MANTAPS also reads an optional
+`Info` sheet for the SS code/name and a `Bay` sheet for hanging stubs).
+`samples/ss_cwd_ingest.xlsx` is a working example; `scripts/make_ingest_sample_xlsx.py`
+regenerates it from the JSON. A JSON hand-off (`samples/ss_cwd_ingest.json`) is
+also accepted.
+
+Confirm/correct the parsed nodes + relations + kerawanan in the review panel
+while the SLD preview redraws, then **Terbitkan** &mdash; the engine creates the
+Subsystem, a `TopologyVersion`, the view, and the risk overlay, and the new
+subsystem shows up in the viewer.
+
+- **New subsystems only.** If most of the uploaded GIs already belong to an
+  existing subsystem, `/ingest` blocks publish and points you to `/editor`
+  (the Change-Request workflow) instead.
+- **No schema change, no migration.** The draft is a JSON blob the browser
+  keeps in `localStorage` and re-sends on every call; the preview renders it in
+  a DB savepoint that is rolled back. Nothing is written until **Terbitkan**
+  &mdash; so the page is safe to demo to anyone with any SLD.
+- PDF / vector-SVG / vision extraction is a declared seam, not built.
 
 ## Static snapshot -> GitHub Pages (free, no account, no CC)
 

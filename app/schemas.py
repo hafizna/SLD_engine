@@ -130,3 +130,9 @@ class RiskPatch(BaseModel):
     status: Optional[str] = None
     attach_kind: Optional[str] = None
     attach_code: Optional[str] = None
+
+
+# ---- /ingest -----------------------------------------------------------------
+# The draft is a free-form JSON blob round-tripped from the browser; the ingest
+# service (app/services/ingest.py) sanitises it field-by-field, so the routes
+# take a raw `dict` rather than a rigid schema here.

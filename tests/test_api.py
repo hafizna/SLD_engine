@@ -15,6 +15,7 @@ def client():
     importlib.reload(db_mod)
     for name in ("app.models", "app.services.topology", "app.services.reconciliation",
                  "app.services.sld_renderer", "app.services.ingestion",
+                 "app.services.ingest_parser", "app.services.ingest",
                  "app.services.editor", "app.services.editor_risks",
                  "app.services.seed_ss_lbk", "app.services.seed_ss_bll",
                  "app.services.seed", "app.api.routes", "app.main"):

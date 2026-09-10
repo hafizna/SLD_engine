@@ -13,7 +13,7 @@ import json
 import tempfile
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -42,8 +42,11 @@ from app.schemas import (
     RiskPatch,
 )
 from app.services import editor, editor_risks
+from app.services import ingest as ingest_svc
 from app.services.editor import EditError
 from app.services.excel_register import export_register
+from app.services.ingest import IngestError
+from app.services.ingest_parser import IngestParseError, normalise, parse_upload
 from app.services.ingestion import save_observation_batch
 from app.services.reconciliation import classify, find_candidates
 from app.services.sld_renderer import render_view_svg
@@ -458,3 +461,81 @@ def candidates(observed_id: int, db: Session = Depends(get_db)):
         }
         for r in rows
     ]
+
+
+# ---- /ingest : upload SLD + kerawanan -> review draft -> confirm -> publish ----
+#
+# STATELESS: the draft is a JSON blob the browser keeps in localStorage and
+# re-sends on every call. Nothing is written to the DB until /publish.
+
+_MAX_UPLOAD = 2 * 1024 * 1024   # 2 MB -- a hand-off JSON is a few KB
+
+
+def _ingest_guard(fn):
+    try:
+        return fn()
+    except (IngestError, IngestParseError) as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.get("/ingest/sample")
+def ingest_sample(fmt: str = "xlsx"):
+    """The bundled SS_CWD demo -- Excel template (default) or JSON hand-off."""
+    from pathlib import Path
+    base = Path(__file__).resolve().parent.parent.parent / "samples"
+    if fmt == "json":
+        p = base / "ss_cwd_ingest.json"
+        if not p.exists():
+            raise HTTPException(404, "sample tidak ada")
+        return json.loads(p.read_text(encoding="utf-8"))
+    p = base / "ss_cwd_ingest.xlsx"
+    if not p.exists():
+        raise HTTPException(404, "sample tidak ada")
+    return Response(
+        p.read_bytes(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="ss_cwd_ingest.xlsx"'},
+    )
+
+
+@router.post("/ingest/parse-file")
+async def ingest_parse_file(file: UploadFile, db: Session = Depends(get_db)):
+    """Multipart upload of a hand-off JSON file -> editable draft blob. NO DB write."""
+    data = await file.read()
+    if len(data) > _MAX_UPLOAD:
+        raise HTTPException(413, "file terlalu besar (maks 2 MB)")
+    parsed = _ingest_guard(lambda: parse_upload(data, file.filename or "upload.json"))
+    return _ingest_guard(lambda: ingest_svc.build_draft(db, parsed))
+
+
+@router.post("/ingest/parse")
+def ingest_parse(body: dict, db: Session = Depends(get_db)):
+    """JSON body `{"payload": <handoff>}` (or the handoff directly) -> draft blob."""
+    raw = body.get("payload", body)
+    parsed = _ingest_guard(lambda: normalise(raw, (raw or {}).get("filename")))
+    return _ingest_guard(lambda: ingest_svc.build_draft(db, parsed))
+
+
+@router.post("/ingest/decorate")
+def ingest_decorate(draft: dict, db: Session = Depends(get_db)):
+    """Re-attach candidates + validation to a draft edited in the browser."""
+    return _ingest_guard(lambda: ingest_svc.decorate(db, draft))
+
+
+@router.post("/ingest/validate")
+def ingest_validate(draft: dict, db: Session = Depends(get_db)):
+    return _ingest_guard(lambda: ingest_svc.validate(db, draft))
+
+
+@router.post("/ingest/preview.svg")
+def ingest_preview(draft: dict, db: Session = Depends(get_db)):
+    svg = _ingest_guard(lambda: ingest_svc.render_draft_svg(db, draft))
+    return Response(svg, media_type="image/svg+xml")
+
+
+@router.post("/ingest/publish")
+def ingest_publish(body: dict, db: Session = Depends(get_db)):
+    draft = body.get("draft") or {}
+    return _ingest_guard(lambda: ingest_svc.publish(
+        db, draft, body.get("subsystem_code", ""), body.get("subsystem_name", ""),
+        body.get("effective_date")))

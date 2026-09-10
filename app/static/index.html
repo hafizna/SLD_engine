@@ -40,6 +40,9 @@
   }
   header select option { color: #000; }
   header .hint { font-size: 11px; opacity: .8; }
+  header .navlink { color: #fff; font-size: 12px; text-decoration: none;
+    border: 1px solid rgba(255,255,255,.35); padding: 6px 10px; border-radius: 7px; }
+  header .navlink:hover { background: rgba(255,255,255,.14); }
 
   main {
     flex: 1; min-height: 0;
@@ -177,6 +180,7 @@
   <div class="spacer"></div>
   <span class="hint" id="crumb"></span>
   <select id="scensel" title="Pola operasi"></select>
+  <a class="navlink" href="/ingest" title="Bootstrap subsistem baru dari SLD">+ Ingest SLD</a>
 </header>
 
 <main>

@@ -1,0 +1,86 @@
+{
+  "_comment": "Structured hand-off for /ingest -- SS Cawang 2,3 - Depok 1 (Buku Kerawanan SJB 2026 Sec 2.7). Traced AS-IS from the drawing + table; confidence < 0.9 = the parser is unsure, user must confirm. This is the shape a PDF/vision parser must eventually produce.",
+  "filename": "SS Cawang 2,3 - Depok 1 (Sec 2.7).json",
+  "document_type": "SLD_HANDOFF_JSON",
+  "analytical_hint": "SUBSYSTEM_150",
+  "source_ref": "Buku Kerawanan SJB 2026 Sec 2.7 (Gambar 2.6 + Tabel 2.5)",
+  "effective_date": "2026-06-30",
+  "subsystem": { "code": "SS_CWD", "name": "Cawang 2,3 - Depok 1", "apb": "UP2B Jakarta & Banten" },
+
+  "objects": [
+    { "external_key": "GITET_DEPOK", "object_type": "GITET", "raw_label": "GITET Depok", "site_name": "Depok", "voltage_hv_kv": 500, "voltage_lv_kv": 150, "tier_hint": 1, "status_hint": "ENERGIZED", "confidence": 0.9, "has_transformer": true },
+    { "external_key": "GITET_CWANG", "object_type": "GITET", "raw_label": "GITET Cawang", "site_name": "Cawang", "voltage_hv_kv": 500, "voltage_lv_kv": 150, "tier_hint": 1, "status_hint": "ENERGIZED", "confidence": 0.9, "has_transformer": true },
+
+    { "external_key": "DEPOK", "object_type": "GI", "raw_label": "DEPOK", "site_name": "Depok", "voltage_hv_kv": 150, "tier_hint": 1, "status_hint": "ENERGIZED", "confidence": 0.95 },
+    { "external_key": "CWBRU", "object_type": "GI", "raw_label": "CWBRU", "site_name": "Cawang Baru", "voltage_hv_kv": 150, "tier_hint": 1, "status_hint": "ENERGIZED", "confidence": 0.7 },
+
+    { "external_key": "CWANG", "object_type": "GI", "raw_label": "CWANG", "site_name": "Cawang Lama", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.7, "has_transformer": true, "has_capacitor": true },
+    { "external_key": "TRSNA", "object_type": "GI", "raw_label": "TRSNA", "site_name": "Taman Rasuna", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.8, "has_transformer": true },
+    { "external_key": "DRNTG", "object_type": "GI", "raw_label": "DRNTG", "site_name": "Duren Tiga", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.8, "has_transformer": true },
+    { "external_key": "ABDGP", "object_type": "GI", "raw_label": "ABDGP", "site_name": "Abadi Guna Papan", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.8, "has_transformer": true },
+
+    { "external_key": "STBDI", "object_type": "GI", "raw_label": "STBDI", "site_name": "Setiabudi", "voltage_hv_kv": 150, "tier_hint": 3, "status_hint": "ENERGIZED", "confidence": 0.85, "has_transformer": true },
+    { "external_key": "MPLMA", "object_type": "GI", "raw_label": "MPLMA", "site_name": "Mampang Lama", "voltage_hv_kv": 150, "tier_hint": 3, "status_hint": "ENERGIZED", "confidence": 0.55, "has_transformer": true },
+    { "external_key": "MPBRU", "object_type": "GI", "raw_label": "MPBRU", "site_name": "Mampang Baru", "voltage_hv_kv": 150, "tier_hint": 3, "status_hint": "ENERGIZED", "confidence": 0.8, "has_transformer": true },
+    { "external_key": "DNYSA", "object_type": "GI", "raw_label": "DNYSA", "site_name": "Danayasa", "voltage_hv_kv": 150, "tier_hint": 3, "status_hint": "ENERGIZED", "confidence": 0.8, "has_transformer": true },
+
+    { "external_key": "LKONG2", "object_type": "GI", "raw_label": "LKONG2", "site_name": "Lengkong 2", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.5, "is_bay": true, "bay_feeder_key": "CWANG" },
+    { "external_key": "KRLMA", "object_type": "GI", "raw_label": "KRLMA", "site_name": "Karet Lama", "voltage_hv_kv": 150, "tier_hint": 3, "status_hint": "ENERGIZED", "confidence": 0.5, "is_bay": true, "bay_feeder_key": "MPLMA" },
+    { "external_key": "DKTAS", "object_type": "GI", "raw_label": "DKTAS", "site_name": "Dukuh Atas", "voltage_hv_kv": 150, "tier_hint": 3, "status_hint": "ENERGIZED", "confidence": 0.6, "is_bay": true, "bay_feeder_key": "STBDI" }
+  ],
+
+  "connections": [
+    { "from_external_key": "GITET_DEPOK", "to_external_key": "DEPOK", "relation_type": "IBT_LINK", "circuit_type_hint": "IBT_LINK", "status_hint": "ENERGIZED", "confidence": 1.0, "unit_no": "1" },
+    { "from_external_key": "GITET_CWANG", "to_external_key": "CWBRU", "relation_type": "IBT_LINK", "circuit_type_hint": "IBT_LINK", "status_hint": "ENERGIZED", "confidence": 1.0, "unit_no": "2" },
+    { "from_external_key": "GITET_CWANG", "to_external_key": "CWBRU", "relation_type": "IBT_LINK", "circuit_type_hint": "IBT_LINK", "status_hint": "ENERGIZED", "confidence": 1.0, "unit_no": "3" },
+
+    { "from_external_key": "DEPOK", "to_external_key": "CWANG", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 1.0, "note": "ACSR Drake T.1-10 (17 km), I nom 1230 A. Kerawanan #2." },
+
+    { "from_external_key": "CWBRU", "to_external_key": "TRSNA", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 0.5, "note": "traced dari SLD, disebut di kerawanan #3" },
+    { "from_external_key": "CWBRU", "to_external_key": "DRNTG", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 0.5, "note": "garis putus-putus di buku" },
+
+    { "from_external_key": "CWANG", "to_external_key": "TRSNA", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 0.5, "note": "garis mendatar Tier-2, arah ambigu" },
+    { "from_external_key": "DRNTG", "to_external_key": "ABDGP", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 0.5, "note": "garis mendatar Tier-2, sebagian dashed" },
+
+    { "from_external_key": "CWANG", "to_external_key": "STBDI", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 0.6, "note": "2 sirkit turun" },
+    { "from_external_key": "DRNTG", "to_external_key": "MPLMA", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 0.6, "note": "2 sirkit turun" },
+    { "from_external_key": "ABDGP", "to_external_key": "MPBRU", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 0.5, "note": "dashed. Bottleneck MTU (kerawanan #3)" },
+    { "from_external_key": "ABDGP", "to_external_key": "DNYSA", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 0.5, "note": "Bottleneck MTU (kerawanan #3)" },
+
+    { "from_external_key": "MPLMA", "to_external_key": "MPBRU", "circuit_type_hint": "SUTT", "status_hint": "ENERGIZED", "circuit_count": 2, "confidence": 0.5, "note": "garis mendatar Tier-3, dashed" }
+  ],
+
+  "risks": [
+    { "seq_no": 1, "uit": "JBB", "category": "N-1", "priority": "High",
+      "title": "Pembebanan IBT 2-3 Cawang dengan IBT 1 Depok tidak seimbang -> tidak N-1",
+      "condition": "Pembebanan IBT 2-3 Cawang dengan IBT 1 Depok tidak seimbang sehingga tidak memenuhi kriteria N-1.",
+      "impact": "1. Pemeliharaan IBT 2 atau 3 Cawang sulit dilakukan. 2. Terjadi Overload pada IBT 2 atau 3 Cawang jika terjadi gangguan N-1.",
+      "mitigation": "1. Penjadwalan pemeliharaan pada periode beban rendah. 2. Looping dengan Sub Sistem Muarakarang saat ada pekerjaan IBT. 3. Skema OLS IBT-2,3 Cawang-Depok 1 tahap 1-4, total 294 MW (buku DS 2025). 4. Rencana penambahan OLS total 388 MW (buku DS 2025).",
+      "follow_up": "Jangka Pendek: 1. Percepatan Uprating SUTT/SKTT ex-70 kV ke 150 kV Ragunan-Cawang Baru (RUPTL 2025-2034, COD 2026). 2. Pembangunan GITET Citeureup beserta outlet (COD 2028).",
+      "pin_kind": "TRANSFORMER", "pin_key": "GITET_CWANG:2" },
+
+    { "seq_no": 2, "uit": "JBB", "category": "N-1", "priority": "High",
+      "title": "SUTT Depok-Cawang Lama (ACSR Drake, 17 km) pembebanan >60% -> tidak N-1",
+      "condition": "Sebagian penghantar ACSR Drake T.1-10 (17 km) I nominal 1230 A, pembebanan SUTT 150 kV Depok-Cawang Lama diatas 60% -> tidak memenuhi N-1.",
+      "impact": "Terjadi Overload pada SUTT Depok-Cawang Lama jika trip 1 sirkit.",
+      "mitigation": "1. Penjadwalan pemeliharaan periode beban rendah. 2. Skema OLS SUTT 150 kV Depok-Cawang Lama tahap 1-4, total 294 MW (buku DS 2025). 3. Rencana penambahan OLS total 319 MW.",
+      "follow_up": "Jangka Pendek: Percepatan Uprating SUTT/SKTT ex-70 kV ke 150 kV Ragunan-Cawang Baru (RUPTL 2025-2034, COD 2026).",
+      "pin_kind": "CIRCUIT", "pin_key": "DEPOK-CWANG" },
+
+    { "seq_no": 3, "uit": "JBB", "category": "N-2", "priority": "High",
+      "title": "Bottleneck MTU GIS Danayasa, GIS AGP, GIS Mampang Baru (CT & line bay 600 A)",
+      "condition": "Bottleneck di MTU GIS Danayasa, GIS AGP dan GIS Mampang Baru dimana CT dan Line bay masih 600 A sedangkan rencana Uprating SKTT menjadi 1000 A.",
+      "impact": "1. Kesulitan pemeliharaan. 2. Berpotensi overload ruas pht AGP-Danayasa. 3. Berpotensi overload ruas pht Mampang-AGP saat N-1 dan N-2 pada ruas Cawang Baru-AGP dan Cawang Baru-Taman Rasuna.",
+      "mitigation": "1. Pemeliharaan pada beban rendah dengan manuver beban 20 kV. 2. Pengalihan Beban GI Mampang ke Sub Sistem Muarakarang.",
+      "follow_up": "Jangka Pendek: Uprating ruas pht Mampang-AGP-Danayasa menjadi 1000 A (RUPTL 2025-2034 COD 2026). (AGP-Mampang sudah kabel baru SKTT 1000 A).",
+      "pin_kind": "SUBSTATION", "pin_key": "DNYSA" },
+
+    { "seq_no": 4, "uit": "JBB", "category": "N-1", "priority": "High",
+      "title": "Ruas Setiabudi-Dukuh Atas I nominal kecil (480 A) -> tidak N-1",
+      "condition": "Ruas penghantar Setiabudi-Dukuh Atas I Nominal masih kecil (In 480 A), tidak memenuhi N-1 saat GIS 150 kV Dukuh Atas dipasok Sub Sistem Cawang 2,3-Depok 1.",
+      "impact": "1. Kesulitan pemeliharaan. 2. Berpotensi pemadaman saat N-1 pada ruas tersebut.",
+      "mitigation": "1. Pemeliharaan pada beban rendah dengan manuver beban 20 kV. 2. Pengalihan Beban GI Dukuh Atas ke Sub Sistem Priok-Cawang 1-Bekasi 2,4.",
+      "follow_up": "Jangka Menengah: Usulan uprating ruas penghantar Setiabudi-Dukuh Atas menjadi 1000 A (diusulkan COD 2029).",
+      "pin_kind": "SUBSTATION", "pin_key": "STBDI" }
+  ]
+}

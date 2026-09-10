@@ -45,3 +45,8 @@ def home():
 @app.get("/editor")
 def editor_page():
     return FileResponse(STATIC_DIR / "editor.html")
+
+
+@app.get("/ingest")
+def ingest_page():
+    return FileResponse(STATIC_DIR / "ingest.html")
