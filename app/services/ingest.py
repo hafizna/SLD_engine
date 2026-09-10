@@ -337,6 +337,19 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
 
     subs: dict[str, object] = {}
     kinds: dict[str, str] = {}
+    _members: set[tuple[str, int]] = set()
+
+    def _member(kind: str, node_id: int, role: str, order):
+        if (kind, node_id) in _members:
+            return
+        if db.query(SubsystemMembership).filter_by(
+                subsystem_id=ss.id, node_kind=kind, node_id=node_id).first():
+            _members.add((kind, node_id))
+            return
+        db.add(SubsystemMembership(subsystem_id=ss.id, node_kind=kind,
+                                   node_id=node_id, role=role, display_order=order))
+        _members.add((kind, node_id))
+
     for n in nodes:
         ckey = (n.get("confirmed_code") or n["external_key"]).strip().upper()
         if n["object_type"] == "GENERATING_UNIT":
@@ -348,9 +361,7 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                 db.flush()
             subs[n["external_key"]] = g
             kinds[n["external_key"]] = "GENERATING_UNIT"
-            db.add(SubsystemMembership(subsystem_id=ss.id, node_kind="GENERATING_UNIT",
-                                       node_id=g.id, role="SOURCE",
-                                       display_order=n.get("tier_hint")))
+            _member("GENERATING_UNIT", g.id, "SOURCE", n.get("tier_hint"))
             continue
 
         s = None
@@ -375,10 +386,7 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
             db.flush()
         subs[n["external_key"]] = s
         kinds[n["external_key"]] = "SUBSTATION"
-        db.add(SubsystemMembership(
-            subsystem_id=ss.id, node_kind="SUBSTATION", node_id=s.id,
-            role=_role(n), display_order=n.get("tier_hint"),
-        ))
+        _member("SUBSTATION", s.id, _role(n), n.get("tier_hint"))
 
     txs: dict[str, Transformer] = {}
 
@@ -387,7 +395,7 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         if gi is None or kinds.get(gi_key) != "SUBSTATION":
             return None
         tcode = f"IBT_{(by_key[gi_key].get('confirmed_code') or gi_key).upper()}_{unit or '1'}"
-        t = db.query(Transformer).filter(Transformer.code == tcode).first()
+        t = txs.get(tcode) or db.query(Transformer).filter(Transformer.code == tcode).first()
         if t is None:
             t = Transformer(code=tcode, name=f"IBT {unit or ''} {gi.name}".strip(),
                             transformer_type="IBT", substation_id=gi.id,
@@ -397,8 +405,7 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
             db.add(TransformerWinding(transformer_id=t.id, winding_no=1, voltage_kv=500, role="HV"))
             db.add(TransformerWinding(transformer_id=t.id, winding_no=2, voltage_kv=150, role="LV"))
         txs[tcode] = t
-        db.add(SubsystemMembership(subsystem_id=ss.id, node_kind="TRANSFORMER",
-                                   node_id=t.id, role="SOURCE_BOUNDARY", display_order=1))
+        _member("TRANSFORMER", t.id, "SOURCE_BOUNDARY", 1)
         return t
 
     circuits: dict[str, Circuit] = {}
@@ -480,13 +487,20 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         )
         db.add(view)
         db.flush()
+    _vm_seen: set[int] = set()
     for n in nodes:
         if kinds.get(n["external_key"]) != "SUBSTATION":
             continue
+        nid = subs[n["external_key"]].id
+        if nid in _vm_seen or db.query(ViewMembership).filter_by(
+                view_id=view.id, node_kind="SUBSTATION", node_id=nid).first():
+            _vm_seen.add(nid)
+            continue
         db.add(ViewMembership(
-            view_id=view.id, node_kind="SUBSTATION", node_id=subs[n["external_key"]].id,
+            view_id=view.id, node_kind="SUBSTATION", node_id=nid,
             role=_role(n), tier_seed=n.get("tier_hint"), display_order=n.get("tier_hint"),
         ))
+        _vm_seen.add(nid)
 
     for r in draft["risks"]:
         tag = _resolve_pin(r.get("pin_kind"), r.get("pin_key"), set(by_key))

@@ -46,32 +46,38 @@ def build() -> Path:
               for r in J["risks"] if r.get("pin_kind") == "TRANSFORMER"}
 
     # ---- Gardu_Induk_dan_Aset ----
+    # "Bus 150 kV" names the LV busbar an IBT feeds -- needed when the GITET and
+    # its 150 kV bus have different codes (GITET Cawang -> CWBRU, not CWANG).
     ws = wb.create_sheet("Gardu_Induk_dan_Aset")
     ws.append(["No", "Nama Asset / GI", "Kode Singkatan", "Tipe Asset", "Tier (Mulai 0)",
-               "Tegangan", "No IBT", "Status Kerawanan", "No Kerawanan", "Wilayah"])
+               "Tegangan", "No IBT", "Bus 150 kV", "Status Kerawanan", "No Kerawanan", "Wilayah"])
     _bold_header(ws)
+    ibt_lv = {c["from_external_key"]: c["to_external_key"]
+              for c in J["connections"]
+              if c.get("relation_type") == "IBT_LINK" or c.get("circuit_type_hint") == "IBT_LINK"}
     n = 1
     for o in J["objects"]:
         if o["object_type"] not in ("GITET", "GISTET"):
             continue
         code = o["external_key"].replace("GITET_", "")
-        ws.append([n, o["raw_label"], code, "Busbar GITET", 0, "500 kV", None,
+        ws.append([n, o["raw_label"], code, "Busbar GITET", 0, "500 kV", None, None,
                    "Normal", None, "Banten"])
         n += 1
     for c in J["connections"]:
         if c.get("relation_type") == "IBT_LINK" or c.get("circuit_type_hint") == "IBT_LINK":
             gk = c["from_external_key"].replace("GITET_", "")
             u = c.get("unit_no", "1")
+            lv = c["to_external_key"]
             seq = pin_tx.get(f"{c['from_external_key']}:{u}") or pin_tx.get(f"{gk}:{u}")
             ws.append([n, f"IBT {u} {gk}", f"IBT {u} {gk}", "IBT 3-Winding", 1,
-                       "500/150 kV", u, "N-1" if seq else "Normal", seq, "Banten"])
+                       "500/150 kV", u, lv, "N-1" if seq else "Normal", seq, "Banten"])
             n += 1
     for o in J["objects"]:
         if o["object_type"] in ("GITET", "GISTET") or o.get("is_bay"):
             continue
         ek = o["external_key"]
         ws.append([n, o["raw_label"], ek, "Busbar GI", o.get("tier_hint"),
-                   f'{int(o.get("voltage_hv_kv") or 150)} kV', None,
+                   f'{int(o.get("voltage_hv_kv") or 150)} kV', None, None,
                    "N-1" if ek in pin_ss else "Normal", pin_ss.get(ek), "Banten"])
         n += 1
 

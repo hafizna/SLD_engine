@@ -62,10 +62,31 @@ def test_parse_xlsx_template_builds_draft(client):
     # GITET busbars are split from their 150 kV bus
     keys = {n["external_key"] for n in d["nodes"]}
     assert "GITET_DEPOK" in keys and "DEPOK" in keys
-    # IBT links carry a unit number
+    # IBT links carry a unit number AND feed the right 150 kV bus:
+    # GITET Cawang -> CWBRU (Cawang Baru), not CWANG (Cawang Lama, a Tier-2 GI)
     ibt = [e for e in d["edges"] if e["circuit_type_hint"] == "IBT_LINK"]
     assert len(ibt) == 3
+    cwang_ibt = [e for e in ibt if e["from_key"] == "GITET_CWANG"]
+    assert cwang_ibt and all(e["to_key"] == "CWBRU" for e in cwang_ibt)
     assert d["validation"]["ok"] is True
+
+
+def test_ingest_multiple_ibt_links_do_not_collide(client):
+    """A GITET with several IBT links -- and a hand-added extra one -- must
+    materialise without a UNIQUE-constraint crash on subsystem_membership."""
+    d = _draft(client, "xlsx")
+    d["edges"].append({
+        "from_key": "GITET_CWANG", "to_key": "CWBRU", "relation_type": "IBT_LINK",
+        "circuit_type_hint": "IBT_LINK", "status_hint": "ENERGIZED",
+        "circuit_count": 1, "unit_no": "4", "confidence": 1.0, "confirmed": True})
+    r = client.post("/api/ingest/preview.svg", json=d)
+    assert r.status_code == 200 and b"<svg" in r.content
+    assert b"UNIQUE constraint" not in r.content
+
+    pub = client.post("/api/ingest/publish", json={
+        "draft": d, "subsystem_code": "SS_CWD", "subsystem_name": "Cawang 2,3 - Depok 1",
+        "effective_date": "2026-06-30"})
+    assert pub.status_code == 200, pub.text
 
 
 def test_parse_json_handoff_still_works(client):

@@ -5,6 +5,10 @@ Two real formats:
   * **Excel template (primary)** -- the 3-sheet PLN subsystem template
     (`Jalur_Transmisi`, `Gardu_Induk_dan_Aset`, `Data_Kerawanan_Detail`), the
     same one the sister dashboard uses to author an SLD. `parse_xlsx`.
+    MANTAPS adds an optional `Info` sheet (SS code/name), an optional `Bay`
+    sheet (hanging stubs + feeder), and reads a `Bus 150 kV` column on the
+    `IBT n-Winding` rows to say which busbar an IBT feeds when it differs from
+    the GITET code (GITET Cawang -> CWBRU, not CWANG).
   * **JSON hand-off (secondary/internal)** -- `parse_json`; the blob shape the
     engine passes around. `samples/ss_cwd_ingest.json` is an example.
 
@@ -306,7 +310,13 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             "_no_kerawanan": _int_or_none(no_kerawanan),
         })
 
-    # IBT unit numbers per GITET, from the "IBT n-Winding" rows
+    # IBT unit numbers per GITET, from the "IBT n-Winding" rows.
+    #   * the GITET is the last token of the IBT code ("IBT 2 CWANG" -> CWANG)
+    #     -> its (possibly remapped) key GITET_CWANG
+    #   * the 150 kV bus it feeds is the "Bus 150 kV" column if given, else the
+    #     same code as the GITET (New Balaraja style: 500 & 150 share "NBRJA")
+    _gitet_ext = {o["external_key"] for o in objects if o["object_type"] in ("GITET", "GISTET")}
+    _all_ext = {o["external_key"] for o in objects}
     ibt_units: dict[str, dict] = {}
     ibt_pins: dict[int, tuple[str, str]] = {}   # No Kerawanan -> (GITET key, unit)
     for row in _rows(ws_asset):
@@ -315,13 +325,20 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             continue
         unit = str(_get(row, "No IBT", "Unit", "No Unit") or "1").strip()
         raw = str(_get(row, "Kode Singkatan", "Kode", "Code") or "")
-        gi = raw.split()[-1].strip().upper() if raw else None
-        if gi:
-            gk = key_remap.get(gi, gi)   # the GITET's (possibly remapped) key
-            ibt_units.setdefault(gk, {"lv": gi, "units": []})["units"].append(unit)
-            nk = _int_or_none(_get(row, "No Kerawanan", "No. Kerawanan"))
-            if nk is not None:
-                ibt_pins[nk] = (gk, unit)
+        tok = raw.split()[-1].strip().upper() if raw else None
+        if not tok:
+            continue
+        # the GITET node key
+        gk = f"GITET_{tok}" if f"GITET_{tok}" in _gitet_ext else (tok if tok in _gitet_ext else key_remap.get(tok, tok))
+        # the 150 kV bus it feeds
+        lv = _get(row, "Bus 150 kV", "Bus 150kV", "Bus LV", "Ke Bus", "Bus")
+        lv = str(lv).strip().upper() if lv else None
+        if not lv or lv not in _all_ext:
+            lv = tok if tok in _all_ext else gk
+        ibt_units.setdefault(gk, {"lv": lv, "units": []})["units"].append(unit)
+        nk = _int_or_none(_get(row, "No Kerawanan", "No. Kerawanan"))
+        if nk is not None:
+            ibt_pins[nk] = (gk, unit)
 
     # ---- Bay sheet (MANTAPS extension: GI drawn as a stub + its feeder) ----
     ws_bay = _sheet("Bay", "Bays", "Bay_Menggantung")
