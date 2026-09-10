@@ -46,6 +46,7 @@ from app.models import (
 )
 from app.services.reconciliation import classify, find_candidates
 from app.services.sld_renderer import render_view_svg
+from app.services.sld_symbols import symbol_note, symbol_count
 
 _LIVE = {"ENERGIZED", "DE_ENERGIZED", "OWNED_BY_CUSTOMER"}
 
@@ -79,6 +80,9 @@ def build_draft(db: Session, payload: dict) -> dict:
             "bay_feeder_key": o.get("bay_feeder_key"),
             "has_transformer": bool(o.get("has_transformer")),
             "has_capacitor": bool(o.get("has_capacitor")),
+            "transformer_count": o.get("transformer_count"),
+            "capacitor_count": o.get("capacitor_count"),
+            "symbol_note": o.get("symbol_note"),
             "resolution": "NEW",
             "confirmed_code": o["external_key"],
             "confirmed_name": o.get("site_name") or o["raw_label"],
@@ -195,6 +199,7 @@ _ALLOWED_NODE = {"external_key", "object_type", "raw_label", "site_name",
                  "voltage_hv_kv", "voltage_lv_kv", "unit_no", "tier_hint",
                  "status_hint", "confidence", "is_bay", "bay_feeder_key",
                  "has_transformer", "has_capacitor", "resolution",
+                 "transformer_count", "capacitor_count", "symbol_note",
                  "confirmed_code", "confirmed_name", "canonical_id"}
 _ALLOWED_EDGE = {"from_key", "to_key", "relation_type", "circuit_type_hint",
                  "status_hint", "circuit_count", "unit_no", "confidence",
@@ -211,7 +216,8 @@ def _clean(draft: dict) -> dict:
     ss = draft.get("subsystem") or {}
     return {
         "meta": draft.get("meta") or {},
-        "subsystem": {"code": ss.get("code"), "name": ss.get("name"), "apb": ss.get("apb")},
+        "subsystem": {"code": ss.get("code"), "name": ss.get("name"), "apb": ss.get("apb"),
+                      "views": [v for v in (ss.get("views") or []) if isinstance(v, dict)]},
         "nodes": [{k: v for k, v in (n or {}).items() if k in _ALLOWED_NODE}
                   for n in (draft.get("nodes") or [])],
         "edges": [{k: v for k, v in (e or {}).items() if k in _ALLOWED_EDGE}
@@ -245,6 +251,10 @@ def validate(db: Session, draft: dict) -> dict:
 
     seen: dict[str, str] = {}
     for n in nodes:
+        try:
+            symbol_note(n)
+        except (ValueError, TypeError, OverflowError) as exc:
+            problems.append(f"{n['external_key']}: jumlah simbol tidak valid ({exc})")
         if n.get("resolution") == "MATCH" and not n.get("canonical_id"):
             problems.append(f"{n['external_key']}: MATCH tapi belum pilih GI kanonik")
         if n.get("resolution") == "NEW" and not (n.get("confirmed_code") or "").strip():
@@ -376,8 +386,9 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                 voltage_kv=n.get("voltage_hv_kv") or 150.0,
                 status=n.get("status_hint") or "ENERGIZED",
                 busbar_config="UNKNOWN",
-                has_transformer=bool(n.get("has_transformer")),
-                has_shunt_capacitor=bool(n.get("has_capacitor")),
+                has_transformer=symbol_count(symbol_note(n), 'transformer', n.get('has_transformer')) > 0,
+                has_shunt_capacitor=symbol_count(symbol_note(n), 'capacitor', n.get('has_capacitor')) > 0,
+                symbol_note=symbol_note(n),
                 apb=apb, uit="JBB",
                 note=f"Bootstrap via /ingest ({fname}).",
                 confidence=n.get("confidence") or 1.0,

@@ -12,6 +12,7 @@ def client():
     os.close(fd)
     os.environ["DATABASE_URL"] = f"sqlite:///{path}"
     import app.db as db_mod
+    import app.models
     importlib.reload(db_mod)
     for name in ("app.models", "app.services.topology", "app.services.reconciliation",
                  "app.services.sld_renderer", "app.services.ingestion",

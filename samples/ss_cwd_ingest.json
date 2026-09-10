@@ -14,7 +14,7 @@
     { "external_key": "DEPOK", "object_type": "GI", "raw_label": "DEPOK", "site_name": "Depok", "voltage_hv_kv": 150, "tier_hint": 1, "status_hint": "ENERGIZED", "confidence": 0.95 },
     { "external_key": "CWBRU", "object_type": "GI", "raw_label": "CWBRU", "site_name": "Cawang Baru", "voltage_hv_kv": 150, "tier_hint": 1, "status_hint": "ENERGIZED", "confidence": 0.7 },
 
-    { "external_key": "CWANG", "object_type": "GI", "raw_label": "CWANG", "site_name": "Cawang Lama", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.7, "has_transformer": true, "has_capacitor": true },
+    { "external_key": "CWANG", "object_type": "GI", "raw_label": "CWANG", "site_name": "Cawang Lama", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.7, "has_transformer": false, "has_capacitor": true, "transformer_count": 0, "capacitor_count": 3, "symbol_note": "SLD PLN Cawang-Depok 2.7" },
     { "external_key": "TRSNA", "object_type": "GI", "raw_label": "TRSNA", "site_name": "Taman Rasuna", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.8, "has_transformer": true },
     { "external_key": "DRNTG", "object_type": "GI", "raw_label": "DRNTG", "site_name": "Duren Tiga", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.8, "has_transformer": true },
     { "external_key": "ABDGP", "object_type": "GI", "raw_label": "ABDGP", "site_name": "Abadi Guna Papan", "voltage_hv_kv": 150, "tier_hint": 2, "status_hint": "ENERGIZED", "confidence": 0.8, "has_transformer": true },

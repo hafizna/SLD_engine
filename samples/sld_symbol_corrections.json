@@ -1,0 +1,13 @@
+{
+  "source": "SLD PLN Buku Kerawanan SJB 2026 sections 2.5 and 2.7, reference images supplied in this review. Counts describe drawn symbols, not a verified physical equipment register.",
+  "substations": [
+    {"code": "KMBGN", "has_transformer": true, "symbol_note": "1 trafo pada SLD sisi Kembangan (Buku Kerawanan SJB 2026, 2.5)."},
+    {"code": "CWANG", "has_transformer": false, "has_shunt_capacitor": true, "symbol_note": "0 trafo; 3 kapasitor pada SLD Cawang-Depok (Buku Kerawanan SJB 2026, 2.7)."},
+    {"code": "TRSNA", "has_transformer": true, "symbol_note": "1 trafo pada SLD Cawang-Depok (Buku Kerawanan SJB 2026, 2.7)."},
+    {"code": "DRNTG", "has_transformer": true, "symbol_note": "1 trafo pada SLD Cawang-Depok (Buku Kerawanan SJB 2026, 2.7)."},
+    {"code": "ABDGP", "has_transformer": true, "symbol_note": "1 trafo pada SLD Cawang-Depok (Buku Kerawanan SJB 2026, 2.7)."},
+    {"code": "STBDI", "has_transformer": true, "symbol_note": "1 trafo pada SLD Cawang-Depok (Buku Kerawanan SJB 2026, 2.7)."},
+    {"code": "MPLMA", "has_transformer": true, "symbol_note": "1 trafo pada SLD Cawang-Depok (Buku Kerawanan SJB 2026, 2.7)."},
+    {"code": "MPBRU", "has_transformer": true, "symbol_note": "1 trafo pada SLD Cawang-Depok (Buku Kerawanan SJB 2026, 2.7)."}
+  ]
+}

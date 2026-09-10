@@ -160,7 +160,12 @@
       <p class="muted" style="font-size:10.5px;margin:8px 0 0">
         3 sheet wajib: <b>Gardu_Induk_dan_Aset</b> (daftar GI),
         <b>Jalur_Transmisi</b> (Dari GI &rarr; Ke GI), <b>Data_Kerawanan_Detail</b>.
-        Opsional: <b>Info</b> (kode/nama SS), <b>Bay</b> (GI yang digambar menggantung).</p>
+        Opsional: <b>Info</b> (kode/nama SS), <b>Bay</b> (GI yang digambar menggantung),
+        <b>Views</b> (satu baris per SLD: View Key, Nama View, Keterangan).</p>
+      <p class="muted" style="font-size:10.5px;margin:4px 0 0">
+        Jika workbook memuat dua SLD, setiap baris <b>Views</b> menjadi konteks terpisah;
+        jangan menggabungkan aset hanya karena kodenya sama. Seleksi/penerbitan per-view
+        akan ditambahkan setelah manifest ini ditinjau.</p>
     </div>
 
     <div class="card" id="draftCard" hidden>
@@ -486,9 +491,9 @@ function renderDraftInfo(){
 function renderNodes(){
   const t = $('#tblNodes');
   t.innerHTML = `<colgroup><col class="c-raw"><col><col><col><col>
-      <col class="c-num"><col><col class="c-num"><col class="c-num"><col></colgroup>
+      <col class="c-num"><col><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"><col></colgroup>
     <tr><th>Dari SLD</th><th>Cocokkan</th><th>Kode</th><th>Nama</th>
-    <th>Tipe</th><th>Tier</th><th>Status</th><th>Bay</th><th>Yakin</th><th></th></tr>`;
+    <th>Tipe</th><th>Tier</th><th>Status</th><th>Bay</th><th>Trafo</th><th>Kapasitor</th><th>Yakin</th><th></th></tr>`;
   DRAFT.nodes.forEach((n, idx) => {
     const tr = document.createElement('tr');
     if (n.needs_review) tr.className = 'rev';
@@ -511,6 +516,8 @@ function renderNodes(){
       <td><select data-f="status_hint">
         ${STATUSES.map(x=>`<option ${n.status_hint===x?'selected':''}>${x}</option>`).join('')}</select></td>
       <td style="text-align:center"><input type="checkbox" data-f="is_bay" ${n.is_bay?'checked':''}></td>
+      <td><input type="number" min="0" step="1" data-f="transformer_count" title="Jumlah simbol trafo beban; kosong = belum diisi" value="${n.transformer_count??(n.has_transformer?1:'')}" ${n.resolution==='MATCH'?'disabled':''}></td>
+      <td><input type="number" min="0" step="1" data-f="capacitor_count" title="Jumlah simbol kapasitor; kosong = belum diisi" value="${n.capacitor_count??(n.has_capacitor?1:'')}" ${n.resolution==='MATCH'?'disabled':''}></td>
       <td><input type="number" step="0.05" min="0" max="1" data-f="confidence" value="${n.confidence??''}"></td>
       <td><button class="btn sm ghost" data-act="skip">${n.resolution==='SKIP'?'&crarr;':'skip'}</button></td>`;
 
@@ -530,6 +537,9 @@ function renderNodes(){
     tr.querySelector('[data-f=tier_hint]').onchange = e => patch({ tier_hint:+e.target.value||null });
     tr.querySelector('[data-f=status_hint]').onchange = e => patch({ status_hint:e.target.value });
     tr.querySelector('[data-f=is_bay]').onchange = e => patch({ is_bay:e.target.checked });
+    for (const f of ['transformer_count', 'capacitor_count']) {
+      tr.querySelector(`[data-f=${f}]`).onchange = e => patch({ [f]: e.target.value === '' ? null : Number(e.target.value) });
+    }
     tr.querySelector('[data-f=confidence]').onchange = e => patch({ confidence:+e.target.value });
     tr.querySelector('[data-act=skip]').onclick = () =>
       patch({ resolution: node.resolution==='SKIP' ? 'NEW' : 'SKIP' });

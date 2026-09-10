@@ -61,7 +61,7 @@ SUBSTATIONS = [
     dict(code="KMBGN", name="Kembangan", type="GI", voltage=150, status="ENERGIZED",
          busbar_config="DOUBLE_1CB", busbar_note="2 bus, 1 CB kopel, tanpa section",
          role="SOURCE", external_subsystem=None, tier_k=1, tier_b=None,
-         has_transformer=False, has_capacitor=False, symbol_note=None,
+         has_transformer=True, has_capacitor=False, symbol_note="1 trafo pada SLD sisi Kembangan",
          note="Bus 150 kV disuplai IBT-1,2 Kembangan. Kerawanan #1."),
     dict(code="NBRJA", name="New Balaraja", type="GI", voltage=150, status="ENERGIZED",
          busbar_config="UNKNOWN", busbar_note=None, role="SOURCE", external_subsystem=None,

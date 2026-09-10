@@ -15,8 +15,8 @@ def db():
     import importlib
 
     import app.db as db_mod
-    importlib.reload(db_mod)
     import app.models as models_mod
+    importlib.reload(db_mod)
     importlib.reload(models_mod)
     import app.services.topology as topo_mod
     importlib.reload(topo_mod)

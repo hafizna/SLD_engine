@@ -50,7 +50,8 @@ def build() -> Path:
     # its 150 kV bus have different codes (GITET Cawang -> CWBRU, not CWANG).
     ws = wb.create_sheet("Gardu_Induk_dan_Aset")
     ws.append(["No", "Nama Asset / GI", "Kode Singkatan", "Tipe Asset", "Tier (Mulai 0)",
-               "Tegangan", "No IBT", "Bus 150 kV", "Status Kerawanan", "No Kerawanan", "Wilayah"])
+               "Tegangan", "No IBT", "Bus 150 kV", "Status Kerawanan", "No Kerawanan", "Wilayah",
+               "Jumlah Trafo", "Jumlah Kapasitor", "Catatan Simbol"])
     _bold_header(ws)
     ibt_lv = {c["from_external_key"]: c["to_external_key"]
               for c in J["connections"]
@@ -78,7 +79,10 @@ def build() -> Path:
         ek = o["external_key"]
         ws.append([n, o["raw_label"], ek, "Busbar GI", o.get("tier_hint"),
                    f'{int(o.get("voltage_hv_kv") or 150)} kV', None, None,
-                   "N-1" if ek in pin_ss else "Normal", pin_ss.get(ek), "Banten"])
+                   "N-1" if ek in pin_ss else "Normal", pin_ss.get(ek), "Banten",
+                   o.get("transformer_count", int(bool(o.get("has_transformer")))),
+                   o.get("capacitor_count", int(bool(o.get("has_capacitor")))),
+                   o.get("symbol_note")])
         n += 1
 
     # ---- Jalur_Transmisi ----

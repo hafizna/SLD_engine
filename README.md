@@ -9,7 +9,7 @@ overlay, and holds it as one canonical relational model per UP2B.
 per UP2B
   └─ subsystem (SS)
        └─ point of view (a book SLD page / "sisi X")
-            ├─ generated SLD  (busbars, bays, IBT/trafo/capacitor symbols, orthogonal routing, hop-arcs)
+            ├─ generated SLD  (busbars, bays, IBT/trafo/capacitor symbols, parallel orthogonal routing, crossing gaps)
             ├─ Tier            (computed per view from the sources, drawn as an overlay, never stored)
             └─ kerawanan       (N-1 / N-2 / N-1-1 / N-0 points pinned to an object, from the Buku Kerawanan table)
 ```
@@ -33,6 +33,45 @@ pytest -q                             # 37 tests
 python scripts/build_static_site.py   # frozen view-only snapshot -> ./site/  (GitHub Pages; no /ingest, no /editor)
 ```
 
+For a local renderer review using the **current database**, run:
+
+```bash
+python scripts/review_sld.py --database mantaps.db --baseline HEAD
+```
+
+Open `.render_tmp/sld-review/index.html` for the before/after comparison and
+individual SVGs. The command copies SQLite into memory through a read-only
+connection; it does not start the app, seed data, or publish an ingest draft.
+
+The renderer now orders the complete layered graph, aligns radial **ports**,
+reserves routing space around busbars/symbols, and offsets complete orthogonal
+bundles at a consistent 14 SVG-unit conductor pitch. Related circuit records
+share a bundle while keeping their own IDs, styles and generator taps. White
+clearance around a semicircular bridge means **no electrical connection**. Geometry regression
+tests cover both LBK views, Balaraja–Lengkong and Cawang–Depok.
+
+Long routes reserve channels first within a tier gap. Soft reservations and a
+small proximity penalty discourage unrelated runs from reading as one line.
+Crossing detection handles both route orders; the vertical wire owns the bridge.
+Generator taps sit halfway along the routed conductor. `single_phi` metadata is
+preserved and does not change stroke width within a two-circuit corridor.
+
+Bus coupler glyphs are omitted until bay-to-bus-section mapping and an operating
+scenario are available; `busbar_config` metadata is retained. Transformer and
+capacitor counts accept optional `Jumlah Trafo`, `Jumlah Kapasitor`, and
+`Catatan Simbol` Excel columns and can be reviewed before publishing new assets.
+Legacy explicit counts in symbol notes are also rendered. Reviewed symbol-only
+data corrections are listed in `samples/sld_symbol_corrections.json`; run
+`python scripts/repair_sld_symbols.py` to inspect differences, or add `--apply`
+to apply them with a SQLite backup. These observations are drawing inventories,
+not verified physical equipment registers.
+
+Template compatibility is separate from layout: the current Excel parser still
+does not import a `Views` sheet or per-row `Sudut Pandang`. Existing LBK views
+are rendered separately from their stored view membership. A new multi-view
+workbook needs that parser/materialisation extension before it can faithfully
+create multiple views; the renderer must not infer or merge those contexts.
+
 Hosting (Hugging Face Spaces, Render, Docker, ngrok, GitHub Pages): [`DEPLOY.md`](DEPLOY.md).
 
 ## What works today
@@ -43,7 +82,7 @@ Hosting (Hugging Face Spaces, Render, Docker, ngrok, GitHub Pages): [`DEPLOY.md`
 | One physical GI in many subsystems / roles | `Subsystem`, `SubsystemMembership` |
 | Analytical views + membership + rule profiles (`SUBSYSTEM_150`, `IBT_500_150`, `BACKBONE_500`) | `AnalyticalView`, `ViewMembership` |
 | **Tier engine** — book Tier band when the drawing gives one, else a BFS hop count from the sources; per view, never stored; non-live objects excluded | `app/services/topology.py` |
-| **SLD renderer** — busbars in Tier rows, bay stubs with GI codes, IBT/transformer/capacitor/generator symbols, one clean orthogonal Z per line, hop-arcs where a run crosses another circuit, same-tier inverted bracket, a mapping-audit strip so nothing from the parse vanishes silently | `app/services/sld_renderer.py` |
+| **SLD renderer** — busbars in Tier rows, bay stubs with GI codes, IBT/transformer/capacitor/generator symbols, shared parallel circuit routes, obstacle avoidance and crossing gaps, a mapping-audit strip so nothing from the parse vanishes silently | `app/services/sld_renderer.py` |
 | Kerawanan overlay — `RiskRecord` with `category` (N-1 / N-2 / N-1-1 / N-0), pinned to a GI / line / transformer by code | `RiskRecord` |
 | Defense scheme + relation (multi-object, cross-SS) | `DefenseScheme`, `DSRelation` |
 | **`/ingest`** — stateless: the draft is a JSON blob in the browser; the parser reads the PLN Excel template (3 sheets + optional `Info` / `Bay`), reconciliation suggests matches to existing GIs, the preview renders inside a rolled-back DB savepoint, and only publish writes; blocks re-bootstrapping a subsystem that already exists (→ `/editor`) | `app/services/ingest.py`, `ingest_parser.py`, `app/static/ingest.html` |
@@ -136,7 +175,7 @@ scripts/
 samples/
 ├─ ss_cwd_ingest.xlsx         a filled PLN template (the /ingest demo + `/api/ingest/sample`)
 └─ ss_cwd_ingest.json         the same as a JSON hand-off
-tests/                        37 tests: topology, reconciliation, API contract, /ingest, editor
+tests/                        47 tests: topology, reconciliation, API contract, /ingest, editor
 CONCEPT.md                    the original design document (analytical contexts, why-this-exists, full model rationale)
 PROBIS_KONSEP.md              the change-management business process (structural vs operating change)
 SS_LBK_SLICE.md               what the SS_LBK slice proves + field-review items

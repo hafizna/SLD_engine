@@ -64,6 +64,7 @@ _NODE_DEFAULTS = {
     "unit_no": None, "tier_hint": None, "status_hint": "ENERGIZED",
     "confidence": 1.0, "is_bay": False, "bay_feeder_key": None,
     "has_transformer": False, "has_capacitor": False,
+    "transformer_count": None, "capacitor_count": None, "symbol_note": None,
 }
 _CONN_DEFAULTS = {
     "relation_type": "CONNECTED_TO", "circuit_type_hint": "SUTT",
@@ -306,7 +307,11 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             "status_hint": status,
             "confidence": 0.9 if kind in ("GITET", "GISTET") else 0.8,
             "is_bay": is_bay,
-            "has_transformer": kind in ("GITET", "GISTET"),
+            "has_transformer": _bool_cell(_get(row, "Ada Trafo", "Has Transformer")),
+            "has_capacitor": _bool_cell(_get(row, "Ada Kapasitor", "Has Capacitor")),
+            "transformer_count": _get(row, "Jumlah Trafo", "Transformer Count"),
+            "capacitor_count": _get(row, "Jumlah Kapasitor", "Capacitor Count"),
+            "symbol_note": _get(row, "Catatan Simbol", "Symbol Note"),
             "_no_kerawanan": _int_or_none(no_kerawanan),
         })
 
@@ -462,6 +467,19 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
         ss_code = kv.get("kode subsistem") or kv.get("kode")
         ss_name = kv.get("nama subsistem") or kv.get("nama")
         ss_apb = kv.get("apb") or kv.get("up2b")
+    # Optional multi-SLD manifest. Rows identify independent analytical views;
+    # assets/connections remain shared and are never merged by the parser.
+    ws_views = _sheet("Views", "Sudut Pandang", "SLD Views")
+    view_rows = []
+    if ws_views is not None:
+        for row in _rows(ws_views):
+            vk = _get(row, "View Key", "Kunci View", "Kode View", "Sudut Pandang")
+            if vk:
+                view_rows.append({
+                    "view_key": str(vk).strip().upper(),
+                    "name": str(_get(row, "Nama View", "Nama SLD", "Name") or vk).strip(),
+                    "description": str(_get(row, "Keterangan", "Description") or "").strip(),
+                })
     ss_name = str(ss_name).strip() if ss_name else _guess_ss_name(filename)
     ss_code = str(ss_code).strip().upper() if ss_code else _guess_ss_code(ss_name, filename)
 
@@ -471,7 +489,8 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
         "analytical_hint": "SUBSYSTEM_150",
         "source_ref": f"Template subsistem PLN ({filename})",
         "subsystem": {"code": ss_code, "name": ss_name,
-                      "apb": str(ss_apb).strip() if ss_apb else "UP2B Jakarta & Banten"},
+                      "apb": str(ss_apb).strip() if ss_apb else "UP2B Jakarta & Banten",
+                      "views": view_rows},
         "objects": objects,
         "connections": connections,
         "risks": risks,
@@ -490,6 +509,10 @@ def _int_or_none(v):
         return int(v)
     except (TypeError, ValueError):
         return None
+
+
+def _bool_cell(value):
+    return str(value or '').strip().lower() in ('1', 'true', 'yes', 'ya', 'ada')
 
 
 def _first_line(v) -> str:

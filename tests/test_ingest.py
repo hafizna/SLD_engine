@@ -21,6 +21,7 @@ def client():
     os.close(fd)
     os.environ["DATABASE_URL"] = f"sqlite:///{path}"
     import app.db as db_mod
+    import app.models
     importlib.reload(db_mod)
     for name in ("app.models", "app.services.topology", "app.services.reconciliation",
                  "app.services.sld_renderer", "app.services.ingestion",
@@ -220,3 +221,50 @@ def test_parser_rejects_payload_without_subsystem(client):
     r = client.post("/api/ingest/parse", json={"payload": {"objects": []}})
     assert r.status_code == 400
     assert "wajib" in r.json()["detail"]
+
+
+def test_explicit_symbol_counts_survive_excel_draft_preview_publish(client, monkeypatch):
+    import openpyxl
+    from app.services.ingest_parser import parse_xlsx
+
+    class Sheet:
+        def __init__(self, rows):
+            self.rows = rows
+        def iter_rows(self, values_only=True):
+            return iter(self.rows)
+
+    class Book(dict):
+        @property
+        def sheetnames(self):
+            return list(self)
+
+    book = Book({
+        'Info': Sheet([('Kode Subsistem', 'SS_SYMBOLS'), ('Nama Subsistem', 'Symbol test')]),
+        'Gardu_Induk_dan_Aset': Sheet([
+            ('Kode', 'Tipe', 'Tier', 'Jumlah Trafo', 'Jumlah Kapasitor'),
+            ('SYMSRC', 'Busbar GI', 1, 0, 0), ('SYMLOAD', 'Busbar GI', 2, 3, 2)]),
+        'Jalur_Transmisi': Sheet([('Dari GI', 'Ke GI', 'Jumlah Sirkit'), ('SYMSRC', 'SYMLOAD', 2)]),
+    })
+    monkeypatch.setattr(openpyxl, 'load_workbook', lambda *a, **kw: book)
+    payload = parse_xlsx(b'', 'symbols.xlsx')
+    draft = client.post('/api/ingest/parse', json={'payload': payload}).json()
+    load = next(n for n in draft['nodes'] if n['external_key'] == 'SYMLOAD')
+    assert (load['transformer_count'], load['capacitor_count']) == (3, 2)
+    response = client.post('/api/ingest/preview.svg', json=draft)
+    assert response.status_code == 200
+    assert response.text.count('class="load-transformer"') == 3
+    assert response.text.count('class="shunt-capacitor"') == 2
+    published = client.post('/api/ingest/publish', json={
+        'draft': draft, 'subsystem_code': 'SS_SYMBOLS', 'subsystem_name': 'Symbol test'})
+    assert published.status_code == 200, published.text
+    svg = client.get(f'/api/views/{published.json()["view_id"]}/sld.svg').text
+    assert svg.count('class="load-transformer"') == 3
+    assert svg.count('class="shunt-capacitor"') == 2
+
+
+def test_negative_symbol_count_is_not_published(client):
+    draft = _draft(client, 'json')
+    draft['nodes'][0]['capacitor_count'] = -1
+    result = client.post('/api/ingest/validate', json=draft).json()
+    assert not result['ok']
+    assert any('jumlah simbol' in p for p in result['problems'])

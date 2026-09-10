@@ -74,8 +74,8 @@ SUBSTATIONS = [
     dict(code="CWANG", name="Cawang Lama", type="GI", voltage=150, status="ENERGIZED",
          busbar_config="DOUBLE_1CB", busbar_note="ada kopel (kotak putih di SLD)",
          role="CORE", external_subsystem=None, tier=2,
-         has_transformer=True, has_capacitor=True,
-         symbol_note="3x kapasitor 50 MVAr + 1 trafo. Bay LKONG2 menggantung.",
+         has_transformer=False, has_capacitor=True,
+         symbol_note="0 trafo; 3 kapasitor. Bay LKONG2 menggantung (SLD PLN 2.7).",
          note="Cawang Lama. Bintang kerawanan #2 di ruas Depok-Cawang Lama (SUTT ACSR Drake "
               "T.1-10, 17 km, pembebanan >60% -> tidak N-1)."),
     dict(code="TRSNA", name="Taman Rasuna", type="GI", voltage=150, status="ENERGIZED",
