@@ -724,23 +724,27 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     if loop_members and not loop_local:
         loop_x = max(pos[m][0] + bus_half(m) for m in loop_members if m in pos) + 34
 
-    # a shared horizontal routing channel for every tier-gap, like the book:
-    # all down-lines between two Tier rows turn at (roughly) one height, so
-    # nothing runs diagonally and parallel feeds stay tidy.
-    _gap_channel: dict[tuple[float, float], float] = {}
-    _rk_sorted = sorted(rows)
-    for a_rk, b_rk in zip(_rk_sorted, _rk_sorted[1:]):
-        ya = MARGIN_Y + a_rk * ROW_H
-        yb = MARGIN_Y + b_rk * ROW_H
-        _gap_channel[(a_rk, b_rk)] = ya + (yb - ya) * 0.62
+    # Each edge is one clean Z: straight down from the source port, ONE
+    # horizontal run at a height chosen NEAR the target (not a shared channel
+    # -- that is what made parallel feeds overlap), straight down into the
+    # target port. The turn height is staggered a little per circuit so two
+    # edges between the same rows do not share one horizontal line.
+    _turn_seq: dict[int, int] = {}
+    for _i, _c in enumerate(sorted(line_edges, key=lambda z: z.id)):
+        _turn_seq[_c.id] = _i
 
-    def channel_y(rk_a, rk_b):
-        lo, hi = min(rk_a, rk_b), max(rk_a, rk_b)
-        # nearest known gap; fall back to midpoint
-        for (a, b), y in _gap_channel.items():
-            if a <= lo and b >= hi and (b - a) <= 1.5:
-                return y
-        return (MARGIN_Y + lo * ROW_H + MARGIN_Y + hi * ROW_H) / 2 + 40
+    def turn_y(af, at, cid):
+        """Horizontal-run height for a normal downward edge: in the gap between
+        the two rows, biased toward the target, stepped per circuit so siblings
+        don't share a line. Kept clear of the target's label band (y-26..y).
+        """
+        ya, yb = pos[af][1], pos[at][1]
+        lo, hi = min(ya, yb), max(ya, yb)
+        span = hi - lo
+        # 55%..80% of the way down, stepped
+        frac = 0.55 + (_turn_seq.get(cid, 0) % 6) * 0.045
+        y = lo + span * frac
+        return min(y, hi - 40)   # never inside the target's label band
 
     # ---- phase 1: compute every circuit's ortho route as (x1,y1,yb,x2,y3) ---
     #      one route per sirkit; collect them so phase 2 can add hop arcs where
@@ -768,11 +772,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         offs = [0.0] if n_cct == 1 else [-CCT_OFF, CCT_OFF]
 
         same_tier = ta is not None and tb is not None and ta == tb
+        # cross-tier feed that runs AGAINST the downward flow (feeder below the
+        # GI it feeds -- Curug T5 -> Cikupa T4). Everything else that is not
+        # same-tier is a normal downward edge, however many Tier bands it spans.
         against_flow = ta is not None and tb is not None and ta > tb
-        far_tier = ta is not None and tb is not None and abs(ta - tb) > 1
-        straight_up = (against_flow or far_tier) and abs(fx0 - tx0) < 135
-        upward = against_flow
-        stagger = (hash(c.id) % 3) * 12
 
         entry = {"cid": c.id, "code": c.code, "ctype": c.circuit_type,
                  "status": c.status, "stroke": stroke, "dash": dash, "w": w,
@@ -796,39 +799,47 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             routes.append(entry)
             continue
 
+        # CB direction: the line always LEAVES the source's bottom and ENTERS
+        # the target from ABOVE, except a same-tier tie (both bottom) and an
+        # against-flow feed (leaves feeder bottom, enters upper bus from below).
         if same_tier:
             fdir = tdir = -1
-        elif upward:
-            fdir = 1 if fy0 < ty0 else -1
-            tdir = -1 if ty0 > fy0 else 1
-        elif fy0 < ty0:
-            fdir, tdir = 1, -1
+        elif against_flow:
+            # af is deeper Tier here (ta > tb) -> af is the upper bus, at the
+            # feeder below it. The feeder's line leaves its TOP; the upper bus
+            # takes it from BELOW.
+            fdir, tdir = 1, 1
         else:
-            fdir, tdir = -1, 1
+            fdir, tdir = 1, -1
 
-        rka, rkb = ta, tb
+        # per-sirkit separation: shift BOTH legs in x by `off`, and nudge the
+        # turn height by a hair so the two horizontal runs never merge
         for k, off in enumerate(offs):
             fx, tx = fx0 + off, tx0 + off
-            dyoff = off
+            hy_nudge = -3.0 if k == 0 else 3.0  # 2-cct: one run just above the other
             if same_tier:
-                yb = min(fy0, ty0) - 30 - stagger - abs(off)
+                # inverted bracket ABOVE both buses
+                yb = min(fy0, ty0) - 26 - abs(off) + hy_nudge
                 entry["segs"].append((fx, fy0 - CB_GAP, yb, tx, ty0 - CB_GAP))
-            elif straight_up:
-                (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
-                gap_y = channel_y(rka, rkb) + stagger + dyoff
-                gap_y = (min(max(gap_y, by + 24), uy - 18) if uy > by
-                         else min(max(gap_y, uy + 24), by - 18))
-                entry["segs"].append((bx, by + CB_GAP, gap_y, ux, uy - CB_GAP))
-            elif upward:
-                (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
-                gap_y = channel_y(rka, rkb) + stagger + dyoff
-                gap_y = max(min(gap_y, uy - 18), by + 24)
-                entry["segs"].append((bx, by + CB_GAP, gap_y, ux, uy - CB_GAP))
+            elif against_flow:
+                # feeder (lower Tier row) feeds a bus one or more Tiers ABOVE it
+                # (Curug T5 -> Cikupa T4). Leave the feeder's TOP, rise a little,
+                # run across just under the upper bus, rise into it from below.
+                (ux, uy) = (fx, fy0)          # upper bus (deeper Tier value)
+                (bx, by) = (tx, ty0)          # feeder, physically below
+                if abs(bx - ux) < 90:
+                    # roughly aligned: straight up through the midpoint
+                    yb = (by + uy) / 2 + hy_nudge
+                else:
+                    yb = uy + 30 + (_turn_seq.get(c.id, 0) % 4) * 12 + hy_nudge
+                    yb = min(yb, by - 20)
+                entry["segs"].append((bx, by - CB_GAP, yb, ux, uy + CB_GAP))
             else:
+                # normal downward: down from source, across in the gap, down in
                 (ux, uy), (lx, ly) = ((fx, fy0), (tx, ty0)) if fy0 <= ty0 else ((tx, ty0), (fx, fy0))
-                gap_y = channel_y(rka, rkb) + stagger + dyoff
-                gap_y = min(max(gap_y, uy + 24), ly - 18)
-                entry["segs"].append((ux, uy + CB_GAP, gap_y, lx, ly - CB_GAP))
+                yb = turn_y(af if fy0 <= ty0 else at, at if fy0 <= ty0 else af, c.id) + hy_nudge
+                yb = min(max(yb, uy + 20), ly - 40)
+                entry["segs"].append((ux, uy + CB_GAP, yb, lx, ly - CB_GAP))
         entry["cbs"].append((fx0, fy0 + fdir * CB_GAP, n_cct))
         entry["cbs"].append((tx0, ty0 + tdir * CB_GAP, n_cct))
         routes.append(entry)
