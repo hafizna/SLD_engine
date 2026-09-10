@@ -9,7 +9,11 @@ Line grammar (from the book's legend):
   * busbar               SOLID bold, coloured by voltage
                          (black busbar = planned / not yet energised)
   * a CB box where a circuit meets a busbar
-  * upward "bay panjang" (child Tier < feeder Tier) routed around the outside
+  * cross-tier feed: a penghantar whose two GIs are NOT in adjacent Tier
+    bands, or that runs against the normal downward Tier flow (e.g. Curug T5
+    fed from Cikupa T4). The book draws these stretched across Tier bands --
+    that is a drawing-spacing artefact, NOT a real distance. Here it is just
+    an edge routed cleanly around/through the grid; it never changes a Tier.
   * IBT 500/150 link     one vertical chain per transformer: CB(HV) -> triple
                          circle -> CB(LV)
   * bay (a small GI drawn only as a stub on a feeder busbar -- Durikosambi,
@@ -73,7 +77,7 @@ MARGIN_X = 150
 MARGIN_Y = 120
 CB = 10
 CB_GAP = 12
-EDGE_MARGIN = 54       # width of the outer routing channel for bay-panjang
+EDGE_MARGIN = 54       # width of the outer channel a cross-tier feed routes in
 
 
 def esc(v) -> str:
@@ -239,9 +243,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         rows[rk].append(sid)
 
     # parent (the node to sit above/below) for x-nudging. For a normal edge the
-    # parent is the higher-Tier (upstream) end; for an UPWARD "bay panjang"
-    # (child Tier < feeder Tier) the child is nudged toward its FEEDER instead,
-    # so e.g. Cikupa lands above Curug rather than far away.
+    # parent is the higher-Tier (upstream) end; for a cross-tier feed that runs
+    # against the Tier flow (child Tier < feeder Tier) the child is nudged
+    # toward its FEEDER instead, so e.g. Cikupa lands above Curug, not far away.
     # a single-phi edge is a weak link for layout -- don't derive parenthood
     # from it; a GI reachable only through single-phi edges is instead attached
     # next to a loop sibling that has a real feeder (Pasar Kemis <- Pasar Kemis
@@ -591,6 +595,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if spur_id not in bay_gi_ids and feeder_id in pos:
             bus_attach[feeder_id].append((f"spur{spur_id}", "bay", None))
 
+    top_port_x: dict[int, list[float]] = defaultdict(list)   # x of each top attachment
     for sid, items in bus_attach.items():
         cx, cy = pos[sid]
         bh = bus_half(sid)
@@ -600,6 +605,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         for i, (key, kind, _) in enumerate(items):
             px = cx - usable / 2 + (i + 0.5) * usable / max(n, 1)
             PORT[(sid, key)] = px
+            if kind in ("in", "ibt", "gen"):
+                top_port_x[sid].append(px)
 
     def port(sid, key, fallback_x=None):
         return PORT.get((sid, key), fallback_x if fallback_x is not None else pos[sid][0])
@@ -678,10 +685,17 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         offs = [0.0] if n_cct == 1 else [-CCT_OFF, CCT_OFF]
 
         same_tier = ta is not None and tb is not None and ta == tb
-        upward = ta is not None and tb is not None and ta > tb
-        # if an "upward" feeder is roughly under the child, route it straight up
-        # instead of around the diagram edge
-        straight_up = upward and abs(fx0 - tx0) < 135
+        # a cross-tier feed: endpoints are >1 Tier apart, or the feed runs
+        # against the downward Tier flow (feeder is BELOW the GI it feeds).
+        # "against the flow" == the from/to Tier order is inverted here.
+        against_flow = ta is not None and tb is not None and ta > tb
+        far_tier = ta is not None and tb is not None and abs(ta - tb) > 1
+        cross_tier = against_flow or far_tier
+        # if the two ends are already roughly aligned, route it straight
+        # between them instead of out around the grid edge
+        straight_up = cross_tier and abs(fx0 - tx0) < 135
+        # keep the old name for the routing branch below
+        upward = against_flow
 
         # single-phi loop-closing edge that still needs the far-side channel
         # (a big loop). A small clustered triangle falls through to the normal
@@ -824,10 +838,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 continue
             fx = port(c.from_substation_id, f"c{c.id}")
             tx = port(c.to_substation_id, f"c{c.id}")
-            # a point ON the circuit line, ~1/3 down toward its downstream end,
-            # with a short dash to the node label off to the side
-            ly_ = a[1] + (b[1] - a[1]) * 0.35
-            lx_ = fx + (tx - fx) * 0.35
+            # a point ON the circuit line, ~60% toward the downstream end so it
+            # clears the upstream bus's own bays, with a short dash out to the
+            # node label
+            f = 0.60
+            ly_ = a[1] + (b[1] - a[1]) * f
+            lx_ = fx + (tx - fx) * f
             nx = lx_ + 34                       # node sits a bit to the right
             p.append(f'<g><title>{esc(g.name)} ({esc(g.unit_type)}) - {esc(g.status)} - '
                      f'tap ruas {esc(c.name)}</title>')
@@ -882,23 +898,44 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                  f'<title>{esc(s.name)} [{esc(s.code)}] {esc(s.substation_type)} '
                  f'{esc(int(s.voltage_kv))} kV - {esc(s.status)} - role {esc(role)}'
                  f'{" - " + esc(s.busbar_note) if s.busbar_note else ""}</title>')
-        # label placement:
-        #   * a GITET bus -> above its bar (nothing else is up there)
-        #   * a Tier-1 / IBT-fed / generator-fed bus -> above-left, angled clear
-        #     of the chain and CB stack that rise into its centre
-        #   * everything else -> centred above, clear of the incoming-feed CBs
+        # label placement: put the name where the top of the busbar is CLEAR.
+        # GITET -> just above (nothing up there). Otherwise look at where the
+        # incoming feeds / IBT / generator meet this bar:
+        #   * left third clear  -> label off the left end
+        #   * right third clear -> label off the right end
+        #   * centre clear      -> centred, well above the CBs
+        #   * nothing clear     -> above-left, lifted clear of everything
         is_gitet = sid in gitet_feeds
-        fed_from_above = is_gitet or any(
-            g.outlet_substation_id == sid for g in gens.values()
-        ) or (sid in set(gitet_feeds.values()))
+        tps = top_port_x.get(sid, [])
+        left_lim, right_lim = x - bh * 0.34, x + bh * 0.34
+        centre_clear = not any(left_lim <= px <= right_lim for px in tps)
+        # room to the neighbouring bus on this same Tier row?
+        row_order = sorted(rows[row_of[sid]], key=lambda z: pos[z][0])
+        idx = row_order.index(sid)
+        gap_left = (pos[sid][0] - pos[row_order[idx - 1]][0]) if idx > 0 else 9e9
+        gap_right = (pos[row_order[idx + 1]][0] - pos[sid][0]) if idx < len(row_order) - 1 else 9e9
+        est_w = 7 * len(s.name) + 12          # rough label width
+        left_room = gap_left - bh - bus_half(row_order[idx - 1] if idx > 0 else sid) > est_w
+        right_room = gap_right - bh - bus_half(row_order[idx + 1] if idx < len(row_order) - 1 else sid) > est_w
+        left_top_clear = not any(px < left_lim for px in tps)
+        right_top_clear = not any(px > right_lim for px in tps)
+        has_left_pin = any(risk_on.get(("TRANSFORMER", t.id)) for t in tx_by_sub.get(sid, []))
+
         if is_gitet:
             p.append(f'<text x="{x:.1f}" y="{y - 12:.1f}" font-size="11" font-weight="700" '
                      f'text-anchor="middle" fill="#0f274a">{esc(s.name)}</text>')
-        elif fed_from_above:
-            p.append(f'<text x="{x - bh - 6:.1f}" y="{y - 14:.1f}" font-size="11" '
+        elif centre_clear:
+            p.append(f'<text x="{x:.1f}" y="{y - 26:.1f}" font-size="11" font-weight="700" '
+                     f'text-anchor="middle" fill="#0f274a">{esc(s.name)}</text>')
+        elif right_room and right_top_clear:
+            p.append(f'<text x="{x + bh + 6:.1f}" y="{y + 3:.1f}" font-size="11" '
+                     f'font-weight="700" text-anchor="start" fill="#0f274a">{esc(s.name)}</text>')
+        elif left_room and left_top_clear and not has_left_pin:
+            p.append(f'<text x="{x - bh - 6:.1f}" y="{y + 3:.1f}" font-size="11" '
                      f'font-weight="700" text-anchor="end" fill="#0f274a">{esc(s.name)}</text>')
         else:
-            p.append(f'<text x="{x:.1f}" y="{y - 26:.1f}" font-size="11" font-weight="700" '
+            # nowhere clear beside the bar -> lift the label well above it
+            p.append(f'<text x="{x:.1f}" y="{y - 34:.1f}" font-size="11" font-weight="700" '
                      f'text-anchor="middle" fill="#0f274a">{esc(s.name)}</text>')
         p.append(f'<line x1="{x - bh:.1f}" x2="{x + bh:.1f}" y1="{y:.1f}" y2="{y:.1f}" '
                  f'stroke="{bstroke}" stroke-width="6"{da}/>')
@@ -910,8 +947,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if s.has_shunt_capacitor:
             p.append(_sym_capacitor(port(sid, "cap", x), y + 3, vcol))
         if role in ("BOUNDARY", "EXTERNAL_CONTEXT"):
-            p.append(f'<text x="{x:.1f}" y="{y - 27:.1f}" font-size="8" text-anchor="middle" '
-                     f'fill="#b06a00" font-weight="700">{esc(role)}</text>')
+            # small tag under the left end of the bar -- never stacked on the name
+            p.append(f'<text x="{x - bh:.1f}" y="{y + 15:.1f}" font-size="7.5" '
+                     f'text-anchor="start" fill="#b06a00" font-weight="700">{esc(role)}</text>')
         p.append('</g>')
     p.append('</g>')
 
@@ -942,12 +980,17 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 bay_circuit[(oth, sid)] = c
 
     row_by_feeder: dict[int, int] = defaultdict(int)
-    for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], it[2].name)):
+    def _stub_x(it):
+        fid, k = it[0], it[1]
+        return port(fid, k, pos[fid][0]) if fid in pos else 0.0
+    for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], _stub_x(it))):
         fx, fy = pos[feeder_id]
         sx = port(feeder_id, key, fx)
         lvl = row_by_feeder[feeder_id]
         row_by_feeder[feeder_id] += 1
-        sy = fy + 46
+        # each successive stub on one busbar is a bit longer, so their CBs,
+        # end dots and names sit at different heights and never pile up
+        sy = fy + 40 + (lvl % 3) * 18
         stroke, dash = bay_feed_style.get(gi.id, ("#C00000", "7 5"))
         if status in ("NEW_NOT_ENERGIZED", "PLANNED"):
             stroke, dash = "#111111", "3 6"
@@ -969,8 +1012,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # busbar (a terminal / radial GI like Ulujami, Maxim). The decision of
         # which GIs are terminal comes from the substation data, not the drawing.
         p.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
-        ly = sy + 13 + (lvl % 2) * 11
-        p.append(f'<text x="{sx:.1f}" y="{ly:.1f}" font-size="8.5" text-anchor="middle" '
+        p.append(f'<text x="{sx + 6:.1f}" y="{sy + 3:.1f}" font-size="8.5" text-anchor="start" '
                  f'fill="#6b7787">{esc(gi.name)}</text>')
         p.append('</g>')
     p.append('</g>')
