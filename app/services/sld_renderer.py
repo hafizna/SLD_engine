@@ -471,6 +471,30 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             side = 1 if pos[sid][0] >= pos[anchor][0] else -1
             pos[sid] = (pos[anchor][0] + side * g, pos[sid][1])
 
+    # ---- row-reorder: median/barycenter heuristic for crossing reduction.
+    #      Within each Tier row, re-rank the GIs by the mean x of their graph
+    #      neighbours (parents, children, same-tier ties), then re-lay them
+    #      left-to-right at the row's own spacing. A node whose neighbours are
+    #      to the right ends up to the right -- so a feeder and the GI it feeds
+    #      sit near each other and lines stop crossing (Curug near Cikupa).
+    _saved_sids = {p.node_id for p in db.query(DiagramNodePosition)
+                   .filter(DiagramNodePosition.view_id == view.id,
+                           DiagramNodePosition.node_kind == "SUBSTATION").all()}
+    for _ in range(3):
+        for rk in sorted(rows):
+            members = [s for s in rows[rk]]
+            if len(members) < 2:
+                continue
+            if any(s in _saved_sids or s in gitet_feeds for s in members):
+                continue  # a row the user arranged, or a GITET row -- leave it
+            def _bary(s):
+                nb = [pos[n][0] for n in neighbours.get(s, ()) if n in pos]
+                return sum(nb) / len(nb) if nb else pos[s][0]
+            ranked = sorted(members, key=_bary)
+            xs = sorted(pos[s][0] for s in members)
+            for s, x in zip(ranked, xs):
+                pos[s] = (x, pos[s][1])
+
     # authoritative final de-overlap: one left-to-right pass per row, no
     # barycenter tug afterwards, so nothing is left touching.
     for rk in sorted(rows):
@@ -843,13 +867,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
         # CB direction: the line always LEAVES the source's bottom and ENTERS
         # the target from ABOVE, except a same-tier tie (both bottom) and an
-        # against-flow feed (leaves feeder bottom, enters upper bus from below).
+        # against-flow feed. In an against-flow feed both GIs sit below the
+        # horizontal run (it runs in the gap between the two Tier rows), so both
+        # CBs are on the BOTTOM of their busbar.
         if same_tier:
             fdir = tdir = -1
         elif against_flow:
-            # af is deeper Tier here (ta > tb) -> af is the upper bus, at the
-            # feeder below it. The feeder's line leaves its TOP; the upper bus
-            # takes it from BELOW.
             fdir, tdir = 1, 1
         else:
             fdir, tdir = 1, -1
@@ -864,18 +887,21 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 yb = min(fy0, ty0) - 26 - abs(off) + hy_nudge
                 entry["segs"].append((fx, fy0 - CB_GAP, yb, tx, ty0 - CB_GAP))
             elif against_flow:
-                # feeder (lower Tier row) feeds a bus one or more Tiers ABOVE it
-                # (Curug T5 -> Cikupa T4). Leave the feeder's TOP, rise a little,
-                # run across just under the upper bus, rise into it from below.
-                (ux, uy) = (fx, fy0)          # upper bus (deeper Tier value)
-                (bx, by) = (tx, ty0)          # feeder, physically below
-                if abs(bx - ux) < 90:
-                    # roughly aligned: straight up through the midpoint
-                    yb = (by + uy) / 2 + hy_nudge
-                else:
-                    yb = uy + 30 + (_turn_seq.get(c.id, 0) % 4) * 12 + hy_nudge
-                    yb = min(yb, by - 20)
-                entry["segs"].append((bx, by - CB_GAP, yb, ux, uy + CB_GAP))
+                # a penghantar that runs UP the diagram: the deeper-Tier GI
+                # (higher Tier number = physically LOWER) feeds a GI on a
+                # shallower row above it (Curug T5 -> Cikupa T4). Draw it as a
+                # clean U opening downward: both legs leave the BOTTOM of their
+                # busbar, the horizontal run sits HIGH in the gap (near the
+                # shallow row) so it clears the normal downward runs, which sit
+                # low in the gap. Nearly-aligned ports -> a minimal jog.
+                lo_y = min(fy0, ty0)                        # shallow GI (higher on screen)
+                near = abs(fx - tx) < GUTTER + BUS_MIN_HALF
+                # 12..22% down from the shallow row, stepped per circuit
+                yb = lo_y + CB_GAP + 18 + (_turn_seq.get(c.id, 0) % 4) * 9 + hy_nudge
+                if near:
+                    # a near-straight drop with a tiny step; keep the run short
+                    yb = lo_y + CB_GAP + 14 + hy_nudge
+                entry["segs"].append((fx, fy0 + CB_GAP, yb, tx, ty0 + CB_GAP))
             else:
                 # normal downward: down from source, across in the gap, down in
                 (ux, uy), (lx, ly) = ((fx, fy0), (tx, ty0)) if fy0 <= ty0 else ((tx, ty0), (fx, fy0))
@@ -885,6 +911,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         entry["cbs"].append((fx0, fy0 + fdir * CB_GAP, n_cct))
         entry["cbs"].append((tx0, ty0 + tdir * CB_GAP, n_cct))
         routes.append(entry)
+
+    route_by_cid: dict[int, dict] = {r["cid"]: r for r in routes}
 
     # ---- phase 2: emit each route, hopping its horizontal run over the
     #      vertical legs of OTHER circuits it would otherwise cross ------------
@@ -965,25 +993,32 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         standby = (g.status or "").upper() in ("STANDBY", "OFF")
         col = "#7c9a6a" if standby else "#0a8a3a"
         if g.tap_circuit_id:
-            # a small plant tapping a circuit -> a NODE (point) + label, placed
-            # ~1/3 along the circuit toward its downstream end (like the book:
-            # the tap "cuts into" the existing line near one substation).
+            # a small plant that is NOT a GI (no in/out busbar) -- it sits ON an
+            # existing circuit. Draw a node tapped ONTO a real segment of that
+            # circuit's routed path (the horizontal run), with a short dashed
+            # lead out to the labelled node.
             c = next((e for e in line_edges if e.id == g.tap_circuit_id), None)
-            a = pos.get(c.from_substation_id) if c else None
-            b = pos.get(c.to_substation_id) if c else None
-            if not a or not b:
+            rt = route_by_cid.get(g.tap_circuit_id) if c else None
+            lx_ = ly_ = None
+            if rt and rt["segs"]:
+                # the widest horizontal run of the route, tapped near its middle
+                seg = max(rt["segs"], key=lambda s: abs(s[3] - s[0]))
+                x1, _y1, yb, x2, _y3 = seg
+                ly_ = yb
+                lx_ = x1 + (x2 - x1) * 0.5
+            elif c:
+                a = pos.get(c.from_substation_id)
+                b = pos.get(c.to_substation_id)
+                if a and b:
+                    fx = port(c.from_substation_id, f"c{c.id}")
+                    tx = port(c.to_substation_id, f"c{c.id}")
+                    ly_ = (a[1] + b[1]) / 2
+                    lx_ = fx + (tx - fx) * 0.5
+            if lx_ is None:
                 continue
-            fx = port(c.from_substation_id, f"c{c.id}")
-            tx = port(c.to_substation_id, f"c{c.id}")
-            # a point ON the circuit line, ~60% toward the downstream end so it
-            # clears the upstream bus's own bays, with a short dash out to the
-            # node label
-            f = 0.60
-            ly_ = a[1] + (b[1] - a[1]) * f
-            lx_ = fx + (tx - fx) * f
             nx = lx_ + 34                       # node sits a bit to the right
             p.append(f'<g><title>{esc(g.name)} ({esc(g.unit_type)}) - {esc(g.status)} - '
-                     f'tap ruas {esc(c.name)}</title>')
+                     f'tap ruas {esc(c.name) if c else ""}</title>')
             p.append(f'<circle cx="{lx_:.1f}" cy="{ly_:.1f}" r="2.5" fill="{col}"/>')
             p.append(f'<path d="M{lx_:.1f},{ly_:.1f} h34" stroke="{col}" stroke-width="1.4" '
                      f'stroke-dasharray="4 3"/>')
