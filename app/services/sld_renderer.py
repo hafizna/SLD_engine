@@ -92,6 +92,38 @@ def _cb(x, y, color):
     return f'<rect x="{x - CB / 2:.1f}" y="{y - CB / 2:.1f}" width="{CB}" height="{CB}" fill="{color}"/>'
 
 
+HOP_R = 4.5   # radius of the little arc where one line hops over another
+
+
+def _ortho_path(x1, y1, yb, x2, y3):
+    """A square Z path: vertical from (x1,y1) to yb, horizontal to x2, vertical
+    to y3. Returned as (verticals, horizontal) segment tuples for hop testing.
+      verticals: [(x, ya, yb), ...]   horizontal: (y, xa, xb)
+    """
+    verts = [(x1, min(y1, yb), max(y1, yb)), (x2, min(yb, y3), max(yb, y3))]
+    horiz = (yb, min(x1, x2), max(x1, x2))
+    return verts, horiz
+
+
+def _emit_hopped(x1, y1, yb, x2, y3, cross_xs):
+    """SVG path 'd' for the square Z, with a small arc where the horizontal run
+    at height yb passes each x in cross_xs (a crossing vertical of another
+    line)."""
+    xs = sorted(x for x in cross_xs if min(x1, x2) + HOP_R < x < max(x1, x2) - HOP_R)
+    d = [f"M{x1:.1f},{y1:.1f} V{yb:.1f}"]
+    left_to_right = x2 >= x1
+    cur = x1
+    seq = xs if left_to_right else list(reversed(xs))
+    for cx in seq:
+        if left_to_right:
+            d.append(f"H{cx - HOP_R:.1f} A{HOP_R} {HOP_R} 0 0 1 {cx + HOP_R:.1f} {yb:.1f}")
+        else:
+            d.append(f"H{cx + HOP_R:.1f} A{HOP_R} {HOP_R} 0 0 0 {cx - HOP_R:.1f} {yb:.1f}")
+        cur = cx
+    d.append(f"H{x2:.1f} V{y3:.1f}")
+    return " ".join(d)
+
+
 def _cbs(x, y, color, n, dx=None):
     """n CB squares stacked horizontally (one per sirkit)."""
     dx = dx if dx is not None else (CB + 3)
@@ -681,13 +713,15 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 return y
         return (MARGIN_Y + lo * ROW_H + MARGIN_Y + hi * ROW_H) / 2 + 40
 
-    p.append('<g id="circuits">')
+    # ---- phase 1: compute every circuit's ortho route as (x1,y1,yb,x2,y3) ---
+    #      one route per sirkit; collect them so phase 2 can add hop arcs where
+    #      a horizontal run passes over another circuit's vertical leg.
+    routes: list[dict] = []   # {cid, code, ctype, status, stroke, dash, w, title,
+                              #  segs:[(x1,y1,yb,x2,y3)], cbs:[(x,y,n)]}
     for c in line_edges:
         af, at = c.from_substation_id, c.to_substation_id
         if af not in pos or at not in pos:
             continue
-        p.append(f'<g data-circuit-id="{c.id}" data-circuit-code="{esc(c.code)}" '
-                 f'data-circuit-type="{esc(c.circuit_type)}" data-status="{esc(c.status)}">')
         stroke, dash = _circuit_style(c)
         w = 1.3 if c.single_phi else 2.2
         ta = tier.get(("SUBSTATION", af))
@@ -703,105 +737,93 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         offs = [0.0] if n_cct == 1 else [-CCT_OFF, CCT_OFF]
 
         same_tier = ta is not None and tb is not None and ta == tb
-        # a cross-tier feed: endpoints are >1 Tier apart, or the feed runs
-        # against the downward Tier flow (feeder is BELOW the GI it feeds).
-        # "against the flow" == the from/to Tier order is inverted here.
         against_flow = ta is not None and tb is not None and ta > tb
         far_tier = ta is not None and tb is not None and abs(ta - tb) > 1
-        cross_tier = against_flow or far_tier
-        # if the two ends are already roughly aligned, route it straight
-        # between them instead of out around the grid edge
-        straight_up = cross_tier and abs(fx0 - tx0) < 135
-        # keep the old name for the routing branch below
+        straight_up = (against_flow or far_tier) and abs(fx0 - tx0) < 135
         upward = against_flow
+        stagger = (hash(c.id) % 3) * 12
 
-        # single-phi loop-closing edge that still needs the far-side channel
-        # (a big loop). A small clustered triangle falls through to the normal
-        # elbow routing below -- its members are now stacked tightly so the
-        # plain down-elbow already reads as a compact triangle.
+        entry = {"cid": c.id, "code": c.code, "ctype": c.circuit_type,
+                 "status": c.status, "stroke": stroke, "dash": dash, "w": w,
+                 "title": title, "segs": [], "cbs": []}
+
         if c.id in loop_close_ids and loop_x is not None:
             (ex, ey), (sx2, sy2) = ((fx0, fy0), (tx0, ty0)) if fy0 > ty0 else ((tx0, ty0), (fx0, fy0))
-            d = (f'M{ex:.1f},{ey + CB_GAP:.1f} V{ey + 24:.1f} H{loop_x:.1f} '
-                 f'V{sy2 - CB_GAP:.1f} H{sx2:.1f} V{sy2 - CB_GAP:.1f}')
-            p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
-                     f'stroke-dasharray="{dash}">{title}</path>')
-            p.append(_cbs(fx0, fy0 + (1 if fy0 > ty0 else -1) * CB_GAP, stroke, n_cct))
-            p.append(_cbs(tx0, ty0 + (1 if ty0 > fy0 else -1) * CB_GAP, stroke, n_cct))
-            p.append('</g>')
+            entry["segs"].append((ex, ey + CB_GAP, ey + 24, loop_x, sy2 - CB_GAP))
+            entry["segs"].append((loop_x, sy2 - CB_GAP, sy2 - CB_GAP, sx2, sy2 - CB_GAP))
+            entry["cbs"].append((fx0, fy0 + (1 if fy0 > ty0 else -1) * CB_GAP, n_cct))
+            entry["cbs"].append((tx0, ty0 + (1 if ty0 > fy0 else -1) * CB_GAP, n_cct))
+            routes.append(entry)
             continue
-        # a short same-tier single-phi tie (Pasar Kemis <-> Pasar Kemis Baru):
-        # one clean horizontal run just below the two buses, no down-U.
+
         adjacent_tie = (same_tier and c.single_phi and abs(fx0 - tx0) < 300)
         if adjacent_tie:
             yb = fy0 + 24
-            (lx, _), (rx, _) = sorted([(fx0, af), (tx0, at)])
-            d = (f'M{fx0:.1f},{fy0 + CB_GAP:.1f} V{yb:.1f} H{tx0:.1f} V{ty0 + CB_GAP:.1f}')
-            p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
-                     f'stroke-dasharray="{dash}">{title}</path>')
-            p.append(_cb(fx0, fy0 + CB_GAP, stroke))
-            p.append(_cb(tx0, ty0 + CB_GAP, stroke))
-            p.append('</g>')
+            entry["segs"].append((fx0, fy0 + CB_GAP, yb, tx0, ty0 + CB_GAP))
+            entry["cbs"].append((fx0, fy0 + CB_GAP, 1))
+            entry["cbs"].append((tx0, ty0 + CB_GAP, 1))
+            routes.append(entry)
             continue
 
         if same_tier:
-            fdir = tdir = 1
+            fdir = tdir = -1
         elif upward:
-            # feeder (lower bus) -> line rises from ABOVE it; child (upper bus)
-            # -> line enters from BELOW it
-            fdir = -1 if fy0 > ty0 else 1
+            fdir = 1 if fy0 < ty0 else -1
             tdir = -1 if ty0 > fy0 else 1
         elif fy0 < ty0:
             fdir, tdir = 1, -1
         else:
             fdir, tdir = -1, 1
 
-        # stagger the mid-elbow height per circuit so several links between the
-        # same two rows don't share one horizontal line
-        stagger = (hash(c.id) % 3) * 12
-
-        # A 2-sirkit line is two parallel routes. Separate them on the VERTICAL
-        # legs by dx, and on the HORIZONTAL leg by dy, so they never cross --
-        # offsetting x on a near-horizontal run just makes an X.
+        rka, rkb = ta, tb
         for k, off in enumerate(offs):
             fx, tx = fx0 + off, tx0 + off
-            dyoff = off  # horizontal-leg separation
-            tt = title if k == 0 else ""
+            dyoff = off
             if same_tier:
-                yb = max(fy0, ty0) + 44 + stagger + abs(off)
-                d = f'M{fx:.1f},{fy0 + CB_GAP:.1f} V{yb:.1f} H{tx:.1f} V{ty0 + CB_GAP:.1f}'
+                yb = min(fy0, ty0) - 30 - stagger - abs(off)
+                entry["segs"].append((fx, fy0 - CB_GAP, yb, tx, ty0 - CB_GAP))
             elif straight_up:
-                # cross-tier feed, ends roughly aligned: down to the channel
-                # between the two rows, across, up into the target -- all square
                 (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
-                rka = tier.get(("SUBSTATION", af))
-                rkb = tier.get(("SUBSTATION", at))
                 gap_y = channel_y(rka, rkb) + stagger + dyoff
-                gap_y = min(max(gap_y, by + 24), uy - 18) if uy > by else min(max(gap_y, uy + 24), by - 18)
-                d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{gap_y:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
+                gap_y = (min(max(gap_y, by + 24), uy - 18) if uy > by
+                         else min(max(gap_y, uy + 24), by - 18))
+                entry["segs"].append((bx, by + CB_GAP, gap_y, ux, uy - CB_GAP))
             elif upward:
-                # cross-tier feed whose ends are far apart: down a short way,
-                # along a mid channel, up into the target. Square corners only.
                 (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
-                rka = tier.get(("SUBSTATION", af))
-                rkb = tier.get(("SUBSTATION", at))
                 gap_y = channel_y(rka, rkb) + stagger + dyoff
                 gap_y = max(min(gap_y, uy - 18), by + 24)
-                d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{gap_y:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
+                entry["segs"].append((bx, by + CB_GAP, gap_y, ux, uy - CB_GAP))
             else:
-                # parent above child: straight down from the source port to the
-                # shared inter-tier channel, one horizontal run, straight down
-                # into the target port -- a clean Z, no diagonal
                 (ux, uy), (lx, ly) = ((fx, fy0), (tx, ty0)) if fy0 <= ty0 else ((tx, ty0), (fx, fy0))
-                rka = tier.get(("SUBSTATION", af))
-                rkb = tier.get(("SUBSTATION", at))
                 gap_y = channel_y(rka, rkb) + stagger + dyoff
                 gap_y = min(max(gap_y, uy + 24), ly - 18)
-                d = f'M{ux:.1f},{uy + CB_GAP:.1f} V{gap_y:.1f} H{lx:.1f} V{ly - CB_GAP:.1f}'
-            p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
-                     f'stroke-dasharray="{dash}">{tt}</path>')
+                entry["segs"].append((ux, uy + CB_GAP, gap_y, lx, ly - CB_GAP))
+        entry["cbs"].append((fx0, fy0 + fdir * CB_GAP, n_cct))
+        entry["cbs"].append((tx0, ty0 + tdir * CB_GAP, n_cct))
+        routes.append(entry)
 
-        p.append(_cbs(fx0, fy0 + fdir * CB_GAP, stroke, n_cct))
-        p.append(_cbs(tx0, ty0 + tdir * CB_GAP, stroke, n_cct))
+    # ---- phase 2: emit each route, hopping its horizontal run over the
+    #      vertical legs of OTHER circuits it would otherwise cross ------------
+    all_verts: list[tuple[float, float, float, int]] = []   # (x, y_lo, y_hi, cid)
+    for r in routes:
+        for (x1, y1, yb, x2, y3) in r["segs"]:
+            all_verts.append((x1, min(y1, yb), max(y1, yb), r["cid"]))
+            all_verts.append((x2, min(yb, y3), max(yb, y3), r["cid"]))
+
+    p.append('<g id="circuits">')
+    for r in routes:
+        p.append(f'<g data-circuit-id="{r["cid"]}" data-circuit-code="{esc(r["code"])}" '
+                 f'data-circuit-type="{esc(r["ctype"])}" data-status="{esc(r["status"])}">')
+        for i, (x1, y1, yb, x2, y3) in enumerate(r["segs"]):
+            cross_xs = [vx for (vx, vlo, vhi, vcid) in all_verts
+                        if vcid != r["cid"] and vlo < yb - 1 < vhi
+                        and min(x1, x2) + 6 < vx < max(x1, x2) - 6]
+            d = _emit_hopped(x1, y1, yb, x2, y3, cross_xs)
+            tt = r["title"] if i == 0 else ""
+            p.append(f'<path d="{d}" fill="none" stroke="{r["stroke"]}" '
+                     f'stroke-width="{r["w"]}" stroke-dasharray="{r["dash"]}">{tt}</path>')
+        for (cx, cy, cn) in r["cbs"]:
+            p.append(_cbs(cx, cy, r["stroke"], cn))
         p.append('</g>')
     p.append('</g>')
 
@@ -945,7 +967,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         idx = row_order.index(sid)
         gap_left = (pos[sid][0] - pos[row_order[idx - 1]][0]) if idx > 0 else 9e9
         gap_right = (pos[row_order[idx + 1]][0] - pos[sid][0]) if idx < len(row_order) - 1 else 9e9
-        est_w = 7 * len(s.name) + 12          # rough label width
+        # the label on the diagram is the SLD CODE (singkatan), like the book;
+        # the full name lives in the <title> tooltip and the Excel register.
+        blabel = esc(s.code)
+        est_w = 7 * len(s.code) + 12          # rough label width
         left_room = gap_left - bh - bus_half(row_order[idx - 1] if idx > 0 else sid) > est_w
         right_room = gap_right - bh - bus_half(row_order[idx + 1] if idx < len(row_order) - 1 else sid) > est_w
         left_top_clear = not any(px < left_lim for px in tps)
@@ -954,20 +979,19 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
         if is_gitet:
             p.append(f'<text x="{x:.1f}" y="{y - 12:.1f}" font-size="11" font-weight="700" '
-                     f'text-anchor="middle" fill="#0f274a">{esc(s.name)}</text>')
+                     f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         elif centre_clear:
             p.append(f'<text x="{x:.1f}" y="{y - 26:.1f}" font-size="11" font-weight="700" '
-                     f'text-anchor="middle" fill="#0f274a">{esc(s.name)}</text>')
+                     f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         elif right_room and right_top_clear:
             p.append(f'<text x="{x + bh + 6:.1f}" y="{y + 3:.1f}" font-size="11" '
-                     f'font-weight="700" text-anchor="start" fill="#0f274a">{esc(s.name)}</text>')
+                     f'font-weight="700" text-anchor="start" fill="#0f274a">{blabel}</text>')
         elif left_room and left_top_clear and not has_left_pin:
             p.append(f'<text x="{x - bh - 6:.1f}" y="{y + 3:.1f}" font-size="11" '
-                     f'font-weight="700" text-anchor="end" fill="#0f274a">{esc(s.name)}</text>')
+                     f'font-weight="700" text-anchor="end" fill="#0f274a">{blabel}</text>')
         else:
-            # nowhere clear beside the bar -> lift the label well above it
             p.append(f'<text x="{x:.1f}" y="{y - 34:.1f}" font-size="11" font-weight="700" '
-                     f'text-anchor="middle" fill="#0f274a">{esc(s.name)}</text>')
+                     f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         p.append(f'<line x1="{x - bh:.1f}" x2="{x + bh:.1f}" y1="{y:.1f}" y2="{y:.1f}" '
                  f'stroke="{bstroke}" stroke-width="6"{da}/>')
         if s.busbar_config in ("DOUBLE_1CB", "DOUBLE_SECTIONALIZED"):

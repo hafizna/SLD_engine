@@ -73,6 +73,21 @@ def export_register(db: Session, path: str | Path) -> Path:
 
     sheet("00_README", ["Topik", "Keterangan"], README_ROWS)
 
+    # code <-> full-name map for every node kind. The SLD draws the CODE
+    # (singkatan); this sheet is the lookup, kept for NMM/CIM alignment.
+    _cm_rows = []
+    for s in db.query(Substation).order_by(Substation.code).all():
+        _cm_rows.append((s.code, s.name, "SUBSTATION", s.substation_type,
+                         int(s.voltage_kv), s.apb or "", s.status))
+    for t in db.query(Transformer).order_by(Transformer.code).all():
+        _cm_rows.append((t.code, t.name, "TRANSFORMER", t.transformer_type, "", "", t.status))
+    for g in db.query(GeneratingUnit).order_by(GeneratingUnit.code).all():
+        _cm_rows.append((g.code, g.name, "GENERATING_UNIT", g.unit_type or "",
+                         int(g.voltage_kv), g.operator or "", g.status))
+    sheet("00_CODE_MAP",
+          ["Code", "Name", "Kind", "Type", "Voltage_kV", "APB", "Status"],
+          _cm_rows)
+
     sheet("01_SUBSTATION",
           ["Code", "Name", "Type", "Voltage_kV", "APB", "UIT", "Status", "Busbar_Config",
            "Busbar_Note", "Has_Transformer", "Has_Capacitor", "Symbol_Note", "Lat", "Lon",
