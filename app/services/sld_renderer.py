@@ -663,6 +663,24 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     if loop_members and not loop_local:
         loop_x = max(pos[m][0] + bus_half(m) for m in loop_members if m in pos) + 34
 
+    # a shared horizontal routing channel for every tier-gap, like the book:
+    # all down-lines between two Tier rows turn at (roughly) one height, so
+    # nothing runs diagonally and parallel feeds stay tidy.
+    _gap_channel: dict[tuple[float, float], float] = {}
+    _rk_sorted = sorted(rows)
+    for a_rk, b_rk in zip(_rk_sorted, _rk_sorted[1:]):
+        ya = MARGIN_Y + a_rk * ROW_H
+        yb = MARGIN_Y + b_rk * ROW_H
+        _gap_channel[(a_rk, b_rk)] = ya + (yb - ya) * 0.62
+
+    def channel_y(rk_a, rk_b):
+        lo, hi = min(rk_a, rk_b), max(rk_a, rk_b)
+        # nearest known gap; fall back to midpoint
+        for (a, b), y in _gap_channel.items():
+            if a <= lo and b >= hi and (b - a) <= 1.5:
+                return y
+        return (MARGIN_Y + lo * ROW_H + MARGIN_Y + hi * ROW_H) / 2 + 40
+
     p.append('<g id="circuits">')
     for c in line_edges:
         af, at = c.from_substation_id, c.to_substation_id
@@ -752,19 +770,32 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 yb = max(fy0, ty0) + 44 + stagger + abs(off)
                 d = f'M{fx:.1f},{fy0 + CB_GAP:.1f} V{yb:.1f} H{tx:.1f} V{ty0 + CB_GAP:.1f}'
             elif straight_up:
+                # cross-tier feed, ends roughly aligned: down to the channel
+                # between the two rows, across, up into the target -- all square
                 (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
-                gap_y = (by + uy) / 2 + dyoff
+                rka = tier.get(("SUBSTATION", af))
+                rkb = tier.get(("SUBSTATION", at))
+                gap_y = channel_y(rka, rkb) + stagger + dyoff
+                gap_y = min(max(gap_y, by + 24), uy - 18) if uy > by else min(max(gap_y, uy + 24), by - 18)
                 d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{gap_y:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
             elif upward:
+                # cross-tier feed whose ends are far apart: down a short way,
+                # along a mid channel, up into the target. Square corners only.
                 (bx, by), (ux, uy) = ((fx, fy0), (tx, ty0)) if fy0 > ty0 else ((tx, ty0), (fx, fy0))
-                ch = (left_ch if (bx + ux) / 2 < W / 2 else right_ch) + off
-                d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{by + 30 + abs(off):.1f} H{ch:.1f} '
-                     f'V{uy - CB_GAP:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
+                rka = tier.get(("SUBSTATION", af))
+                rkb = tier.get(("SUBSTATION", at))
+                gap_y = channel_y(rka, rkb) + stagger + dyoff
+                gap_y = max(min(gap_y, uy - 18), by + 24)
+                d = (f'M{bx:.1f},{by + CB_GAP:.1f} V{gap_y:.1f} H{ux:.1f} V{uy - CB_GAP:.1f}')
             else:
-                # parent above child: down from source port, across at a
-                # per-circuit height, down into the target port
+                # parent above child: straight down from the source port to the
+                # shared inter-tier channel, one horizontal run, straight down
+                # into the target port -- a clean Z, no diagonal
                 (ux, uy), (lx, ly) = ((fx, fy0), (tx, ty0)) if fy0 <= ty0 else ((tx, ty0), (fx, fy0))
-                gap_y = (uy + ly) / 2 + stagger + dyoff
+                rka = tier.get(("SUBSTATION", af))
+                rkb = tier.get(("SUBSTATION", at))
+                gap_y = channel_y(rka, rkb) + stagger + dyoff
+                gap_y = min(max(gap_y, uy + 24), ly - 18)
                 d = f'M{ux:.1f},{uy + CB_GAP:.1f} V{gap_y:.1f} H{lx:.1f} V{ly - CB_GAP:.1f}'
             p.append(f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{w}" '
                      f'stroke-dasharray="{dash}">{tt}</path>')
@@ -979,18 +1010,16 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 bay_feed_style[sid] = _circuit_style(c)
                 bay_circuit[(oth, sid)] = c
 
-    row_by_feeder: dict[int, int] = defaultdict(int)
     def _stub_x(it):
         fid, k = it[0], it[1]
         return port(fid, k, pos[fid][0]) if fid in pos else 0.0
+
+    STUB_LEN = 42   # every bay stub is exactly this long -- consistent, per the book
+
     for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], _stub_x(it))):
         fx, fy = pos[feeder_id]
         sx = port(feeder_id, key, fx)
-        lvl = row_by_feeder[feeder_id]
-        row_by_feeder[feeder_id] += 1
-        # each successive stub on one busbar is a bit longer, so their CBs,
-        # end dots and names sit at different heights and never pile up
-        sy = fy + 40 + (lvl % 3) * 18
+        sy = fy + STUB_LEN
         stroke, dash = bay_feed_style.get(gi.id, ("#C00000", "7 5"))
         if status in ("NEW_NOT_ENERGIZED", "PLANNED"):
             stroke, dash = "#111111", "3 6"
@@ -1007,13 +1036,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         p.append(f'<path d="M{sx:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
                  f'stroke="{stroke}" stroke-width="1.8"{da}/>')
         p.append(_cb(sx, fy + CB_GAP, stroke))
-        # A bay is ALWAYS just stub + CB + endpoint dot + name. It never gets a
-        # transformer -- a transformer is only drawn on a GI that has its own
-        # busbar (a terminal / radial GI like Ulujami, Maxim). The decision of
-        # which GIs are terminal comes from the substation data, not the drawing.
+        # A bay is ALWAYS just stub + CB + endpoint dot + code. It never gets a
+        # transformer -- that is only for a GI with its own busbar. The code
+        # (singkatan) is written below the dot, exactly as the book does it.
         p.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
-        p.append(f'<text x="{sx + 6:.1f}" y="{sy + 3:.1f}" font-size="8.5" text-anchor="start" '
-                 f'fill="#6b7787">{esc(gi.name)}</text>')
+        p.append(f'<text x="{sx:.1f}" y="{sy + 13:.1f}" font-size="8" '
+                 f'text-anchor="middle" fill="#6b7787">{esc(gi.code)}</text>')
         p.append('</g>')
     p.append('</g>')
 
