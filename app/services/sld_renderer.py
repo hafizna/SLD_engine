@@ -34,8 +34,22 @@ from collections import defaultdict
 
 from sqlalchemy.orm import Session
 
-from app.models import AnalyticalView, Bay, Circuit, DiagramNodePosition, RiskRecord, Transformer
+from app.models import AnalyticalView, Bay, Circuit, DiagramNodePosition, RiskRecord, Subsystem, Transformer
 from app.services.topology import _is_live, calculate_tier, classify_layout, get_view_graph
+
+
+def _view_title(db: Session, view: AnalyticalView) -> str:
+    """Diagram heading: 'SS <subsystem> -- <POV>'. The view name is now just
+    the point of view ('Sisi Kembangan'); the SS name gives it context. When
+    the SS has only one view, the POV label adds nothing -> just the SS name."""
+    ss = db.get(Subsystem, view.subsystem_id) if view.subsystem_id else None
+    if not ss:
+        return view.name or "SLD"
+    siblings = (db.query(AnalyticalView)
+                  .filter(AnalyticalView.subsystem_id == ss.id).count())
+    if siblings > 1 and view.name:
+        return f"SS {ss.name} — {view.name}"
+    return f"SS {ss.name}"
 
 VOLT_COLOR = {500: "#0047AB", 275: "#00A6D6", 150: "#C00000", 70: "#E6B800", 20: "#E67300"}
 
@@ -678,7 +692,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:.0f} {H}" '
         f'font-family="Arial, Helvetica, sans-serif">',
         f'<rect width="{W:.0f}" height="{H}" fill="#ffffff"/>',
-        f'<text x="18" y="26" font-size="14" font-weight="700" fill="#0f274a">{esc(view.name)}</text>',
+        f'<text x="18" y="26" font-size="14" font-weight="700" fill="#0f274a">'
+        f'{esc(_view_title(db, view))}</text>',
     ]
 
     # ---- Tier band overlay -----------------------------------------

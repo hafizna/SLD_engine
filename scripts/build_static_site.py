@@ -50,6 +50,8 @@ def build() -> None:
     with TestClient(app) as client, SessionLocal() as db:
         views = client.get("/api/views").json()
         (data_dir / "views.json").write_text(json.dumps(views, indent=2), encoding="utf-8")
+        subs = client.get("/api/subsystems").json()
+        (data_dir / "subsystems.json").write_text(json.dumps(subs, indent=2), encoding="utf-8")
 
         for v in views:
             vid = v["id"]

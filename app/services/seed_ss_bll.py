@@ -340,7 +340,7 @@ def seed_ss_bll(db: Session) -> None:
     # ---- analytical view: ONE layout projection (the SLD is a single drawing) ----
     view = AnalyticalView(
         view_key=f"{SS_CODE}_FULL", view_type="SUBSYSTEM",
-        name="SS Balaraja 3,4 - Lengkong 1,2 (SLD hal.72)",
+        name="SLD lengkap",
         rule_profile="SUBSYSTEM_150", subsystem_id=ss.id,
         layout_hint="MERGED", drawing_side=None,
     )

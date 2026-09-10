@@ -588,13 +588,13 @@ def seed_ss_lbk(db: Session) -> None:
     #      views -- that part of the model already works.
     v_kem = AnalyticalView(
         view_key=f"{SS_CODE}_KEMBANGAN", view_type="SUBSYSTEM",
-        name="SS Lontar-Balaraja-Kembangan - sisi Kembangan (SLD hal.69)",
+        name="Sisi Kembangan",
         rule_profile="SUBSYSTEM_150", subsystem_id=ss.id,
         layout_hint="KEMBANGAN_SIDE", drawing_side="K",
     )
     v_bal = AnalyticalView(
         view_key=f"{SS_CODE}_BALARAJA", view_type="SUBSYSTEM",
-        name="SS Lontar-Balaraja-Kembangan - sisi Balaraja/Lontar (SLD hal.70)",
+        name="Sisi Lontar-Balaraja",
         rule_profile="SUBSYSTEM_150", subsystem_id=ss.id,
         layout_hint="BALARAJA_SIDE", drawing_side="B",
     )
