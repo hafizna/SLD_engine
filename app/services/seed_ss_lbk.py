@@ -268,10 +268,15 @@ CIRCUITS = [
     ("PHT_CURUG_CKUPA", "Curug - Cikupa", "SKTT", "CURUG", "CKUPA", 150, None, 2, False, "ENERGIZED", 0.6, "K", "Bay panjang T5 Curug -> T4 Cikupa (sisi Kembangan)"),
     ("PHT_DNYSA_ABDGP", "Danayasa - Abadi Guna Papan", "SKTT", "DNYSA", "ABDGP", 150, None, 2, False, "ENERGIZED", 0.5, "K", "AGP disupply direct dari Danayasa (SLD hal.69: bay menggantung di bus Danayasa)"),
     ("PHT_DNYSA_MPANG", "Danayasa - Mampang", "SKTT", "DNYSA", "MPANG", 150, None, 2, False, "ENERGIZED", 0.5, "K", "Mampang disupply direct dari Danayasa (SLD hal.69: bay menggantung di bus Danayasa), bukan seri lewat AGP"),
-    ("PHT_CKUPA_SVRNA_K", "Cikupa - Suvarna Sutra", "SKTT", "CKUPA", "SVRNA", 150, None, 2, False, "ENERGIZED", 0.6, "K", "output bay Cikupa"),
-    ("PHT_CKUPA_PSKMS_K", "Cikupa - Pasar Kemis", "SKTT", "CKUPA", "PSKMS", 150, None, 2, False, "ENERGIZED", 0.6, "K", "output bay Cikupa"),
+    # Cikupa's relations to Suvarna Sutra / Pasar Kemis exist in BOTH book
+    # pages: on hal.69 they hang off Cikupa as bay stubs, on hal.70 they are
+    # full busbars fed from Cikupa (and Pasar Kemis carries on to Gajah
+    # Tunggal). drawing_side=None -> the relation is drawn in both views; the
+    # per-view Bay rows make it a stub on the Kembangan side only.
+    ("PHT_CKUPA_SVRNA", "Cikupa - Suvarna Sutra", "SKTT", "CKUPA", "SVRNA", 150, None, 2, False, "ENERGIZED", 0.6, None, "Relasi Cikupa-Suvarna: bay stub di hal.69, penghantar ke busbar di hal.70"),
+    ("PHT_CKUPA_PSKMS", "Cikupa - Pasar Kemis", "SKTT", "CKUPA", "PSKMS", 150, None, 2, False, "ENERGIZED", 0.6, None, "Relasi Cikupa-Pasar Kemis: bay stub di hal.69, penghantar ke busbar di hal.70 (lanjut ke Gajah Tunggal)"),
     ("SUTT_CKUPA_JTAKE", "Cikupa - Jatake", "SKTT", "CKUPA", "JTAKE", 150, None, 2, False, "ENERGIZED", 1.0, "K", "Kerawanan #4: overload saat N-1-1/N-2 ruas Lontar-Tangerang Baru. Jatake jadi selevel T5."),
-    ("PHT_JTAKE_JTKBR_K", "Jatake - Jatake Baru", "SKTT", "JTAKE", "JTKBR", 150, None, 2, False, "ENERGIZED", 0.7, "K", "output bay Jatake"),
+    ("PHT_JTAKE_JTKBR", "Jatake - Jatake Baru", "SKTT", "JTAKE", "JTKBR", 150, None, 2, False, "ENERGIZED", 0.7, None, "Jatake Baru dari Jatake -- tergambar di kedua halaman"),
     ("PHT_JTAKE_MAXIM", "Jatake - Maxim", "SKTT", "JTAKE", "MAXIM", 150, None, 2, False, "ENERGIZED", 0.7, "K", "Jatake -> Maxim (T6, sisi Kembangan). Jatake juga punya output 1 trafo + 2 kapasitor."),
 
     # ================= Balaraja / Lontar side (SLD hal.70) =================
@@ -286,7 +291,6 @@ CIRCUITS = [
     ("PHT_TLKNG2_TLKGA", "Teluknaga 2 / Dadap - Teluknaga", "SUTT", "TLKNG2_DADAP", "TLKGA", 150, None, 2, False, "ENERGIZED", 0.5, "B", "traced [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
     ("PHT_TGBRU_CKBRU", "Tangerang Baru - Cikupa Baru", "SUTT", "TGBRU", "CKBRU", 150, None, 2, False, "ENERGIZED", 0.6, "B", "traced [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
     ("PHT_TGBRU_ITS", "Tangerang Baru - KTT ITS", "SUTT", "TGBRU", "ITS", 150, None, 1, False, "ENERGIZED", 0.4, "B", "KTT ITS external [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
-    ("PHT_SVRNA_CKUPA", "Suvarna Sutra - Cikupa", "SUTT", "SVRNA", "CKUPA", 150, None, 2, False, "ENERGIZED", 0.6, "B", "traced (irisan) - Cikupa T4 dari sisi Balaraja [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
     ("PHT_TLKGA_SPTAN", "Teluknaga - Sepatan", "SUTT", "TLKGA", "SPTAN", 150, None, 2, False, "ENERGIZED", 0.5, "B", "traced [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
     ("SUTT_CKBRU_CNKNG", "Cikupa Baru - Cengkareng", "SUTT", "CKBRU", "CNKNG", 150, None, 2, False, "ENERGIZED", 0.6, "B", "terkait kerawanan #5 [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
     ("PHT_CKBRU_BSH", "Cikupa Baru - BSH", "SUTT", "CKBRU", "BSH", 150, None, 1, False, "ENERGIZED", 0.5, "B", "BSH milik KTT [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
@@ -300,7 +304,6 @@ CIRCUITS = [
     ("SUTT_GJTGL_PSKMS", "Gajah Tunggal - Pasar Kemis", "SUTT", "GJTGL", "PSKMS", 150, None, 1, True, "ENERGIZED", 0.7, "B", "Kerawanan #3: garis tipis semi-hilang di SLD, menutup loop single-phi [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
     ("PHT_CNKNG_TGRNG", "Cengkareng - Tangerang", "SUTT", "CNKNG", "TGRNG", 150, None, 2, False, "ENERGIZED", 0.5, "B", "Hotspot #5 [jenis SUTT/SKTT NEEDS_REVIEW dgn SLD referensi]"),
     ("PHT_TGRNG_JTAKE", "Tangerang - Jatake", "SUTT", "TGRNG", "JTAKE", 150, None, 2, False, "ENERGIZED", 0.5, "B", "Jatake output bay dari sisi Balaraja (label PDF blur 'ITAKE' = JTAKE) [NEEDS_REVIEW]"),
-    ("PHT_JTAKE_JTKBR_B", "Jatake - Jatake Baru", "SUTT", "JTAKE", "JTKBR", 150, None, 2, False, "ENERGIZED", 0.6, "B", "Jatake Baru dari Jatake (sama spt sisi Kembangan) [NEEDS_REVIEW]"),
 ]
 
 # Risk records  (seq, title, condition, impact, mitigation, follow_up, priority,
@@ -611,8 +614,9 @@ def seed_ss_lbk(db: Session) -> None:
         if tier_b[code] is not None:
             side_subs["B"].add(s.id)
     for (code, name, ctype, fr, to, kv, txcode, ccnt, sphi, status, conf, side, note) in CIRCUITS:
-        side_subs[side].add(subs[fr].id)
-        side_subs[side].add(subs[to].id)
+        for _sd in (("K", "B") if side is None else (side,)):
+            side_subs[_sd].add(subs[fr].id)
+            side_subs[_sd].add(subs[to].id)
 
     def add_view_members(view: AnalyticalView, side: str):
         tiers = tier_for[side]
