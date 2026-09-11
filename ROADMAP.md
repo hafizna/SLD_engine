@@ -100,14 +100,88 @@ render semua view -> invariant geometri. Laporan rinci ditulis ke
 | SS Priok-Bekasi-Cawang | 2 | **FAIL: 1 near-continuation** |
 | SS Suralaya-Cilegon | 1 | PASS |
 | SS Muarakarang-Durikosambi (template final eksternal) | 2 | PASS |
-| SS Bali | 1 | PASS (accepted visual review) |
+| SS Bali | 1 | PASS (setelah perbaikan soft-band router) |
+| SS Pelabuhan Ratu-Salak-Cibinong 1,2-Depok 2 | 2 | **FAIL: 1 near-continuation** |
+| SS Bekasi 1,3-Cibinong 3 | 1 | PASS |
+| SS Gandul 2,4 | 1 | PASS |
+| SS Pemalang 1,2 (Jateng) | 1 | PASS |
+| SS Boyolali 1,2 (Jateng) | 1 | PASS |
+| SS Kesugihan 1,2 (Jateng) | 1 | PASS |
+| SS Krian 3,4,5,6 (Jatim) | 1 | PASS |
+| SS Kediri 1,2 (Jatim) | 1 | PASS |
+| SS Paiton 1,2,3 (Jatim) | 1 | PASS |
 | Backbone 500 kV | 1 | **FAIL: 1 near-continuation** (turun dari 2 temuan) |
 
-Dengan demikian sembilan SS dapat diparse dan dirender. SS GUCL dan SS PRBC
-masih memiliki temuan near-continuation. Backbone 500 kV
+Dengan demikian delapan belas SS dapat diparse dan dirender. SS GUCL, SS PRBC dan
+SS Pelabuhan Ratu masih memiliki temuan near-continuation. Backbone 500 kV
 dihitung sebagai fixture sistem tersendiri. Fixture berstatus FAIL tidak boleh
 dinyatakan production-ready atau dipakai sebagai bukti bahwa renderer sudah
 menangani semua pola.
+
+### UP2B Jakarta & Banten lengkap + perbaikan renderer IBT 150/70
+
+Tiga subsistem Jakban terakhir dibangkitkan dari Peta Kerawanan per-SS (Gambar
+2.10-2.12), bukan dari Lampiran-1 -- gambar per-SS jauh lebih terbaca dan sudah
+membawa pita Tier, bay stub, serta pin kerawanan.
+
+| Subsistem | Sec / Tabel | Halaman PDF | Aset | Ruas | Kerawanan | View |
+|---|---|---:|---:|---:|---:|---:|
+| Pelabuhan Ratu-Salak-Cibinong 1,2-Depok 2 | 2.11 / Tabel 2.9 | 101-104 | 41 | 31 | 8 | 2 |
+| Bekasi 1,3-Cibinong 3 | 2.12 / Tabel 2.10 | 104-106 | 17 | 12 | 3 | 1 |
+| Gandul 2,4 | 2.13 / Tabel 2.11 | 107-110 | 8 | 5 | 1 | 1 |
+
+Pelabuhan Ratu memakai jalur multiview: satu graf GI kanonik, dua `Sudut
+Pandang` (CIBINONG dan SALAK) sesuai dua panel gambar buku. BGBRU, SNTUL dan
+KTLPA muncul di kedua panel dan terekonsiliasi menjadi satu substation kanonik,
+sementara kedelapan risiko tetap dihitung sekali.
+
+Kotak abu-abu "UP2B 2 (JABAR)" pada Gambar 2.10/2.11 adalah aset UP2B Jawa Barat
+yang dijangkau subsistem ini (Sukatani, New Tambun, Cugenang, Lengkong Dar),
+bukan GI subsistem Jakban. Semuanya dimodelkan sebagai SOURCE_BOUNDARY.
+
+Tiga defect renderer ditemukan dan diperbaiki saat pekerjaan ini:
+
+1. `app/services/ingest.py` memberi label `500/150` pada SETIAP IBT dan menyimpan
+   `voltage_kv=500`. Rasio sekarang diturunkan dari tegangan kedua bus, sehingga
+   IBT 150/70 (Cibinong, Semen Baru, Cibadak) terlabel benar.
+2. Sisi HV IBT ditentukan dari tipe aset (GITET). Untuk step-down di dalam
+   jaringan 150 kV tidak ada GITET di kedua ujung, sehingga arah terbalik dan
+   menghasilkan IBT "70/150". Sekarang jatuh ke perbandingan tegangan bus.
+3. `app/services/sld_renderer.py` hanya menggambar rantai IBT bila sisi HV-nya
+   GITET, sehingga step-down 150/70 hilang dari gambar dan jaringan 70 kV
+   tampil sebagai pulau terputus. Rantai sekarang digambar untuk sisi HV mana
+   pun; bus GITET tetap melayang di atas bus yang dipasoknya, sedangkan bus
+   150 kV biasa mempertahankan baris Tier dan penghantarnya sendiri, dan rantai
+   yang bergeser horizontal dirutekan turun-menyamping-turun.
+
+Selain itu pita `soft_bands` router diperlebar `NEAR_CONT_GAP` melewati rentang
+rute lain, karena dua penghantar horizontal panjang yang bersambung ujung ke
+ujung terbaca sebagai satu konduktor walau tidak beririsan pada sumbu x. Ini
+menghilangkan tiga temuan near-continuation pada SS Bali dan satu pada SS GUCL.
+Ambang penalti sendiri tetap `CHANNEL_PITCH`: menaikkannya ke 40 justru membuat
+SS Kesugihan yang tadinya lulus menjadi gagal.
+
+### Perluasan ke UP2B Jateng & DIY dan UP2B Jawa Timur
+
+Enam subsistem di luar Jakarta-Banten dibangkitkan langsung dari Buku Kerawanan
+SJB 2026 memakai template ingest yang sama (`scripts/_ss_xlsx_common.py`):
+
+| Subsistem | Sec / Tabel | Halaman PDF | Aset | Ruas | Kerawanan |
+|---|---|---:|---:|---:|---:|
+| Pemalang 1,2 | 4.8 / Tabel 4.6 | 173-175 | 11 | 8 | 4 |
+| Boyolali 1,2 | 4.9 / Tabel 4.7 | 175-178 | 9 | 7 | 4 |
+| Kesugihan 1,2 | 4.7 / Tabel 4.5 | 165-172 | 27 | 28 | 18 |
+| Krian 3,4,5,6 | 5.4 | 197-201 | 16 | 12 | 8 |
+| Kediri 1,2 | 5.6 | 206-208 | 14 | 10 | 6 |
+| Paiton 1,2,3 | 5.9 | 228-237 | 16 | 13 | 8 |
+
+Teks kerawanan diekstrak verbatim dari tabel PDF oleh
+`scripts/_kerawanan_tables.py`, bukan diketik ulang; modul itu juga membuang
+header/footer halaman yang ikut masuk ke sel saat baris terpotong antar halaman.
+Topologi ditelusuri dari Lampiran-3 (Jateng & DIY, PDF p.250) dan Lampiran-4
+(Jawa Timur, PDF p.251), yang mewarnai tiap subsistem sehingga keanggotaan GI
+dibaca dari gambar. Ruas yang label sirkitnya tidak terbaca pasti tetap perlu
+verifikasi terhadap SLD native sebelum dipakai operasional.
 
 Catatan sumber Bali: peta kerawanan Buku Kerawanan dipakai untuk Tier, nomor,
 dan konteks risiko. Daftar GI/GIS, hubungan penghantar, bus section, bay,
