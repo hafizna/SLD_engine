@@ -46,6 +46,15 @@ ASSETS = [
          simbol="3x60 MVA; batas ke Subsistem Pedan 1,2", role="SOURCE_BOUNDARY"),
     dict(code="GDRJO", name="Gondangrejo", type="Busbar GI", tier=3,
          simbol="2x60 MVA", kerawanan="3"),
+    # GI Jelok with PLTA Jelok and PLTA Timo on it, drawn with the green
+    # generator symbol on Gambar 4.9. Green marks a PEMBANGKIT, not a voltage
+    # class. Risk 4 is literally "SUTT Ungaran-Jelok", so this bus and its
+    # machines have to be on the sheet for that pin to mean anything.
+    dict(code="JELOK", name="Jelok", type="Busbar GI", tier=2, kerawanan="4"),
+    dict(code="KIT_JELOK", name="PLTA Jelok", type="Pembangkit", tier=2,
+         kv="150 kV"),
+    dict(code="KIT_TIMO", name="PLTA Timo", type="Pembangkit", tier=2,
+         kv="150 kV"),
 ]
 
 # 500 kV SUTET bays -- the remote GITETs live on other subsistem sheets.
@@ -69,6 +78,10 @@ LINES = [
     L("MJNGO", "GDRJO", "SUTT Mojosongo - Gondangrejo", 2, 3, kno="3"),
     L("BDONO", "JAJAR", "SUTT Bendono - Jajar", 2, 3),
     L("BYOLI", "JAJAR", "SUTT Boyolali - Jajar", 1, 3),
+    # kerawanan #4: potensi overload SUTT Ungaran-Jelok saat looping
+    L("BYOLI", "JELOK", "SUTT Boyolali - Jelok", 1, 2, kno="4"),
+    L("KIT_JELOK", "JELOK", "Outlet PLTA Jelok", 2, 2, sirkit=1),
+    L("KIT_TIMO", "JELOK", "Outlet PLTA Timo", 2, 2, sirkit=1),
 ]
 
 SPEC = dict(
