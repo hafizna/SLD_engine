@@ -12,6 +12,8 @@ import io
 import json
 import tempfile
 from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
@@ -92,6 +94,29 @@ def _risk_counts(rows):
     return {"total": len(rows), "categories": counts}
 
 
+@lru_cache(maxsize=1)
+def _ss_anchors() -> dict[str, dict]:
+    """Approximate map point per subsystem, by SS code.
+
+    Reference data for the demo map only (see the file's own _README): derived
+    from OpenStreetMap, never surveyed. Absent or unreadable means the map just
+    has no dot for that subsystem, which is preferable to inventing one.
+    """
+    path = Path(__file__).resolve().parents[2] / "samples" / "ss_anchors.json"
+    try:
+        with path.open(encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return {}
+    return {
+        row["code"]: {"lat": row["lat"], "lon": row["lon"],
+                      "anchor_points": row.get("anchor_points"),
+                      "anchored_on": row.get("anchored_on", [])}
+        for row in data.get("subsystems", [])
+        if row.get("lat") is not None
+    }
+
+
 @router.get("/dashboard/summary")
 def dashboard_summary(db: Session = Depends(get_db)):
     """One reconciled index for the Jamali landing page.
@@ -143,6 +168,7 @@ def dashboard_summary(db: Session = Depends(get_db)):
         region["subsystems"].append({
             "id": subsystem.id, "code": subsystem.code, "name": subsystem.name,
             "apb": subsystem.apb, "risk": _risk_counts(ss_risks),
+            "anchor": _ss_anchors().get(subsystem.code),
             "views": [{"id": v.id, "key": v.view_key, "name": v.name}
                       for v in views_by_ss.get(subsystem.id, [])],
         })

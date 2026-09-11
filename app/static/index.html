@@ -48,7 +48,7 @@
 
   #portal { flex:1; overflow:auto; padding:28px; }
   body.mode-viewer #portal { display:none; }
-  body.mode-portal main { display:none; }
+  body:not(.mode-viewer) main { display:none; }
   .portal-wrap { max-width:1280px; margin:0 auto; }
   .hero { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:20px; }
   .hero h1 { margin:0; font-size:30px; letter-spacing:-.025em; }
@@ -56,18 +56,45 @@
   .metric { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 17px; min-width:150px; }
   .metric b { display:block; font-size:25px; }
   .metric span { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
-  .portal-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(320px,.85fr); gap:16px; }
   .portal-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px; }
   .portal-card h2 { margin:0 0 4px; font-size:17px; }
   .portal-card .lead { color:var(--muted); font-size:12px; margin-bottom:14px; }
   .jamali-map { position:relative; height:245px; overflow:hidden; border-radius:11px;
     background:linear-gradient(160deg,#e6f3ff,#f7fbff); border:1px solid #d7e8f8; }
   .jamali-map svg { position:absolute; inset:22px 30px 32px; width:calc(100% - 60px); height:calc(100% - 54px); }
+  /* The Jawa outline is a Jamali-wide decoration; once the map is zoomed into
+     one UP2B it no longer matches what the dots mean, so it is hidden and a
+     plain grid stands in for "this is a map, not a diagram". */
+  .jamali-map.zoomed svg { display:none; }
+  .jamali-map.zoomed { background:
+      linear-gradient(#e3eefa 1px, transparent 1px) 0 0 / 34px 34px,
+      linear-gradient(90deg, #e3eefa 1px, transparent 1px) 0 0 / 34px 34px,
+      linear-gradient(160deg,#eef6ff,#f9fcff); }
   .region-pin { position:absolute; transform:translate(-50%,-50%); border:0; background:transparent; cursor:pointer; text-align:center; }
   .region-pin i { display:grid; place-items:center; width:36px; height:36px; margin:auto; border-radius:50%;
     color:#fff; background:var(--blue); border:4px solid #fff; box-shadow:0 2px 8px rgba(15,39,74,.28); font-style:normal; font-weight:800; }
   .region-pin span { display:block; white-space:nowrap; margin-top:4px; font-size:10.5px; font-weight:700; color:var(--ink); }
   .region-pin.empty i { background:#94a3b8; }
+  .region-pin.active i { background:var(--blue-d); box-shadow:0 0 0 3px rgba(11,92,171,.25),0 2px 8px rgba(15,39,74,.28); }
+
+  /* ---- SS markers, placed from real coordinates ---- */
+  .ss-pin { position:absolute; transform:translate(-50%,-50%); border:0; background:transparent;
+    cursor:pointer; text-align:center; padding:0; z-index:2; }
+  .ss-pin i { display:grid; place-items:center; width:26px; height:26px; margin:auto; border-radius:50%;
+    color:#fff; background:var(--risk-b); border:3px solid #fff; box-shadow:0 2px 6px rgba(15,39,74,.3);
+    font-style:normal; font-weight:800; font-size:11px; }
+  .ss-pin.zero i { background:#94a3b8; }
+  .ss-pin span { display:block; white-space:nowrap; margin-top:3px; font-size:9.5px; font-weight:700;
+    color:var(--ink); text-shadow:0 1px 2px #fff,0 -1px 2px #fff,1px 0 2px #fff,-1px 0 2px #fff; }
+  .ss-pin:hover { z-index:3; }
+  .ss-pin:hover i { transform:scale(1.12); }
+  .ss-pin.active i { box-shadow:0 0 0 3px rgba(180,83,9,.3),0 2px 6px rgba(15,39,74,.3); }
+  /* line from the drawn marker back to its true coordinate when nudged apart */
+  .ss-leader { position:absolute; height:1px; transform-origin:0 50%; background:#b0813f; opacity:.55; z-index:1; }
+  .map-note { position:absolute; left:10px; bottom:8px; font-size:9.5px; color:var(--muted);
+    background:rgba(255,255,255,.82); border-radius:5px; padding:2px 6px; z-index:4; }
+  .linkish { border:0; background:none; padding:0; font:inherit; font-size:11.5px;
+    color:var(--blue); cursor:pointer; text-decoration:underline; }
   .risk-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
   .risk-chip { font-size:10px; padding:3px 7px; border-radius:99px; background:#fff4dc; color:#9a5700; font-weight:700; }
   .system-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -75,12 +102,54 @@
   .system-tile:hover, .ss-card:hover { border-color:var(--blue); box-shadow:0 3px 12px rgba(11,92,171,.09); }
   .system-tile b { display:block; font-size:14px; }
   .system-tile small { color:var(--muted); }
-  .ss-list { display:grid; gap:8px; max-height:330px; overflow:auto; }
+  /* The SS list owns a full screen now, so it can run long before scrolling;
+     padding-right keeps the scrollbar off the cards' hover border. */
+  .ss-list { display:grid; gap:8px; max-height:min(62vh, 620px); overflow-y:auto; padding-right:4px; }
   .ss-card { border:1px solid var(--line); border-radius:10px; padding:11px; cursor:pointer; background:#fff; }
   .ss-card b { display:block; font-size:13px; }
   .ss-card small { color:var(--muted); }
   .empty-state { color:var(--muted); font-size:12px; padding:16px; text-align:center; border:1px dashed var(--line); border-radius:9px; }
-  @media(max-width:900px){ #portal{padding:16px}.portal-grid{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column}.jamali-map{height:220px} }
+  .portal-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(320px,.85fr); gap:16px; }
+  @media(max-width:900px){
+    #portal{padding:16px}
+    .hero{align-items:flex-start;flex-direction:column}
+    .jamali-map{height:220px}
+    .portal-grid{grid-template-columns:1fr}
+    .system-grid{grid-template-columns:1fr}
+  }
+
+  /* ---- hub: two top-level entry screens, kept fully apart ---- */
+  #hub-screen, #up2b-screen, #system500-screen { display:none; }
+  body.mode-hub #hub-screen { display:block; }
+  body.mode-up2b #up2b-screen { display:block; }
+  body.mode-system500 #system500-screen { display:block; }
+  .hub-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .hub-card {
+    background:#fff; border:1px solid var(--line); border-radius:16px; padding:26px;
+    cursor:pointer; text-align:left; display:flex; flex-direction:column; gap:10px;
+  }
+  .hub-card:hover { border-color:var(--blue); box-shadow:0 4px 16px rgba(11,92,171,.12); }
+  .hub-card .hub-icon {
+    width:44px; height:44px; border-radius:11px; display:grid; place-items:center;
+    background:#eaf3ff; color:var(--blue-d); font-size:20px; font-weight:800;
+  }
+  .hub-card.hub-500 .hub-icon { background:#eef2ff; color:#3730a3; }
+  .hub-card h2 { margin:2px 0 0; font-size:19px; }
+  .hub-card .lead { color:var(--muted); font-size:12.5px; margin:0; line-height:1.5; }
+  .hub-card .hub-stats { display:flex; gap:16px; margin-top:auto; padding-top:6px; }
+  .hub-card .hub-stat b { display:block; font-size:20px; }
+  .hub-card .hub-stat span { display:block; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; }
+  @media(max-width:900px){ .hub-grid{grid-template-columns:1fr} }
+
+  .screen-back {
+    display:inline-flex; align-items:center; gap:6px; margin-bottom:16px;
+    background:none; border:1px solid var(--line); border-radius:8px; padding:7px 12px;
+    font-size:12.5px; color:var(--ink); cursor:pointer;
+  }
+  .screen-back:hover { border-color:var(--blue); background:#f3f8ff; }
+  .screen-head { margin-bottom:18px; }
+  .screen-head h1 { margin:0; font-size:24px; letter-spacing:-.02em; }
+  .screen-head p { margin:6px 0 0; color:var(--muted); max-width:700px; line-height:1.5; }
 
   main {
     flex: 1; min-height: 0;
@@ -212,7 +281,7 @@
   .sstree .pov small { display: block; color: var(--muted); font-weight: 400; }
 </style>
 </head>
-<body class="mode-portal">
+<body class="mode-hub">
 <header>
   <div class="brand">
     <b>MANTAPS</b> &nbsp;<span class="sub">Peta Kerawanan</span>
@@ -226,23 +295,58 @@
 </header>
 
 <section id="portal"><div class="portal-wrap">
-  <div class="hero">
-    <div><h1>Peta Kerawanan Sistem Jamali</h1><p>Snapshot topologi dan kerawanan sistem. Pilih wilayah UP2B, subsistem, atau proyeksi Sistem 500 kV untuk membuka SLD.</p></div>
-    <div class="metric"><b id="jamali-total">&ndash;</b><span>kerawanan tercatat</span></div>
-  </div>
-  <div class="portal-grid">
-    <div class="portal-card">
-      <h2>Wilayah UP2B</h2><div class="lead">Populasi dihitung per risk record; multiview tidak menggandakan angka.</div>
-      <div class="jamali-map" id="jamali-map">
-        <svg viewBox="0 0 900 210" aria-hidden="true"><path d="M38 82 C110 52 166 75 231 88 C300 103 350 69 425 78 C505 88 548 116 623 110 C699 104 765 65 829 82 L868 106 C803 127 736 134 667 137 C568 142 499 126 410 121 C309 116 219 143 127 125 C82 116 49 105 38 82Z" fill="#c8dfef" stroke="#8eb9d8" stroke-width="3"/><path d="M866 105 C881 96 893 98 898 111 C889 121 878 122 866 116Z" fill="#c8dfef" stroke="#8eb9d8" stroke-width="3"/></svg>
-      </div>
-      <div class="risk-chips" id="jamali-cats"></div>
+
+  <!-- HUB: two separate entry points, never on the same card/scroll -->
+  <div id="hub-screen">
+    <div class="hero">
+      <div><h1>Peta Kerawanan Sistem Jamali</h1><p>Snapshot topologi dan kerawanan sistem. Pilih Peta Wilayah UP2B untuk menelusuri subsistem, atau Sistem 500 kV untuk transmisi/IBT backbone.</p></div>
+      <div class="metric"><b id="jamali-total">&ndash;</b><span>kerawanan tercatat</span></div>
     </div>
-    <div style="display:grid;gap:16px">
-      <div class="portal-card"><h2>Sistem 500 kV</h2><div class="lead">Kerawanan sistem dan bayangan dampaknya tetap terpisah dari risiko lokal SS.</div><div class="system-grid" id="system500"></div></div>
+    <div class="hub-grid">
+      <button class="hub-card hub-up2b" id="hub-up2b" type="button">
+        <span class="hub-icon">&#128506;</span>
+        <h2>Peta Wilayah UP2B</h2>
+        <p class="lead">Lima wilayah kerja UP2B dan subsistem transmisi di dalamnya. Populasi dihitung per risk record; multiview tidak menggandakan angka.</p>
+        <div class="hub-stats">
+          <div class="hub-stat"><b id="hub-up2b-ss">&ndash;</b><span>subsistem</span></div>
+          <div class="hub-stat"><b id="hub-up2b-risk">&ndash;</b><span>kerawanan</span></div>
+        </div>
+      </button>
+      <button class="hub-card hub-500" id="hub-system500" type="button">
+        <span class="hub-icon">&#9889;</span>
+        <h2>Sistem 500 kV</h2>
+        <p class="lead">Backbone transmisi dan IBT Jawa-Madura-Bali. Kerawanan sistem dan bayangan dampaknya tetap terpisah dari risiko lokal SS.</p>
+        <div class="hub-stats">
+          <div class="hub-stat"><b id="hub-500-views">&ndash;</b><span>proyeksi</span></div>
+          <div class="hub-stat"><b id="hub-500-risk">&ndash;</b><span>kerawanan</span></div>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- SCREEN: Peta Wilayah UP2B (pins -> SS list), fully separate from 500 kV -->
+  <div id="up2b-screen">
+    <button class="screen-back" id="back-up2b" type="button">&larr; Peta Jamali</button>
+    <div class="screen-head"><h1>Peta Wilayah UP2B</h1><p>Pilih pin wilayah untuk menyaring subsistem, atau klik langsung sebuah subsistem untuk membuka SLD.</p></div>
+    <div class="portal-grid">
+      <div class="portal-card">
+        <h2>Wilayah UP2B</h2><div class="lead">Populasi dihitung per risk record; multiview tidak menggandakan angka.</div>
+        <div class="jamali-map" id="jamali-map">
+          <svg viewBox="0 0 900 210" aria-hidden="true"><path d="M38 82 C110 52 166 75 231 88 C300 103 350 69 425 78 C505 88 548 116 623 110 C699 104 765 65 829 82 L868 106 C803 127 736 134 667 137 C568 142 499 126 410 121 C309 116 219 143 127 125 C82 116 49 105 38 82Z" fill="#c8dfef" stroke="#8eb9d8" stroke-width="3"/><path d="M866 105 C881 96 893 98 898 111 C889 121 878 122 866 116Z" fill="#c8dfef" stroke="#8eb9d8" stroke-width="3"/></svg>
+        </div>
+        <div class="risk-chips" id="jamali-cats"></div>
+      </div>
       <div class="portal-card"><h2 id="ss-heading">Subsistem tersedia</h2><div class="lead" id="ss-lead">Pilih pin UP2B untuk menyaring daftar.</div><div class="ss-list" id="portal-ss"></div></div>
     </div>
   </div>
+
+  <!-- SCREEN: Sistem 500 kV (Transmisi/IBT), fully separate from UP2B/SS -->
+  <div id="system500-screen">
+    <button class="screen-back" id="back-system500" type="button">&larr; Peta Jamali</button>
+    <div class="screen-head"><h1>Sistem 500 kV</h1><p>Backbone transmisi dan IBT Jawa-Madura-Bali. Kerawanan sistem dan bayangan dampaknya tetap terpisah dari risiko lokal SS.</p></div>
+    <div class="portal-card"><div class="system-grid" id="system500"></div></div>
+  </div>
+
 </div></section>
 
 <main>
@@ -357,7 +461,7 @@ async function txt(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw n
   if(window.STATIC_SNAPSHOT) document.querySelector('a[href="/ingest"]')?.remove();
   [VIEWS, SUBS, SUMMARY] = await Promise.all([j('/api/views'), j('/api/subsystems'), j('/api/dashboard/summary')]);
   buildTree();
-  renderPortal();
+  showHub();
 
   $$('.layer').forEach(l => {
     const g = l.dataset.group, cb = l.querySelector('input');
@@ -368,51 +472,195 @@ async function txt(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw n
   $('#zin').onclick  = () => zoomBy(1/1.25);
   $('#zout').onclick = () => zoomBy(1.25);
   $('#zfit').onclick = () => { vb = {...vb0}; commitVB(); };
-  $('#homebtn').onclick = showPortal;
+  $('#homebtn').onclick = showHub;
+  $('#hub-up2b').onclick = showUp2bScreen;
+  $('#hub-system500').onclick = showSystem500Screen;
+  $('#back-up2b').onclick = showHub;
+  $('#back-system500').onclick = showHub;
   wireStage();
 })().catch(e => {
-  showPortal();
+  showHub();
   $('#jamali-total').textContent = '!';
+  $('#hub-up2b-ss').textContent = '!'; $('#hub-up2b-risk').textContent = '!';
+  $('#hub-500-views').textContent = '!'; $('#hub-500-risk').textContent = '!';
   $('#jamali-cats').innerHTML = '<span class="risk-chip">data tidak tersedia</span>';
   $('#system500').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Gagal memuat data dashboard.</div>';
   $('#portal-ss').innerHTML = '<div class="empty-state">Jalankan aplikasi melalui FastAPI atau layani hasil build statis lewat HTTP. Detail: '+esc(e.message)+'</div>';
 });
 
-function showPortal(){
-  document.body.classList.remove('mode-viewer'); document.body.classList.add('mode-portal');
-  $('#crumb').textContent = 'JAMALI'; $('#scensel').style.display = 'none';
+// ---------- portal navigation: hub -> {UP2B screen | Sistem 500 kV screen} ----------
+// The hub never renders UP2B and Sistem 500 kV content together; each is its
+// own screen (own body mode class) so the two kinds of thing are never mixed
+// on one scroll/card grid.
+function setPortalMode(mode){
+  document.body.classList.remove('mode-viewer', 'mode-hub', 'mode-up2b', 'mode-system500');
+  document.body.classList.add('mode-' + mode);
+  $('#scensel').style.display = 'none';
+}
+function showHub(){
+  setPortalMode('hub');
+  $('#crumb').textContent = 'JAMALI';
+  if(SUMMARY) renderHub();
+}
+function showUp2bScreen(){
+  setPortalMode('up2b');
+  $('#crumb').textContent = 'JAMALI » Peta Wilayah UP2B';
+  if(SUMMARY) renderUp2bScreen();
+}
+function showSystem500Screen(){
+  setPortalMode('system500');
+  $('#crumb').textContent = 'JAMALI » Sistem 500 kV';
+  if(SUMMARY) renderSystem500Screen();
 }
 function riskChips(risk){
   const cats = risk?.categories || {};
   return Object.entries(cats).sort().map(([k,v]) => `<span class="risk-chip">${esc(k)} &middot; ${v}</span>`).join('')
     || '<span class="muted" style="font-size:11px">Belum ada risiko</span>';
 }
-function renderPortal(){
-  document.body.classList.add('mode-portal');
-  $('#crumb').textContent = 'JAMALI'; $('#scensel').style.display = 'none';
+function renderHub(){
   $('#jamali-total').textContent = SUMMARY.risk.total;
-  $('#jamali-cats').innerHTML = riskChips(SUMMARY.risk);
+  const ssTotal = SUMMARY.regions.reduce((n,r)=>n+r.subsystems.length, 0);
+  $('#hub-up2b-ss').textContent = ssTotal;
+  $('#hub-up2b-risk').textContent = SUMMARY.local_risk.total;
+  const viewTotal = SUMMARY.system_500.transmission.views.length + SUMMARY.system_500.ibt.views.length;
+  $('#hub-500-views').textContent = viewTotal;
+  $('#hub-500-risk').textContent = SUMMARY.system_risk.total;
+  const hub500 = $('#hub-system500');
+  hub500.disabled = viewTotal === 0;
+  hub500.title = viewTotal === 0 ? 'Belum ada snapshot Sistem 500 kV' : '';
+}
+// Which UP2B the map is currently zoomed into (null = all five pins).
+let MAP_REGION = null;
+
+function renderUp2bScreen(){
+  $('#jamali-cats').innerHTML = riskChips(SUMMARY.local_risk);
+  MAP_REGION = null;
+  drawRegionMap();
+  renderSubsystems(null);
+}
+
+// ---------- UP2B overview: the five region pins ----------
+function drawRegionMap(){
+  const map = $('#jamali-map');
+  map.classList.remove('zoomed');
+  map.querySelectorAll('.region-pin,.ss-pin,.ss-leader,.map-note').forEach(x => x.remove());
   const pos = [[14,55],[31,48],[51,51],[72,57],[91,52]];
-  $('#jamali-map').querySelectorAll('.region-pin').forEach(x => x.remove());
   SUMMARY.regions.filter(r => r.key !== 'BELUM_DIPETAKAN').forEach((r,i) => {
     const b=document.createElement('button'); b.className='region-pin'+(r.subsystems.length?'':' empty');
     b.style.left=pos[i][0]+'%'; b.style.top=pos[i][1]+'%';
     b.innerHTML=`<i>${r.risk.total}</i><span>${esc(r.name)}</span>`;
     b.title=`${r.name}: ${r.subsystems.length} SS, ${r.risk.total} kerawanan`;
-    b.onclick=()=>renderSubsystems(r); $('#jamali-map').appendChild(b);
+    b.onclick=()=>{ MAP_REGION = r; drawSubsystemMap(r); renderSubsystems(r); };
+    map.appendChild(b);
   });
+}
+
+// ---------- one UP2B: its subsystems placed by real coordinates ----------
+// Anchors are approximate demo data (samples/ss_anchors.json). Subsystems can
+// share or nearly share a point, so markers are pushed apart and a thin leader
+// line is drawn back to the true position rather than silently relocating them.
+function drawSubsystemMap(region){
+  const map = $('#jamali-map');
+  map.classList.add('zoomed');
+  map.querySelectorAll('.region-pin,.ss-pin,.ss-leader,.map-note').forEach(x => x.remove());
+
+  const withPos = region.subsystems.filter(s => s.anchor);
+  if(!withPos.length){
+    const n=document.createElement('div'); n.className='map-note';
+    n.textContent = `${region.name} — belum ada koordinat subsistem`;
+    map.appendChild(n);
+    return;
+  }
+
+  const rect = map.getBoundingClientRect();
+  const W = rect.width || 700, H = rect.height || 245;
+  const PAD = 46, TOP = 26, BOT = 30;
+
+  const lats = withPos.map(s => s.anchor.lat), lons = withPos.map(s => s.anchor.lon);
+  // A minimum span stops two nearby SS from being stretched across the panel.
+  const MIN_SPAN = 0.45;
+  const cLat = (Math.min(...lats)+Math.max(...lats))/2, cLon = (Math.min(...lons)+Math.max(...lons))/2;
+  const spanLat = Math.max(Math.max(...lats)-Math.min(...lats), MIN_SPAN);
+  const spanLon = Math.max(Math.max(...lons)-Math.min(...lons), MIN_SPAN);
+  const lat0 = cLat - spanLat/2, lat1 = cLat + spanLat/2;
+  const lon0 = cLon - spanLon/2, lon1 = cLon + spanLon/2;
+
+  // lon -> x, lat -> y (north up). Plain linear projection: at this scale the
+  // Mercator correction is far smaller than the error already in the anchors.
+  const project = s => ({
+    x: PAD + (s.anchor.lon - lon0) / (lon1 - lon0) * (W - 2*PAD),
+    y: TOP + (lat1 - s.anchor.lat) / (lat1 - lat0) * (H - TOP - BOT),
+  });
+
+  const placed = withPos.map(s => { const p = project(s); return {s, tx:p.x, ty:p.y, x:p.x, y:p.y}; });
+
+  // Nudge overlapping markers apart, keeping the true point for the leader line.
+  const MIN_GAP = 42;
+  for(let pass=0; pass<60; pass++){
+    let moved = false;
+    for(let i=0;i<placed.length;i++) for(let j=i+1;j<placed.length;j++){
+      const a=placed[i], b=placed[j];
+      let dx=b.x-a.x, dy=b.y-a.y, d=Math.hypot(dx,dy);
+      if(d >= MIN_GAP) continue;
+      if(d < 0.01){ dx = (i%2?1:-1)*0.7; dy = (j%2?1:-1)*0.7; d = 1; }
+      const push=(MIN_GAP-d)/2/d;
+      a.x-=dx*push; a.y-=dy*push; b.x+=dx*push; b.y+=dy*push;
+      moved = true;
+    }
+    if(!moved) break;
+  }
+  placed.forEach(p => {
+    p.x = Math.max(PAD*0.5, Math.min(W-PAD*0.5, p.x));
+    p.y = Math.max(TOP, Math.min(H-BOT*0.5, p.y));
+  });
+
+  placed.forEach(p => {
+    const off = Math.hypot(p.x-p.tx, p.y-p.ty);
+    if(off > 6){
+      const l=document.createElement('div'); l.className='ss-leader';
+      l.style.left=p.tx+'px'; l.style.top=p.ty+'px'; l.style.width=off+'px';
+      l.style.transform=`rotate(${Math.atan2(p.y-p.ty, p.x-p.tx)}rad)`;
+      map.appendChild(l);
+    }
+    const b=document.createElement('button');
+    b.className='ss-pin'+(p.s.risk.total?'':' zero');
+    b.style.left=p.x+'px'; b.style.top=p.y+'px';
+    b.dataset.sid = p.s.id;
+    b.innerHTML=`<i>${p.s.risk.total}</i><span>${esc(p.s.code.replace(/^SS_/,''))}</span>`;
+    b.title=`${p.s.name}\n${p.s.risk.total} kerawanan · ${p.s.views.length} view`
+      + (p.s.anchor.anchored_on?.length ? `\nposisi dari: ${p.s.anchor.anchored_on.join(', ')}` : '');
+    b.onclick=()=>{ if(p.s.views.length) selectView(p.s.views[0].id); };
+    map.appendChild(b);
+  });
+
+  const hidden = region.subsystems.length - withPos.length;
+  const n=document.createElement('div'); n.className='map-note';
+  n.textContent = `${withPos.length} subsistem · posisi perkiraan (OSM)`
+    + (hidden ? ` · ${hidden} tanpa koordinat` : '');
+  map.appendChild(n);
+}
+function renderSystem500Screen(){
   const groups=[['Transmisi','transmission'],['IBT','ibt']];
-  $('#system500').innerHTML=groups.map(([label,key])=>{const g=SUMMARY.system_500[key];return `<button class="system-tile" data-system="${key}" ${g.views.length?'':'disabled'}><b>${label}</b><small>${g.views.length} view &middot; ${g.risk.total} risiko</small>${riskChips(g.risk)}</button>`}).join('');
+  $('#system500').innerHTML=groups.map(([label,key])=>{const g=SUMMARY.system_500[key];return `<button class="system-tile" data-system="${key}" ${g.views.length?'':'disabled'}><b>${label}</b><small>${g.views.length} view &middot; ${g.risk.total} risiko</small><div class="risk-chips">${riskChips(g.risk)}</div></button>`}).join('');
   $$('#system500 [data-system]').forEach(b=>b.onclick=()=>{const g=SUMMARY.system_500[b.dataset.system];if(g.views.length)selectView(g.views[0].id)});
-  renderSubsystems(null);
 }
 function renderSubsystems(region){
   const regions=SUMMARY.regions;
   const list=region ? region.subsystems : regions.flatMap(r=>r.subsystems);
   $('#ss-heading').textContent=region ? `SS ${region.name}` : 'Subsistem tersedia';
-  $('#ss-lead').innerHTML=region ? `${list.length} SS &middot; ${region.risk.total} kerawanan &nbsp; ${riskChips(region.risk)}` : 'Pilih pin UP2B untuk menyaring daftar.';
+  $('#ss-lead').innerHTML = region
+    ? `${list.length} SS &middot; ${region.risk.total} kerawanan &nbsp; ${riskChips(region.risk)}`
+      + ` &nbsp;<button class="linkish" id="ss-allregions" type="button">semua wilayah</button>`
+    : 'Pilih pin UP2B pada peta untuk menyaring daftar.';
   $('#portal-ss').innerHTML=list.length ? list.map(s=>`<div class="ss-card" data-sid="${s.id}"><b>${esc(s.name)}</b><small>${esc(s.code)} &middot; ${s.views.length} view &middot; ${s.risk.total} risiko</small><div class="risk-chips">${riskChips(s.risk)}</div></div>`).join('') : '<div class="empty-state">Belum ada snapshot SS untuk wilayah ini.</div>';
-  $$('#portal-ss [data-sid]').forEach(c=>c.onclick=()=>{const s=list.find(x=>x.id===+c.dataset.sid);if(s?.views.length)selectView(s.views[0].id)});
+  $$('#portal-ss [data-sid]').forEach(c=>{
+    c.onclick=()=>{const s=list.find(x=>x.id===+c.dataset.sid);if(s?.views.length)selectView(s.views[0].id)};
+    // hovering a card highlights its dot on the map, so the two views read as one
+    c.onmouseenter=()=>{const p=$(`.ss-pin[data-sid="${c.dataset.sid}"]`); if(p) p.classList.add('active');};
+    c.onmouseleave=()=>{const p=$(`.ss-pin[data-sid="${c.dataset.sid}"]`); if(p) p.classList.remove('active');};
+  });
+  const back = $('#ss-allregions');
+  if(back) back.onclick = () => { MAP_REGION = null; drawRegionMap(); renderSubsystems(null); };
 }
 
 // ---------- UP2B -> SS -> point-of-view tree ----------
@@ -479,13 +727,14 @@ function markTree(id){
   $$('#sstree .pov').forEach(b => b.classList.toggle('active', +b.dataset.viewId === id));
   const v = VIEWS.find(v => v.id === id);
   $('#crumb').textContent = v ? (isSystemView(v)
-    ? `JAMALI  ?  Sistem 500 kV  ?  ${v.rule_profile === 'BACKBONE_500' ? 'Transmisi' : 'IBT'}  ?  ${v.name}`
-    : `${apbOf(v.subsystem_id)}  ?  SS ${ssName(v.subsystem_id)}  ?  ${v.name}`) : '';
+    ? `JAMALI » Sistem 500 kV » ${v.rule_profile === 'BACKBONE_500' ? 'Transmisi' : 'IBT'} » ${v.name}`
+    : `${apbOf(v.subsystem_id)} » SS ${ssName(v.subsystem_id)} » ${v.name}`) : '';
 }
 
 // ---------- view load ----------
 async function selectView(id){
-  document.body.classList.remove('mode-portal'); document.body.classList.add('mode-viewer');
+  document.body.classList.remove('mode-hub', 'mode-up2b', 'mode-system500');
+  document.body.classList.add('mode-viewer');
   $('#scensel').style.display = '';
   VIEW = VIEWS.find(v => v.id === id);
   buildTree(isSystemView(VIEW) ? 'system' : 'subsystem');
