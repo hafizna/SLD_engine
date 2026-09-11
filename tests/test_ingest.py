@@ -162,6 +162,20 @@ def test_bali_sklt_is_two_separated_pairs_from_source_boundary(client):
     risk = next(x for x in d["risks"] if x["seq_no"] == 3)
     assert risk["pin_key"] == "BANYUWANGI-GILIMANUK:1,2"
 
+    preview = client.post("/api/ingest/preview.svg", json=d)
+    assert preview.status_code == 200, preview.text
+    root = ET.fromstring(preview.text)
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    tier0 = root.find('.//s:g[@class="sld-node"][@data-code="BANYUWANGI"]', ns)
+    assert tier0 is not None and float(tier0.get("data-y")) < 210
+    for group in root.findall('.//s:g[@id="circuits"]/s:g', ns):
+        if "BANYUWANGI_GILIMANUK" in (group.get("data-circuit-code") or ""):
+            continue  # the one permitted source lead through the Tier-0 strip
+        for path in group.findall('s:path[@class="sld-wire"]', ns):
+            xy = list(map(float, __import__('re').findall(r'-?\d+(?:\.\d+)?', path.get('d'))))
+            points = list(zip(xy[::2], xy[1::2]))
+            assert not any(a[1] == b[1] and a[1] < 210 for a, b in zip(points, points[1:]))
+
 
 def test_ingest_flags_an_existing_subsystem(client):
     """Uploading the datasheet of a subsystem that already exists (SS_BLL) must

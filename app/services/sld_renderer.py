@@ -374,6 +374,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         tier_y[t + 1] = tier_y[t] + gap_height[t]
 
     def y_at(rk):
+        # Tier-0 is a compact, fixed source strip above the first GI row.
+        # It is not routing space for inter-GI conductors.
+        if rk <= 0:
+            return 70.0
         lo = max(1, int(rk))
         if rk == lo or lo not in gap_height:
             return tier_y.get(lo, 210.0)
@@ -731,7 +735,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     routes = []
     # Within a tier gap, reserve the long runs before shorter local ties.
     specs.sort(key=lambda z: (abs(z[2][1] - z[3][1]), -abs(z[2][0] - z[3][0]), z[0].code))
-    route_floor = min((y for x, y in pos.values()), default=0) + BUS_BOTTOM if compact_500 else None
+    # The strip above Tier-1 belongs to sources and their short outlet leads.
+    # Inter-GI routes must enter the channel below Tier-1, even when a cheaper
+    # same-row detour exists above the busbars.
+    route_floor = (tier_y.get(1, 210.0) + BUS_BOTTOM) if not saved else None
     centres = (route_bundles(pos, bus_half, specs, symbol_obstacles,
                              min_route_y=route_floor) if specs else {})
     for c, first, start, end, last in specs:
