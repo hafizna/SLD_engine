@@ -1,0 +1,285 @@
+{
+  "_README": [
+    "One representative map point per subsystem, for the DEMO dashboard.",
+    "Derived, not surveyed: the centroid of the subsystem's SOURCE members",
+    "that have a coordinate in samples/gi_coordinates.json (falling back to",
+    "CORE, then any member). Regenerate with scripts alongside that file.",
+    "",
+    "A centroid is used because every subsystem has SEVERAL sources and",
+    "GITETs are shared between subsystems (GITET_NBRJA belongs to both",
+    "SS_LBK and SS_BLL), so no single GITET can represent one subsystem.",
+    "",
+    "'anchor_points' is how many DISTINCT coordinates the centroid averages;",
+    "1 means the anchor is really just that one site. Subsystems can sit very",
+    "close together (SS_GUCL and SS_SLCG currently resolve to the same point),",
+    "so any map must spread overlapping markers rather than draw them raw.",
+    "Inherits every caveat in samples/gi_coordinates.json."
+  ],
+  "subsystems": [
+    {
+      "code": "SS_BKSI_CBNG",
+      "name": "Bekasi 1,3 - Cibinong 3",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -6.32183,
+      "lon": 106.94931,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "BKASI",
+        "BKASI7",
+        "CIBNG",
+        "CIBNG7"
+      ],
+      "anchor_points": 2,
+      "members_with_coords": 4,
+      "members_total": 23
+    },
+    {
+      "code": "SS_BLL",
+      "name": "Balaraja 3,4 - Lengkong 1,2",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -6.25243,
+      "lon": 106.54049,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "GITET_LKBRU",
+        "GITET_NBRJA",
+        "NBRJA"
+      ],
+      "anchor_points": 2,
+      "members_with_coords": 3,
+      "members_total": 18
+    },
+    {
+      "code": "SS_BYOLI",
+      "name": "Boyolali 1,2",
+      "apb": "UP2B Jawa Tengah & DIY",
+      "lat": -7.43126,
+      "lon": 110.56757,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "BYOLI",
+        "BYOLI7"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 2,
+      "members_total": 10
+    },
+    {
+      "code": "SS_CWD",
+      "name": "Cawang 2,3 - Depok 1",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -6.4124,
+      "lon": 106.79345,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "DEPOK",
+        "GITET_DEPOK"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 2,
+      "members_total": 15
+    },
+    {
+      "code": "SS_DKGD",
+      "name": "Durikosambi 2 - Gandul 1,3",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -6.25917,
+      "lon": 106.75655,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "DKSBI",
+        "GITET_DKSBI",
+        "GITET_GNDUL",
+        "GNDUL"
+      ],
+      "anchor_points": 2,
+      "members_with_coords": 4,
+      "members_total": 16
+    },
+    {
+      "code": "SS_GNDUL24",
+      "name": "Gandul 2,4",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -6.347,
+      "lon": 106.78782,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "GNDUL",
+        "GNDUL7"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 2,
+      "members_total": 9
+    },
+    {
+      "code": "SS_GUCL",
+      "name": "GU Cilegon - Cilegon Baru 1,2,3 - Labuan",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -5.98879,
+      "lon": 106.0183,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "CLBRU",
+        "GITET_CLBRU"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 2,
+      "members_total": 56
+    },
+    {
+      "code": "SS_KEDIRI12",
+      "name": "Kediri 1,2",
+      "apb": "UP2B Jawa Timur",
+      "lat": -7.55657,
+      "lon": 112.61235,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "NGORO"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 1,
+      "members_total": 12
+    },
+    {
+      "code": "SS_KRIAN3456",
+      "name": "Krian 3,4,5,6",
+      "apb": "UP2B Jawa Timur",
+      "lat": -7.34488,
+      "lon": 112.60323,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "KRIAN",
+        "KRIAN7"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 2,
+      "members_total": 13
+    },
+    {
+      "code": "SS_KSGHN",
+      "name": "Kesugihan 1,2",
+      "apb": "UP2B Jawa Tengah & DIY",
+      "lat": -7.58245,
+      "lon": 109.1338,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "KSGHN",
+        "KSGHN7"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 2,
+      "members_total": 24
+    },
+    {
+      "code": "SS_LBK",
+      "name": "Lontar - Balaraja 1,2 - Kembangan 1,2",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -6.21362,
+      "lon": 106.6285,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "GITET_KMBGN",
+        "GITET_NBRJA",
+        "KMBGN",
+        "NBRJA",
+        "PKTGN"
+      ],
+      "anchor_points": 3,
+      "members_with_coords": 5,
+      "members_total": 40
+    },
+    {
+      "code": "SS_MK_DURK",
+      "name": "Muarakarang 1,2 - Durikosambi 1 - KIT Muarakarang",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -6.17134,
+      "lon": 106.72528,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "GITET_DKSBI"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 1,
+      "members_total": 26
+    },
+    {
+      "code": "SS_PAITON123",
+      "name": "Paiton 1,2,3",
+      "apb": "UP2B Jawa Timur",
+      "lat": -7.71854,
+      "lon": 113.58132,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "PITON5",
+        "PITON7"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 2,
+      "members_total": 13
+    },
+    {
+      "code": "SS_PLBRATU",
+      "name": "Pelabuhan Ratu - Salak - Cibinong 1,2 - Depok 2",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -6.64549,
+      "lon": 106.72815,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "CIBNG",
+        "CIBNG7",
+        "DEPOK",
+        "DEPOK7",
+        "PRATU",
+        "SLBRU"
+      ],
+      "anchor_points": 4,
+      "members_with_coords": 6,
+      "members_total": 32
+    },
+    {
+      "code": "SS_PMLNG",
+      "name": "Pemalang 1,2",
+      "apb": "UP2B Jawa Tengah & DIY",
+      "lat": -6.91431,
+      "lon": 109.38525,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "PMLNG7"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 1,
+      "members_total": 12
+    },
+    {
+      "code": "SS_PRBC",
+      "name": "Priok - Bekasi 2,4 - Cawang 1",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -6.15727,
+      "lon": 106.92441,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "BKASI",
+        "GITET_BKASI",
+        "PRBRT"
+      ],
+      "anchor_points": 2,
+      "members_with_coords": 3,
+      "members_total": 57
+    },
+    {
+      "code": "SS_SLCG",
+      "name": "Suralaya Unit #3 - Suralaya 1,2 - Cilegon 4",
+      "apb": "UP2B Jakarta & Banten",
+      "lat": -5.98879,
+      "lon": 106.0183,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "CLBRU",
+        "GITET_CLBRU"
+      ],
+      "anchor_points": 1,
+      "members_with_coords": 2,
+      "members_total": 21
+    }
+  ]
+}
