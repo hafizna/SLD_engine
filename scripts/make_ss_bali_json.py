@@ -69,7 +69,7 @@ def main():
         ("GIANYAR", "GI Gianyar", "GI", 3, None),
         ("AMLAPURA", "GI Amlapura", "GI", 4, None),
         ("KUBU", "GI Kubu", "GI", 5, None),
-        ("BANYUWANGI", "Transfer SKLT Banyuwangi", "GI", 0, None),
+        ("BANYUWANGI", "Transfer SKLT Banyuwangi", "GI", None, None),
         ("PLTG_GILIMANUK", "PLTG Gilimanuk", "GENERATING_UNIT", 0, "GILIMANUK"),
         ("PLTU_CELUKAN_BAWANG", "PLTU Celukan Bawang 1-3", "GENERATING_UNIT", 0, "CELUKAN_BAWANG"),
         ("PLTG_PEMARON", "PLTG Pemaron 1-2", "GENERATING_UNIT", 0, "PEMARON"),

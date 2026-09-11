@@ -152,7 +152,7 @@ def test_bali_sklt_is_two_separated_pairs_from_source_boundary(client):
     assert r.status_code == 200, r.text
     d = r.json()
     bw = next(n for n in d["nodes"] if n["external_key"] == "BANYUWANGI")
-    assert bw["tier_hint"] == 0 and bw["role_hint"] == "SOURCE_BOUNDARY"
+    assert bw["tier_hint"] is None and bw["role_hint"] == "SOURCE_BOUNDARY"
     sklt = [e for e in d["edges"]
             if {e["from_key"], e["to_key"]} == {"BANYUWANGI", "GILIMANUK"}]
     assert [(e["unit_no"], e["circuit_count"]) for e in sklt] == [("1,2", 2), ("3,4", 2)]
@@ -166,8 +166,13 @@ def test_bali_sklt_is_two_separated_pairs_from_source_boundary(client):
     assert preview.status_code == 200, preview.text
     root = ET.fromstring(preview.text)
     ns = {"s": "http://www.w3.org/2000/svg"}
-    tier0 = root.find('.//s:g[@class="sld-node"][@data-code="BANYUWANGI"]', ns)
-    assert tier0 is not None and float(tier0.get("data-y")) < 210
+    assert root.find('.//s:g[@id="busbars"]/s:g[@data-code="BANYUWANGI"]', ns) is None
+    boundary = root.find('.//s:g[@id="bays"]/s:g[@data-code="BANYUWANGI"]', ns)
+    assert boundary is not None and boundary.get("data-circuit-count") == "4"
+    stub_paths = boundary.findall('s:path', ns)
+    assert len(stub_paths) == 4
+    assert all(float(__import__('re').findall(r'-?\d+(?:\.\d+)?', p.get('d'))[-1]) < 210
+               for p in stub_paths)
     for group in root.findall('.//s:g[@id="circuits"]/s:g', ns):
         if "BANYUWANGI_GILIMANUK" in (group.get("data-circuit-code") or ""):
             continue  # the one permitted source lead through the Tier-0 strip

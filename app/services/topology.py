@@ -337,13 +337,11 @@ def classify_layout(db: Session, view: AnalyticalView):
     tier = calculate_tier(db, view)
     members = {(m.node_kind, m.node_id): m for m in _members(db, view)}
 
-    deg: dict[int, int] = defaultdict(int)
-    neigh: dict[int, list[int]] = defaultdict(list)
+    neigh: dict[int, set[int]] = defaultdict(set)
     for c in edges:
-        deg[c.from_substation_id] += 1
-        deg[c.to_substation_id] += 1
-        neigh[c.from_substation_id].append(c.to_substation_id)
-        neigh[c.to_substation_id].append(c.from_substation_id)
+        # Parallel circuit records still represent one neighbouring bus.
+        neigh[c.from_substation_id].add(c.to_substation_id)
+        neigh[c.to_substation_id].add(c.from_substation_id)
 
     # A BOUNDARY with its own book Tier is still a real busbar on this view
     # (for example DKSBI on LBK-Balaraja). Explicit Bay rows decide when the
@@ -351,10 +349,10 @@ def classify_layout(db: Session, view: AnalyticalView):
     context_roles = {"EXTERNAL_CONTEXT", "DOWNSTREAM_CONTEXT"}
     spur: dict[int, int] = {}
     for sid in sub_ids:
-        if deg.get(sid, 0) != 1:
+        if len(neigh.get(sid, set())) != 1:
             continue
         role = roles.get(("SUBSTATION", sid), "")
-        feeder = neigh[sid][0]
+        feeder = next(iter(neigh[sid]))
         m = members.get(("SUBSTATION", sid))
         book_t = (m.tier_seed if m and m.tier_seed else
                   (m.display_order if m and m.display_order else None))

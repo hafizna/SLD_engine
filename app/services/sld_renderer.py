@@ -255,6 +255,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # a LIVE bus. A planned GITET's link is drawn as a plain black dashed line
     # and the GITET as a plain black busbar.
     gitet_feeds: dict[int, int] = {}
+    # (hv, lv) -> circuit, for IBTs whose HV side is a normal bus rather than a
+    # GITET (150/70, 150/30). Both buses keep their own rows; only the chain is
+    # drawn between them.
+    _ibt_step_down: dict[tuple[int, int], object] = {}
     ibt_links_by_pair: dict[tuple[int, int], list] = defaultdict(list)
     _ibt_as_line: set[int] = set()   # circuit ids to route like a normal line
     for c in edges:
@@ -263,12 +267,26 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         a, b = c.from_substation_id, c.to_substation_id
         hv = a if (subs.get(a) and subs[a].voltage_kv >= subs.get(b, subs[a]).voltage_kv) else b
         lv = b if hv == a else a
-        if subs.get(hv) and subs[hv].substation_type == "GITET":
-            if _is_live(subs[hv].status) and _is_live(subs.get(lv, subs[hv]).status) and _is_live(c.status):
-                gitet_feeds[hv] = lv
-                ibt_links_by_pair[(hv, lv)].append(c)
-            else:
-                _ibt_as_line.add(c.id)
+        if not subs.get(hv):
+            continue
+        live = (_is_live(subs[hv].status)
+                and _is_live(subs.get(lv, subs[hv]).status) and _is_live(c.status))
+        if not live:
+            _ibt_as_line.add(c.id)
+            continue
+        ibt_links_by_pair[(hv, lv)].append(c)
+        if subs[hv].substation_type == "GITET":
+            # A GITET is drawn floating directly above the LV bus it feeds; it
+            # has no row of its own. `gitet_feeds` drives that placement.
+            gitet_feeds[hv] = lv
+        else:
+            # A step-down inside the 150 kV network (150/70 at Cibinong,
+            # Driyorejo, Kertosono; 150/30 further east) is the same transformer
+            # structure, but its HV side is an ordinary bus that keeps its own
+            # tier row and its own penghantar. Draw the chain without moving the
+            # bus -- previously these links matched no branch at all, so the
+            # lower-voltage network rendered as a floating island.
+            _ibt_step_down[(hv, lv)] = c
 
     line_edges = [c for c in edges
                   if (c.circuit_type != "IBT_LINK" or c.id in _ibt_as_line)
@@ -346,6 +364,14 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             row_of[sid] = (ft - 0.78) if ft else 0.35
         else:
             row_of[sid] = float(_row_tier(sid))
+    # An in-network step-down (150/70, 150/30) draws its chain between two buses
+    # that each keep their own tier row -- the book draws them exactly that way
+    # (150 kV Semen Baru on Tier-2, 70 kV Semen Baru on Tier-3 beside Cileungsi).
+    # Only force the LV bus down when the tiers would otherwise put it level with
+    # or above its HV parent, which the chain cannot draw.
+    for (_hv, _lv) in _ibt_step_down:
+        if _hv in row_of and _lv in row_of and row_of[_lv] <= row_of[_hv]:
+            row_of[_lv] = row_of[_hv] + 0.55
     gen_row: dict[int, float] = {}
     for g in gens.values():
         if not g.outlet_substation_id:
@@ -632,8 +658,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                     weight = bay_counts.get(int(key[3:]), 1)
                 elif key.startswith("spur") and key[4:].isdigit():
                     spr = int(key[4:])
-                    weight = max([max(1, c.circuit_count or 1) for c in edges
-                                  if {c.from_substation_id, c.to_substation_id} == {sid, spr}] or [1])
+                    weight = sum(max(1, c.circuit_count or 1) for c in edges
+                                 if {c.from_substation_id, c.to_substation_id} == {sid, spr}) or 1
                 else:
                     weight = 1
                 weights.append(weight)
@@ -839,16 +865,28 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         n = len(links)
         slinks = sorted(links, key=lambda z: (_ibt_unit.get(z.transformer_id, ""), z.code))
         IBT_DX = 46   # room for the inline symbol + a unit label per chain
+        # A GITET sits directly above the bus it feeds, so its chain is a plain
+        # vertical drop. An in-network step-down (150/70) keeps both buses on
+        # their own rows and they are usually offset horizontally, so the chain
+        # has to step across to the HV busbar instead of hanging in mid-air.
+        hv_x_span = (hp[0] - bus_half(hv), hp[0] + bus_half(hv))
         for i, c in enumerate(slinks):
             cx = base + (i - (n - 1) / 2) * IBT_DX
             hy, ly = hp[1], lp[1]
             mid = (hy + ly) / 2
+            hx = min(max(cx, hv_x_span[0] + 6), hv_x_span[1] - 6)
             da = f' stroke-dasharray="{STATUS_DASH.get(c.status, "none")}"' if c.status != "ENERGIZED" else ""
             p.append(f'<g data-circuit-id="{c.id}" data-circuit-code="{esc(c.code)}" '
                      f'data-circuit-type="IBT_LINK" data-status="{esc(c.status)}">')
-            p.append(f'<path d="M{cx:.1f},{hy:.1f} V{ly:.1f}" fill="none" stroke="#8a6a3a" '
+            if abs(hx - cx) < 0.5:
+                d = f"M{cx:.1f},{hy:.1f} V{ly:.1f}"
+            else:
+                # down from the HV bar, across in the gap, then down to the LV bar
+                d = (f"M{hx:.1f},{hy:.1f} V{mid - 16:.1f} "
+                     f"H{cx:.1f} V{ly:.1f}")
+            p.append(f'<path d="{d}" fill="none" stroke="#8a6a3a" '
                      f'stroke-width="1.6"{da}><title>{esc(c.name)} - {esc(c.status)}</title></path>')
-            p.append(_cb(cx, hy + CB_GAP, hv_col))
+            p.append(_cb(hx, hy + CB_GAP, hv_col))
             p.append(_sym_ibt_inline(cx, mid - 4))
             p.append(_cb(cx, ly - CB_GAP, lv_col))
             # unit label below the inline symbol (clear of both the circles and
@@ -1039,14 +1077,14 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # radial load (Ulujami), otherwise a small dot. The stub IS the circuit on
     # the diagram, so carry its circuit id/code for the mapping audit.
     bay_feed_style: dict[int, tuple[str, str]] = {}
-    bay_circuit: dict[tuple[int, int], object] = {}   # (feeder_id, stub_gi_id) -> Circuit
+    bay_circuits: dict[tuple[int, int], list] = defaultdict(list)
     _stub_gi_ids = bay_gi_ids | set(spur)
     for c in edges:   # not line_edges -- those exclude bay/spur-GI endpoints
         a, b = c.from_substation_id, c.to_substation_id
         for sid, oth in ((a, b), (b, a)):
             if sid in _stub_gi_ids and oth in subs:
                 bay_feed_style[sid] = _circuit_style(c)
-                bay_circuit[(oth, sid)] = c
+                bay_circuits[(oth, sid)].append(c)
 
     def _stub_x(it):
         fid, k = it[0], it[1]
@@ -1058,37 +1096,51 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], _stub_x(it))):
         fx, fy = pos[feeder_id]
         sx = port(feeder_id, key, fx)
-        sy = fy + STUB_LEN
+        source_boundary = meta == "SOURCE_BOUNDARY"
+        direction = -1 if source_boundary else 1
+        sy = fy + direction * STUB_LEN
         stroke, dash = bay_feed_style.get(gi.id, ("#C00000", "7 5"))
         if status in ("NEW_NOT_ENERGIZED", "PLANNED"):
             stroke, dash = "#111111", "3 6"
         elif status == "DE_ENERGIZED":
             stroke, dash = "#9AA0A6", "none"
         da = f' stroke-dasharray="{dash}"' if dash != "none" else ""
-        _bc = bay_circuit.get((feeder_id, gi.id))
+        _bcs = sorted(bay_circuits.get((feeder_id, gi.id), []), key=lambda c: c.code)
+        _bc = _bcs[0] if _bcs else None
         if _bc:
-            stub_pin_by_circuit[_bc.id] = (sx + 16, sy - STUB_LEN / 2)
+            stub_pin_by_circuit[_bc.id] = (sx + 16, (fy + sy) / 2)
         _bc_attr = (f' data-circuit-id="{_bc.id}" data-circuit-code="{esc(_bc.code)}"'
                     if _bc else "")
         bay_row = next((b for b in bay_rows if b.substation_id == gi.id and b.feeder_substation_id == feeder_id), None)
-        circuit_count = max(1, (_bc.circuit_count if _bc and _bc.circuit_count else
-                                bay_counts.get(bay_row.id, 1) if bay_row else 1))
+        group_counts = [max(1, c.circuit_count or 1) for c in _bcs]
+        circuit_count = (sum(group_counts) if group_counts else
+                         max(1, bay_counts.get(bay_row.id, 1) if bay_row else 1))
         p.append(f'<g class="sld-bay" data-node-kind="SUBSTATION" data-node-id="{gi.id}" '
                  f'data-code="{esc(gi.code)}" data-circuit-count="{circuit_count}"{_bc_attr}>'
                  f'<title>{esc(gi.name)} [{esc(gi.code)}] - bay di bus {esc(subs[feeder_id].name)} '
                  f'({esc(status)}){" - " + esc(meta) if meta else ""}</title>')
-        offsets = [(i - (circuit_count - 1) / 2) * WIRE_PITCH for i in range(circuit_count)]
+        if len(group_counts) > 1:
+            raw, cursor = [], 0.0
+            for idx, count in enumerate(group_counts):
+                raw.extend(cursor + i * WIRE_PITCH for i in range(count))
+                cursor += max(0, count - 1) * WIRE_PITCH
+                if idx < len(group_counts) - 1:
+                    cursor += WIRE_PITCH * 2
+            offsets = [x - cursor / 2 for x in raw]
+        else:
+            offsets = [(i - (circuit_count - 1) / 2) * WIRE_PITCH for i in range(circuit_count)]
         for off in offsets:
             px = sx + off
             p.append(f'<path d="M{px:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
                      f'stroke="{stroke}" stroke-width="2.1"{da}/>')
-            p.append(_cb(px, fy + CB_GAP, stroke))
+            p.append(_cb(px, fy + direction * CB_GAP, stroke))
         # A bay is ALWAYS just stub + CB + endpoint dot + code. It never gets a
         # transformer -- that is only for a GI with its own busbar. The code
         # (singkatan) is written below the dot, exactly as the book does it.
         for off in offsets:
             p.append(f'<circle cx="{sx + off:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
-        p.append(f'<text x="{sx:.1f}" y="{sy + 15:.1f}" font-size="10" font-weight="700" '
+        label_y = sy - 10 if source_boundary else sy + 15
+        p.append(f'<text x="{sx:.1f}" y="{label_y:.1f}" font-size="10" font-weight="700" '
                  f'paint-order="stroke" stroke="#ffffff" stroke-width="3" '
                  f'text-anchor="middle" fill="#334155">{esc(gi.code)}</text>')
         p.append('</g>')

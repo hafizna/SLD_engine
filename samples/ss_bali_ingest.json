@@ -318,7 +318,7 @@
       "raw_label": "Transfer SKLT Banyuwangi",
       "site_name": "Transfer SKLT Banyuwangi",
       "voltage_hv_kv": 150,
-      "tier_hint": 0,
+      "tier_hint": null,
       "status_hint": "ENERGIZED",
       "confidence": 0.85,
       "outlet_key": null,
