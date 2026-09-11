@@ -53,9 +53,19 @@ def build() -> None:
         seed_backbone_500(db)
         # Remaining reviewed workbook fixtures. LBK/BLL/CWD use dedicated
         # seeders above; shared physical GI rows are reused across SS.
-        for name in ("ss_dkgd_ingest.xlsx", "ss_gucl_ingest.xlsx",
+        for name in (# UP2B Jakarta & Banten
+                     "ss_dkgd_ingest.xlsx", "ss_gucl_ingest.xlsx",
                      "ss_prbc_ingest.xlsx", "ss_slcg_ingest.xlsx",
                      "ss_muarakarang_durikosambi_ingest.xlsx",
+                     "ss_plbratu_ingest.xlsx", "ss_bksi_cbng_ingest.xlsx",
+                     "ss_gndul24_ingest.xlsx",
+                     # UP2B Jawa Tengah & DIY
+                     "ss_pmlng_ingest.xlsx", "ss_byoli_ingest.xlsx",
+                     "ss_ksghn_ingest.xlsx",
+                     # UP2B Jawa Timur
+                     "ss_krian3456_ingest.xlsx", "ss_kediri12_ingest.xlsx",
+                     "ss_paiton123_ingest.xlsx",
+                     # UP2B Bali
                      "ss_bali_ingest.json"):
             seed_xlsx_fixture(db, ROOT / "samples" / name)
 
