@@ -30,13 +30,18 @@ SECTIONS = [
     ("Gandul 2,4", "2.13", 107, (108, 110), 1),
 
     # ---- UP2B Jawa Barat (to build) ----
-    ("Cibatu 3,4 - PLTU Indramayu - Mandirancan 1,2", "3.3", 111, (111, 117), 17),
-    ("Cirata 1,2,3", "3.4", 118, (118, 122), 12),
+    # Ranges below are the pages whose risk NUMBERS belong to the section, found
+    # by reading the per-page sequence and watching where it resets to 1 -- not
+    # by taking the section heading page. A table continues past the next
+    # section's heading, so heading-based ranges silently pull a neighbour's
+    # rows in (New Tambun was picking up Tasikmalaya #5).
+    ("Cibatu 3,4 - PLTU Indramayu - Mandirancan 1,2", "3.3", 111, (112, 118), 19),
+    ("Cirata 1,2,3", "3.4", 118, (119, 122), 10),
     ("Cibatu 1,2 - Deltamas 1,2", "3.5", 123, (123, 126), 8),
-    ("Bandung Selatan 1,2 - New Ujungberung 1,2", "3.6", 127, (127, 131), 10),
-    ("Tasikmalaya 1,2", "3.7", 132, (132, 134), 6),
-    ("New Tambun", "3.8", 135, (135, 136), 2),
-    ("Sukatani 1,2", "3.9", 137, (137, 140), 3),
+    ("Bandung Selatan 1,2 - New Ujungberung 1,2", "3.6", 127, (128, 132), 12),
+    ("Tasikmalaya 1,2", "3.7", 132, (133, 135), 5),
+    ("New Tambun", "3.8", 135, (136, 137), 2),
+    ("Sukatani 1,2", "3.9", 137, (138, 140), None),
 
     # ---- UP2B Jawa Tengah & DIY ----
     ("Tanjung Jati 1,2 - Ungaran 3", "4.3", 141, (141, 146), 14),

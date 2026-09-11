@@ -113,8 +113,21 @@ def risk_rows(page_from: int, page_to: int) -> list[list[str]]:
 
 
 def as_risk_dicts(page_from: int, page_to: int, expected: int | None = None) -> list[dict]:
-    """risk_rows() shaped for `_ss_xlsx_common.build_workbook`'s `risks` key."""
+    """risk_rows() shaped for `_ss_xlsx_common.build_workbook`'s `risks` key.
+
+    A section's table continues past the NEXT section's heading, so a page range
+    taken from headings quietly drags a neighbour's rows in. The numbering is
+    the reliable signal: within one table it always runs 1..N unbroken. Anything
+    else means the range spans two sections, so fail here rather than publish a
+    subsystem carrying another one's risks.
+    """
     rows = risk_rows(page_from, page_to)
+    numbers = [int(r[0]) for r in rows]
+    if numbers and numbers != list(range(1, len(numbers) + 1)):
+        raise SystemExit(
+            f"risk numbers on PDF p.{page_from}-{page_to} are not a clean 1..N run: "
+            f"{numbers}. The range probably crosses a section boundary."
+        )
     if expected is not None and len(rows) != expected:
         raise SystemExit(
             f"expected {expected} risk rows on PDF p.{page_from}-{page_to}, got {len(rows)}: "
