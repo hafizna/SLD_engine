@@ -496,7 +496,18 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         conf = e.get("confidence", 0.5)
         is_ibt = (e.get("relation_type") == "IBT_LINK" or e.get("circuit_type_hint") == "IBT_LINK")
         if is_ibt:
-            hv, lv = (fk, tk) if by_key[fk]["object_type"] in ("GITET", "GISTET") else (tk, fk)
+            # A GITET is always the HV side. When neither end is a GITET the
+            # link is an in-network step-down (150/70, 150/30), so fall back to
+            # comparing the bus voltages rather than assuming the `to` side is
+            # HV -- that assumption produced backwards "70/150" IBTs.
+            if by_key[fk]["object_type"] in ("GITET", "GISTET"):
+                hv, lv = fk, tk
+            elif by_key[tk]["object_type"] in ("GITET", "GISTET"):
+                hv, lv = tk, fk
+            else:
+                fkv = by_key[fk].get("voltage_hv_kv") or 0
+                tkv = by_key[tk].get("voltage_hv_kv") or 0
+                hv, lv = (fk, tk) if fkv >= tkv else (tk, fk)
             unit = e.get("unit_no")
             t = _make_tx(hv, unit)
             ccode = f"{(by_key[hv].get('confirmed_code') or hv).upper()}_{(by_key[lv].get('confirmed_code') or lv).upper()}_IBT{unit or ''}"
@@ -518,9 +529,16 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
             continue
 
         if is_ibt:
+            # The ratio is whatever the two buses actually are -- 500/150 at a
+            # GITET, but also 150/70 (Cibinong, Driyorejo, Kertosono) and 150/30
+            # further east. Deriving it keeps the label honest instead of
+            # printing "500/150" on every transformer.
+            hv_kv = int(subs[hv].voltage_kv or 500)
+            lv_kv = int(subs[lv].voltage_kv or 150)
             c = Circuit(
-                code=ccode, name=f"IBT {e.get('unit_no') or ''} {subs[hv].name} 500/150".strip(),
-                circuit_type="IBT_LINK", voltage_kv=500,
+                code=ccode,
+                name=f"IBT {e.get('unit_no') or ''} {subs[hv].name} {hv_kv}/{lv_kv}".strip(),
+                circuit_type="IBT_LINK", voltage_kv=hv_kv,
                 from_substation_id=subs[hv].id, to_substation_id=subs[lv].id,
                 subsystem_id=ss.id, transformer_id=t.id if t else None,
                 circuit_count=None, single_phi=False,

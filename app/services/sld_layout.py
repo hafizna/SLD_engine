@@ -13,6 +13,11 @@ WIRE_PITCH = 14.0
 CHANNEL_PITCH = 32.0
 BUNDLE_CLEAR = 40.0
 COLLINEAR_TOUCH_PENALTY = 22
+# How far past a route's own span its discouraged band reaches. Two long
+# horizontal runs sitting end-to-end at a similar height read as one conductor
+# even with no x-overlap; this mirrors the near-continuation gap the geometry
+# invariant in tests/test_sld_geometry.py rejects.
+NEAR_CONT_GAP = 40.0
 BUS_TOP = 52.0
 BUS_BOTTOM = 80.0
 
@@ -256,6 +261,10 @@ class OrthogonalRouter:
                 near_bend = min(abs(a[axis] - c[axis]), abs(a[axis] - d[axis])) < 20
                 penalty += 1200 if near_bend else 180
         for c, d in self.soft_bands:
+            # Deliberately CHANNEL_PITCH, not NEAR_CONT_GAP: widening this to 40
+            # re-routes fixtures that already satisfy the invariant (SS_KSGHN
+            # regressed) for no net gain. The band WIDTH is widened instead --
+            # see NEAR_CONT_GAP in route_bundles.
             if not vertical and abs(a[1] - c[1]) < CHANNEL_PITCH and max(low, c[0]) < min(high, d[0]):
                 penalty += COLLINEAR_TOUCH_PENALTY
         return abs(a[0] - b[0]) + abs(a[1] - b[1]) + penalty
@@ -356,7 +365,14 @@ def route_bundles(pos, half, specs, extra_obstacles=(), min_route_y=None):
                 if other.id not in results and ostart[0] != oend[0]:
                     middle = (ostart[1] + oend[1]) / 2
                     left, right = sorted((ostart[0], oend[0]))
-                    router.soft_bands.append(((left, middle), (right, middle)))
+                    # Widen the discouraged band past the other route's own span.
+                    # Two long horizontal runs that merely sit end-to-end at a
+                    # similar height read as ONE conductor even though they never
+                    # overlap in x -- the same "near-continuation" the geometry
+                    # invariant rejects. NEAR_CONT_GAP mirrors that threshold so
+                    # the router avoids the band instead of being corrected later.
+                    router.soft_bands.append(((left - NEAR_CONT_GAP, middle),
+                                              (right + NEAR_CONT_GAP, middle)))
             try:
                 points = simplify([tuple(round(v, 3) for v in pt)
                                    for pt in [first] + router.route(start, end) + [last]])
