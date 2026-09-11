@@ -83,6 +83,11 @@ def build_draft(db: Session, payload: dict) -> dict:
             "transformer_count": o.get("transformer_count"),
             "capacitor_count": o.get("capacitor_count"),
             "symbol_note": o.get("symbol_note"),
+            "view_keys": list(o.get("view_keys") or []),
+            "outlet_key": o.get("outlet_key"),
+            "bay_circuit_count": o.get("bay_circuit_count"),
+            "role_hint": o.get("role_hint"),
+            "bay_view_keys": list(o.get("bay_view_keys") or []),
             "resolution": "NEW",
             "confirmed_code": o["external_key"],
             "confirmed_name": o.get("site_name") or o["raw_label"],
@@ -101,10 +106,12 @@ def build_draft(db: Session, payload: dict) -> dict:
             "circuit_type_hint": c.get("circuit_type_hint") or "SUTT",
             "status_hint": c.get("status_hint") or "ENERGIZED",
             "circuit_count": c.get("circuit_count") or 2,
+            "single_phi": bool(c.get("single_phi")),
             "unit_no": c.get("unit_no"),
             "confidence": conf,
             "confirmed": conf >= 0.9,
             "note": c.get("note"),
+            "view_keys": list(c.get("view_keys") or []),
         })
 
     draft = {
@@ -200,10 +207,11 @@ _ALLOWED_NODE = {"external_key", "object_type", "raw_label", "site_name",
                  "status_hint", "confidence", "is_bay", "bay_feeder_key",
                  "has_transformer", "has_capacitor", "resolution",
                  "transformer_count", "capacitor_count", "symbol_note",
+                 "view_keys", "outlet_key", "bay_circuit_count", "role_hint", "bay_view_keys",
                  "confirmed_code", "confirmed_name", "canonical_id"}
 _ALLOWED_EDGE = {"from_key", "to_key", "relation_type", "circuit_type_hint",
                  "status_hint", "circuit_count", "unit_no", "confidence",
-                 "confirmed", "note"}
+                 "confirmed", "note", "view_keys", "single_phi"}
 _ALLOWED_RISK = {"seq_no", "uit", "category", "priority", "title", "condition",
                  "impact", "mitigation", "follow_up", "pin_kind", "pin_key"}
 
@@ -268,6 +276,30 @@ def validate(db: Session, draft: dict) -> dict:
     for e in edges:
         if e["from_key"] not in keys or e["to_key"] not in keys:
             problems.append(f"penghantar {e['from_key']}-{e['to_key']} menempel ke node yang di-SKIP")
+    by_key = {n["external_key"]: n for n in nodes}
+    for e in edges:
+        a, b = by_key.get(e["from_key"]), by_key.get(e["to_key"])
+        if not a or not b or "GENERATING_UNIT" in (a.get("object_type"), b.get("object_type")):
+            continue
+        av, bv = a.get("voltage_hv_kv"), b.get("voltage_hv_kv")
+        ct = (e.get("circuit_type_hint") or e.get("circuit_type") or "SUTT").upper()
+        if av and bv and abs(float(av) - float(bv)) > 0.1 and ct != "IBT_LINK":
+            avf, bvf = float(av), float(bv)
+            problems.append(
+                f"penghantar {e['from_key']}-{e['to_key']}: endpoint {avf:g}/{bvf:g} kV "
+                "berbeda; hubungan lintas tegangan harus dimodelkan sebagai IBT_LINK")
+            continue
+        ev = e.get("voltage_hv_kv")
+        expected = av or bv
+        if ev and expected and abs(float(ev) - float(expected)) > 0.1 and ct != "IBT_LINK":
+            evf, expectedf = float(ev), float(expected)
+            problems.append(
+                f"penghantar {e['from_key']}-{e['to_key']}: tegangan penghantar {evf:g} kV "
+                f"tidak sama dengan bus {expectedf:g} kV")
+    for n in nodes:
+        if n.get("object_type") == "GENERATING_UNIT" and not (
+                n.get("outlet_key") in keys or any(n["external_key"] in (e["from_key"], e["to_key"]) for e in edges)):
+            problems.append(f"{n['external_key']}: pembangkit belum memiliki Bus Terhubung atau hubungan penghantar")
 
     if not any((n.get("tier_hint") or 99) == 1 for n in nodes):
         problems.append("tidak ada GI Tier-1 (sumber) -- Tier tidak bisa dihitung")
@@ -279,6 +311,8 @@ def validate(db: Session, draft: dict) -> dict:
             adj[e["to_key"]].add(e["from_key"])
     for n in nodes:
         if n.get("is_bay"):
+            continue
+        if n.get("object_type") == "GENERATING_UNIT" and n.get("outlet_key") in keys:
             continue
         if not adj.get(n["external_key"]) and (n.get("tier_hint") or 99) != 1:
             problems.append(f"{n['external_key']}: tidak terhubung ke penghantar mana pun (terisolasi)")
@@ -323,7 +357,8 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
 
     doc = SourceDocument(
         filename=fname, document_type="SLD_HANDOFF_JSON",
-        analytical_hint="SUBSYSTEM_150", source_ref=src_ref,
+        analytical_hint=(draft.get("meta") or {}).get("analytical_hint") or "SUBSYSTEM_500_150",
+        source_ref=src_ref,
         effective_date=effective_date,
     )
     db.add(doc)
@@ -363,12 +398,17 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
     for n in nodes:
         ckey = (n.get("confirmed_code") or n["external_key"]).strip().upper()
         if n["object_type"] == "GENERATING_UNIT":
+            label = n.get("confirmed_name") or n["raw_label"]
+            unit_type = next((kind for kind in ("PLTS", "PLTA", "PLTU", "PLTGU", "PLTD", "PLTP")
+                              if kind in label.upper()), None)
             g = db.query(GeneratingUnit).filter(GeneratingUnit.code == ckey).first()
             if g is None:
-                g = GeneratingUnit(code=ckey, name=n.get("confirmed_name") or n["raw_label"],
+                g = GeneratingUnit(code=ckey, name=label, unit_type=unit_type,
                                    voltage_kv=n.get("voltage_hv_kv") or 150.0)
                 db.add(g)
                 db.flush()
+            elif not g.unit_type and unit_type:
+                g.unit_type = unit_type
             subs[n["external_key"]] = g
             kinds[n["external_key"]] = "GENERATING_UNIT"
             _member("GENERATING_UNIT", g.id, "SOURCE", n.get("tier_hint"))
@@ -399,6 +439,12 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         kinds[n["external_key"]] = "SUBSTATION"
         _member("SUBSTATION", s.id, _role(n), n.get("tier_hint"))
 
+    for n in nodes:
+        if kinds.get(n["external_key"]) == "GENERATING_UNIT" and n.get("outlet_key") in subs:
+            outlet = n["outlet_key"]
+            if kinds.get(outlet) == "SUBSTATION":
+                subs[n["external_key"]].outlet_substation_id = subs[outlet].id
+
     txs: dict[str, Transformer] = {}
 
     def _make_tx(gi_key: str, unit: str | None):
@@ -423,6 +469,11 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
     for e in edges:
         fk, tk = e["from_key"], e["to_key"]
         if fk not in subs or tk not in subs:
+            continue
+        if "GENERATING_UNIT" in (kinds.get(fk), kinds.get(tk)):
+            gk, sk = (fk, tk) if kinds.get(fk) == "GENERATING_UNIT" else (tk, fk)
+            if kinds.get(sk) == "SUBSTATION":
+                subs[gk].outlet_substation_id = subs[sk].id
             continue
         conf = e.get("confidence", 0.5)
         is_ibt = (e.get("relation_type") == "IBT_LINK" or e.get("circuit_type_hint") == "IBT_LINK")
@@ -463,7 +514,7 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                 voltage_kv=by_key[fk].get("voltage_hv_kv") or 150,
                 from_substation_id=subs[fk].id, to_substation_id=subs[tk].id,
                 subsystem_id=ss.id, transformer_id=None,
-                circuit_count=e.get("circuit_count") or 2, single_phi=False,
+                circuit_count=e.get("circuit_count") or 2, single_phi=bool(e.get("single_phi")),
                 status=e.get("status_hint") or "ENERGIZED", scenario_id="NORMAL",
                 drawing_side=None, source_document_id=doc.id,
                 note=("NEEDS_REVIEW; " + note) if conf < 0.9 else note,
@@ -476,42 +527,68 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         circuits[f"{tk}-{fk}"] = c
 
     for n in nodes:
-        if not n.get("is_bay"):
+        if not (n.get("is_bay") or n.get("bay_feeder_key")):
             continue
         feeder = subs.get(n.get("bay_feeder_key"))
         if feeder is None or kinds.get(n.get("bay_feeder_key")) != "SUBSTATION":
             continue
-        db.add(Bay(
-            substation_id=subs[n["external_key"]].id,
-            feeder_substation_id=feeder.id, subsystem_id=ss.id,
-            name=f"Bay {subs[n['external_key']].name} @ {feeder.name}",
-            bay_type="LINE", drawing_side=None,
-            status=n.get("status_hint") or "ENERGIZED", note="Bootstrap via /ingest.",
-        ))
+        sides = n.get("bay_view_keys") or [None]
+        for drawing_side in sides:
+            db.add(Bay(
+                substation_id=subs[n["external_key"]].id,
+                feeder_substation_id=feeder.id, subsystem_id=ss.id,
+                name=f"Bay {subs[n['external_key']].name} @ {feeder.name}",
+                bay_type="LINE", drawing_side=drawing_side,
+                status=n.get("status_hint") or "ENERGIZED",
+                note=(f"Bootstrap via /ingest.; circuit_count={max(1, int(n.get('bay_circuit_count') or 1))}"),
+            ))
 
-    view = db.query(AnalyticalView).filter(AnalyticalView.view_key == f"{code}_FULL").first()
-    if view is None:
-        view = AnalyticalView(
-            view_key=f"{code}_FULL", view_type="SUBSYSTEM", name="SLD lengkap",
-            rule_profile="SUBSYSTEM_150", subsystem_id=ss.id,
-            layout_hint="MERGED", drawing_side=None,
-        )
-        db.add(view)
-        db.flush()
-    _vm_seen: set[int] = set()
-    for n in nodes:
-        if kinds.get(n["external_key"]) != "SUBSTATION":
-            continue
-        nid = subs[n["external_key"]].id
-        if nid in _vm_seen or db.query(ViewMembership).filter_by(
-                view_id=view.id, node_kind="SUBSTATION", node_id=nid).first():
-            _vm_seen.add(nid)
-            continue
-        db.add(ViewMembership(
-            view_id=view.id, node_kind="SUBSTATION", node_id=nid,
-            role=_role(n), tier_seed=n.get("tier_hint"), display_order=n.get("tier_hint"),
-        ))
-        _vm_seen.add(nid)
+    manifests = draft["subsystem"].get("views") or [{
+        "view_key": "FULL", "name": "SLD lengkap", "description": "", "source_keys": []}]
+    views = []
+    for manifest in manifests:
+        side = str(manifest.get("view_key") or "FULL").strip().upper()
+        full_key = f"{code}_{side}" if side != "FULL" else f"{code}_FULL"
+        view = db.query(AnalyticalView).filter(AnalyticalView.view_key == full_key).first()
+        if view is None:
+            view = AnalyticalView(
+                view_key=full_key, view_type="SUBSYSTEM", name=manifest.get("name") or side,
+                rule_profile=(draft.get("meta") or {}).get("analytical_hint") or "SUBSYSTEM_500_150",
+                subsystem_id=ss.id,
+                layout_hint=side, drawing_side=side if side != "FULL" else None,
+            )
+            db.add(view)
+            db.flush()
+        views.append(view)
+        member_seen = {(m.node_kind, m.node_id) for m in
+                       db.query(ViewMembership).filter_by(view_id=view.id).all()}
+        included = {n["external_key"] for n in nodes
+                    if not n.get("view_keys") or side in n.get("view_keys", [])}
+        view_edges = [e for e in edges if not e.get("view_keys") or side in e.get("view_keys", [])]
+        for e in view_edges:
+            included.update((e["from_key"], e["to_key"]))
+        sources = set(manifest.get("source_keys") or [])
+        for n in nodes:
+            key = n["external_key"]
+            if key not in included:
+                continue
+            kind = kinds.get(key)
+            if kind not in ("SUBSTATION", "GENERATING_UNIT"):
+                continue
+            obj = subs[key]
+            role = "SOURCE" if key in sources or kind == "GENERATING_UNIT" else _role(n)
+            tier_seed = 1 if key in sources else n.get("tier_hint")
+            if (kind, obj.id) not in member_seen:
+                db.add(ViewMembership(view_id=view.id, node_kind=kind, node_id=obj.id,
+                                      role=role, tier_seed=tier_seed, display_order=tier_seed))
+                member_seen.add((kind, obj.id))
+        for e in view_edges:
+            c = circuits.get(f'{e["from_key"]}-{e["to_key"]}')
+            if c and ("CIRCUIT", c.id) not in member_seen:
+                db.add(ViewMembership(view_id=view.id, node_kind="CIRCUIT", node_id=c.id,
+                                      role="CORE", tier_seed=None, display_order=None))
+                member_seen.add(("CIRCUIT", c.id))
+    view = views[0]
 
     for r in draft["risks"]:
         tag = _resolve_pin(r.get("pin_kind"), r.get("pin_key"), set(by_key))
@@ -552,6 +629,10 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
 
 
 def _role(n: dict) -> str:
+    explicit = (n.get("role_hint") or "").strip().upper()
+    if explicit in {"SOURCE", "SOURCE_BOUNDARY", "CORE", "RISK_OBJECT",
+                    "BOUNDARY", "DOWNSTREAM_CONTEXT", "EXTERNAL_CONTEXT"}:
+        return explicit
     if (n.get("tier_hint") or 99) == 1:
         return "SOURCE"
     return "EXTERNAL_CONTEXT" if n.get("is_bay") else "CORE"
@@ -607,8 +688,10 @@ def publish(db: Session, draft: dict, code: str, name: str,
     from app.services.topology import calculate_tier
     tiers = calculate_tier(db, view)
     ss = db.query(Subsystem).filter(Subsystem.code == code).first()
+    view_rows = db.query(AnalyticalView).filter(AnalyticalView.subsystem_id == ss.id).all()
     return {
         "subsystem_code": code, "view_id": view.id, "view_key": view.view_key,
+        "views": [{"view_id": row.id, "view_key": row.view_key, "name": row.name} for row in view_rows],
         "apb": ss.apb if ss else None,
         "tier_count": len(set(tiers.values())),
     }

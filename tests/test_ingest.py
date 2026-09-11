@@ -8,11 +8,13 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 import pytest
 
 SAMPLE_JSON = Path(__file__).resolve().parent.parent / "samples" / "ss_cwd_ingest.json"
 SAMPLE_XLSX = Path(__file__).resolve().parent.parent / "samples" / "ss_cwd_ingest.xlsx"
+LBK_XLSX = Path(__file__).resolve().parent.parent / "samples" / "ss_lbk_ingest.xlsx"
 
 
 @pytest.fixture()
@@ -72,6 +74,37 @@ def test_parse_xlsx_template_builds_draft(client):
     assert d["validation"]["ok"] is True
 
 
+def test_zero_based_workbook_tiers_are_fully_converted(client):
+    """Every value in `Tier (Mulai 0)` is zero-based, including tiers > 0."""
+    d = _draft(client, "xlsx")
+    tiers = {n["external_key"]: n["tier_hint"] for n in d["nodes"]}
+    assert tiers["GITET_CWANG"] == 1
+    assert tiers["CWBRU"] == 1
+    assert tiers["CWANG"] == 2
+    assert tiers["STBDI"] == 3
+
+
+def test_lbk_template_preserves_single_phi_planned_ibt_and_view_scoped_boundary():
+    from app.services.ingest_parser import parse_upload
+
+    payload = parse_upload(LBK_XLSX.read_bytes(), LBK_XLSX.name)
+    single = {(c["from_external_key"], c["to_external_key"])
+              for c in payload["connections"] if c.get("single_phi")}
+    assert {("SNYAN", "GISPD"), ("GISPD", "DNYSA"),
+            ("PSKMS", "PSKBR"), ("PSKBR", "GJTGL"),
+            ("GJTGL", "PSKMS")} <= single
+
+    nckupa = next(c for c in payload["connections"]
+                   if c["from_external_key"] == "NCKUPA" and c["relation_type"] == "IBT_LINK")
+    assert nckupa["status_hint"] == "PLANNED"
+    assert nckupa["view_keys"] == ["BALARAJA"]
+
+    dksbi = next(o for o in payload["objects"] if o["external_key"] == "DKSBI")
+    assert dksbi["role_hint"] == "BOUNDARY"
+    assert dksbi["is_bay"] is False
+    assert dksbi["bay_view_keys"] == ["KEMBANGAN"]
+
+
 def test_ingest_multiple_ibt_links_do_not_collide(client):
     """A GITET with several IBT links -- and a hand-added extra one -- must
     materialise without a UNIQUE-constraint crash on subsystem_membership."""
@@ -88,6 +121,19 @@ def test_ingest_multiple_ibt_links_do_not_collide(client):
         "draft": d, "subsystem_code": "SS_CWD", "subsystem_name": "Cawang 2,3 - Depok 1",
         "effective_date": "2026-06-30"})
     assert pub.status_code == 200, pub.text
+
+
+def test_bay_stub_preserves_single_or_double_circuit_count(client):
+    d = _draft(client, "xlsx")
+    bay = next(n for n in d["nodes"] if n["external_key"] == "LKONG2")
+    bay["bay_circuit_count"] = 2
+    r = client.post("/api/ingest/preview.svg", json=d)
+    assert r.status_code == 200, r.text
+    root = ET.fromstring(r.text)
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    stub = root.find('.//s:g[@class="sld-bay"][@data-code="LKONG2"]', ns)
+    assert stub is not None and stub.get("data-circuit-count") == "2"
+    assert len(stub.findall('s:path', ns)) == 2
 
 
 def test_parse_json_handoff_still_works(client):
@@ -268,3 +314,51 @@ def test_negative_symbol_count_is_not_published(client):
     result = client.post('/api/ingest/validate', json=draft).json()
     assert not result['ok']
     assert any('jumlah simbol' in p for p in result['problems'])
+
+
+def test_multiview_500kv_and_multi_risk_tags_publish(client, monkeypatch):
+    import openpyxl
+    from app.services.ingest_parser import parse_xlsx
+
+    class Sheet:
+        def __init__(self, rows): self.rows = rows
+        def iter_rows(self, values_only=True): return iter(self.rows)
+    class Book(dict):
+        @property
+        def sheetnames(self): return list(self)
+
+    book = Book({
+        'Info': Sheet([('Kode Subsistem', 'SS_500_MULTI'), ('Nama Subsistem', '500 kV multiview')]),
+        'Views': Sheet([('Kode View', 'Nama View', 'Sumber Tier-1 (kode GI, pisah ;)'),
+                        ('V1', 'View one', 'A'), ('V2', 'View two', 'B')]),
+        'Gardu_Induk_dan_Aset': Sheet([
+            ('Kode', 'Tipe', 'Tier', 'Tegangan', 'No Kerawanan', 'Sudut Pandang', 'Bus Terhubung'),
+            ('A', 'Busbar GITET', 1, '500 kV', None, 'V1', None),
+            ('X', 'Busbar GITET', 2, '500 kV', '5;7', 'V1', None),
+            ('GEN', 'Pembangkit', 1, '500 kV', None, 'V1', 'A'),
+            ('B', 'Busbar GITET', 1, '500 kV', None, 'V2', None),
+            ('Y', 'Busbar GITET', 2, '500 kV', None, 'V2', None)]),
+        'Jalur_Transmisi': Sheet([
+            ('Dari GI', 'Ke GI', 'Jumlah Sirkit', 'No Kerawanan', 'Sudut Pandang'),
+            ('A', 'X', 2, 7, 'V1'), ('B', 'Y', 2, None, 'V2')]),
+        'Data_Kerawanan_Detail': Sheet([
+            ('No', 'Kondisi / Permasalahan'), (5, 'Risk at X'), (7, 'Risk on A-X')]),
+    })
+    monkeypatch.setattr(openpyxl, 'load_workbook', lambda *a, **kw: book)
+    payload = parse_xlsx(b'', 'multi.xlsx')
+    assert [v['view_key'] for v in payload['subsystem']['views']] == ['V1', 'V2']
+    assert next(o for o in payload['objects'] if o['external_key'] == 'GEN')['object_type'] == 'GENERATING_UNIT'
+    assert [(r['seq_no'], r['pin_kind'], r['pin_key']) for r in payload['risks']] == [
+        (5, 'SUBSTATION', 'X'), (7, 'CIRCUIT', 'A-X')]
+    draft = client.post('/api/ingest/parse', json={'payload': payload}).json()
+    assert draft['validation']['ok'], draft['validation']['problems']
+    published = client.post('/api/ingest/publish', json={
+        'draft': draft, 'subsystem_code': 'SS_500_MULTI', 'subsystem_name': '500 kV multiview'})
+    assert published.status_code == 200, published.text
+    assert {v['view_key'] for v in published.json()['views']} == {'SS_500_MULTI_V1', 'SS_500_MULTI_V2'}
+    views = {v['view_key']: v for v in client.get('/api/views').json()}
+    g1 = client.get(f"/api/views/{views['SS_500_MULTI_V1']['id']}/graph").json()
+    g2 = client.get(f"/api/views/{views['SS_500_MULTI_V2']['id']}/graph").json()
+    assert {n['code'] for n in g1['nodes']} >= {'A', 'X', 'GEN'}
+    assert {n['code'] for n in g2['nodes']} >= {'B', 'Y'}
+    assert all(n['code'] not in {'B', 'Y'} for n in g1['nodes'])

@@ -1,6 +1,8 @@
 # MANTAPS Topology Engine — Architecture Summary
 
-The current-state recap is in `README.md`; the full domain rationale is in `CONCEPT.md`. This file is intentionally the compact technical map.
+The current-state recap is in `README.md`; the authoritative product direction
+and delivery plan are in [`ROADMAP.md`](ROADMAP.md). This file is the compact
+technical map.
 
 ```text
                          ┌─────────────────────┐
@@ -75,7 +77,7 @@ The canonical model, the GI-aware Tier engine, reconciliation, the JSON view
 contract (`/api/views/{id}/graph`), the Corporate Topology Register (Excel)
 round-trip, a starter SVG renderer, and governance tables are in place and
 exercised by the SS Lontar-Balaraja-Kembangan slice (`app/services/seed_ss_lbk.py`,
-14 tests). Detailed status: `README.md` &sect;22.
+the regression suite). Detailed status: `README.md`.
 
 ## Persistence
 

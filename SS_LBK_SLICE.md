@@ -51,5 +51,5 @@ uvicorn app.main:app --reload
 - `GET /api/register.xlsx` &mdash; Corporate Topology Register export (18-ish sheets)
 
 ```bash
-pytest -q          # 14 tests
+python -m pytest -q
 ```

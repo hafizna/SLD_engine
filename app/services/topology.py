@@ -40,6 +40,11 @@ from app.models import (
 )
 
 RULE_PROFILES = {
+    "SUBSYSTEM_500_150": {
+        "seed_roles": {"SOURCE", "SOURCE_BOUNDARY"},
+        "tier_mode": "GI_HOPS",
+        "downstream_roles": {"DOWNSTREAM_CONTEXT", "EXTERNAL_CONTEXT"},
+    },
     "BACKBONE_500": {
         "seed_roles": {"SOURCE"},
         "tier_mode": "GI_HOPS",
@@ -95,6 +100,7 @@ def get_view_graph(db: Session, view: AnalyticalView):
     sub_ids: set[int] = set()
     gen_ids: set[int] = set()
     tx_ids: set[int] = set()
+    circuit_ids: set[int] = set()
     for m in members:
         key = (m.node_kind, m.node_id)
         roles[key] = m.role
@@ -106,6 +112,8 @@ def get_view_graph(db: Session, view: AnalyticalView):
             gen_ids.add(m.node_id)
         elif m.node_kind == "TRANSFORMER":
             tx_ids.add(m.node_id)
+        elif m.node_kind == "CIRCUIT":
+            circuit_ids.add(m.node_id)
 
     nodes: dict[tuple[str, int], object] = {}
     if sub_ids:
@@ -133,6 +141,8 @@ def get_view_graph(db: Session, view: AnalyticalView):
             Circuit.to_substation_id.in_(sub_ids),
             Circuit.active.is_(True),
         )
+        if circuit_ids:
+            q = q.filter(Circuit.id.in_(circuit_ids))
         for c in q.all():
             if c.scenario_id not in ("NORMAL", view.scenario_id):
                 continue
@@ -335,7 +345,10 @@ def classify_layout(db: Session, view: AnalyticalView):
         neigh[c.from_substation_id].append(c.to_substation_id)
         neigh[c.to_substation_id].append(c.from_substation_id)
 
-    context_roles = {"BOUNDARY", "EXTERNAL_CONTEXT", "DOWNSTREAM_CONTEXT"}
+    # A BOUNDARY with its own book Tier is still a real busbar on this view
+    # (for example DKSBI on LBK-Balaraja). Explicit Bay rows decide when the
+    # same physical GI is rendered as a stub on another view.
+    context_roles = {"EXTERNAL_CONTEXT", "DOWNSTREAM_CONTEXT"}
     spur: dict[int, int] = {}
     for sid in sub_ids:
         if deg.get(sid, 0) != 1:

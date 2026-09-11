@@ -51,7 +51,7 @@ def build() -> Path:
     ws = wb.create_sheet("Gardu_Induk_dan_Aset")
     ws.append(["No", "Nama Asset / GI", "Kode Singkatan", "Tipe Asset", "Tier (Mulai 0)",
                "Tegangan", "No IBT", "Bus 150 kV", "Status Kerawanan", "No Kerawanan", "Wilayah",
-               "Jumlah Trafo", "Jumlah Kapasitor", "Catatan Simbol"])
+               "Jumlah Trafo", "Jumlah Kapasitor", "Catatan Simbol", "Role"])
     _bold_header(ws)
     ibt_lv = {c["from_external_key"]: c["to_external_key"]
               for c in J["connections"]
@@ -77,7 +77,8 @@ def build() -> Path:
         if o["object_type"] in ("GITET", "GISTET") or o.get("is_bay"):
             continue
         ek = o["external_key"]
-        ws.append([n, o["raw_label"], ek, "Busbar GI", o.get("tier_hint"),
+        tier = o.get("tier_hint")
+        ws.append([n, o["raw_label"], ek, "Busbar GI", tier - 1 if tier else tier,
                    f'{int(o.get("voltage_hv_kv") or 150)} kV', None, None,
                    "N-1" if ek in pin_ss else "Normal", pin_ss.get(ek), "Banten",
                    o.get("transformer_count", int(bool(o.get("has_transformer")))),
@@ -90,7 +91,7 @@ def build() -> Path:
     ws.append(["No", "No Kerawanan", "Nama Penghantar", "Dari GI", "Ke GI", "Tegangan",
                "Panjang Saluran (km)", "Jumlah Sirkit", "Status Operasi", "Tingkat Kerawanan",
                "Pembebanan Sirkit 1 (%)", "Pembebanan Sirkit 2 (%)", "Koridor / Wilayah",
-               "Tier Dari", "Tier Ke"])
+               "Tier Dari", "Tier Ke", "Single Phi"])
     _bold_header(ws)
     n = 1
     for c in J["connections"]:
@@ -102,13 +103,13 @@ def build() -> Path:
         ws.append([n, seq, c.get("note") or f"SUTT {fr} - {to}", fr, to,
                    f'{int((c.get("voltage_kv") or 150))} kV' if c.get("voltage_kv") else "150 kV",
                    None, c.get("circuit_count", 2), "Beroperasi", rawan,
-                   None, None, "Banten", None, None])
+                   None, None, "Banten", None, None, "Tidak"])
         n += 1
 
     # ---- Bay (MANTAPS extension) ----
     ws = wb.create_sheet("Bay")
     ws.append(["No", "Kode GI", "Nama GI", "Feeder (GI Induk)", "Tegangan",
-               "Status Operasi", "No Kerawanan"])
+               "Jumlah Sirkit", "Status Operasi", "No Kerawanan", "Sudut Pandang"])
     _bold_header(ws)
     n = 1
     for o in J["objects"]:
@@ -116,7 +117,8 @@ def build() -> Path:
             continue
         ek = o["external_key"]
         ws.append([n, ek, o["raw_label"], o.get("bay_feeder_key"),
-                   f'{int(o.get("voltage_hv_kv") or 150)} kV', "Beroperasi",
+                   f'{int(o.get("voltage_hv_kv") or 150)} kV',
+                   o.get("bay_circuit_count", 1), "Beroperasi",
                    pin_ss.get(ek)])
         n += 1
 

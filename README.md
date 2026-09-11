@@ -1,5 +1,11 @@
 # MANTAPS Topology Engine
 
+> **Product direction:** the near-term product is a snapshot-based risk-map
+> dashboard, not a real-time NMM replacement. The agreed user flow, Jamali / UP2B /
+> SS hierarchy, 500 kV risk overlays, update workflow, and Codex/Claude Code
+> work split are defined in [`ROADMAP.md`](ROADMAP.md). That document is the
+> authoritative brief for new product work.
+
 The data layer under **Peta Kerawanan**. It turns a **structured description of
 one transmission subsystem** — GI list, GI-to-GI relations, kerawanan table —
 into a PLN-style single-line diagram with the Tier engine and the kerawanan
@@ -29,7 +35,7 @@ python -m uvicorn app.main:app --reload
 | `http://localhost:8000/docs` | Swagger |
 
 ```bash
-pytest -q                             # 37 tests
+python -m pytest -q
 python scripts/build_static_site.py   # frozen view-only snapshot -> ./site/  (GitHub Pages; no /ingest, no /editor)
 ```
 
@@ -66,11 +72,18 @@ data corrections are listed in `samples/sld_symbol_corrections.json`; run
 to apply them with a SQLite backup. These observations are drawing inventories,
 not verified physical equipment registers.
 
-Template compatibility is separate from layout: the current Excel parser still
-does not import a `Views` sheet or per-row `Sudut Pandang`. Existing LBK views
-are rendered separately from their stored view membership. A new multi-view
-workbook needs that parser/materialisation extension before it can faithfully
-create multiple views; the renderer must not infer or merge those contexts.
+The Excel parser imports a `Views` manifest and per-row `Sudut Pandang` values.
+Publishing creates one `AnalyticalView` per manifest row and restricts both
+nodes and circuits to their declared views. Mixed 500/150 kV workbooks are
+supported; `Pembangkit` rows require `Bus Terhubung` (or an explicit connection).
+`No Kerawanan` accepts multiple semicolon-separated numbers such as `5;7`.
+
+P2B voltage colours are binding for energized busbars and conductors: 500 kV
+blue, 150 kV red, 66/70 kV yellow, 30 kV light green, and 20 kV orange. Cable
+type is shown by a dashed stroke without replacing its voltage colour. Green
+generator leads identify a generating source; they do not replace the voltage
+stored in the workbook. PLTS uses the panel/inverter symbol rather than the AC
+generator circle.
 
 Hosting (Hugging Face Spaces, Render, Docker, ngrok, GitHub Pages): [`DEPLOY.md`](DEPLOY.md).
 
@@ -80,7 +93,7 @@ Hosting (Hugging Face Spaces, Render, Docker, ngrok, GitHub Pages): [`DEPLOY.md`
 |---|---|
 | Canonical model: `Substation` / `GeneratingUnit` / `Transformer` + `TransformerWinding` / `Circuit`, at GI-node granularity | `app/models.py` |
 | One physical GI in many subsystems / roles | `Subsystem`, `SubsystemMembership` |
-| Analytical views + membership + rule profiles (`SUBSYSTEM_150`, `IBT_500_150`, `BACKBONE_500`) | `AnalyticalView`, `ViewMembership` |
+| Analytical views + membership + rule profiles (`SUBSYSTEM_150`, `SUBSYSTEM_500_150`, `IBT_500_150`, `BACKBONE_500`) | `AnalyticalView`, `ViewMembership` |
 | **Tier engine** — book Tier band when the drawing gives one, else a BFS hop count from the sources; per view, never stored; non-live objects excluded | `app/services/topology.py` |
 | **SLD renderer** — busbars in Tier rows, bay stubs with GI codes, IBT/transformer/capacitor/generator symbols, shared parallel circuit routes, obstacle avoidance and crossing gaps, a mapping-audit strip so nothing from the parse vanishes silently | `app/services/sld_renderer.py` |
 | Kerawanan overlay — `RiskRecord` with `category` (N-1 / N-2 / N-1-1 / N-0), pinned to a GI / line / transformer by code | `RiskRecord` |
@@ -175,15 +188,14 @@ scripts/
 samples/
 ├─ ss_cwd_ingest.xlsx         a filled PLN template (the /ingest demo + `/api/ingest/sample`)
 └─ ss_cwd_ingest.json         the same as a JSON hand-off
-tests/                        47 tests: topology, reconciliation, API contract, /ingest, editor
-CONCEPT.md                    the original design document (analytical contexts, why-this-exists, full model rationale)
-PROBIS_KONSEP.md              the change-management business process (structural vs operating change)
+tests/                        topology, reconciliation, API, ingest, editor, and geometry invariants
+ROADMAP.md                    authoritative product scope, user flow, sprints, and agent handoff
 SS_LBK_SLICE.md               what the SS_LBK slice proves + field-review items
 ARCHITECTURE.md               compact technical map
 DEPLOY.md                     hosting options
 ```
 
-## Principles (from `CONCEPT.md`)
+## Engineering principles
 
 - One canonical physical topology; many analytical projections; many evidence sources; many risk contexts.
 - A screenshot / Excel / NMM object is **not** automatically the canonical topology — it is staged, reconciled, then promoted.

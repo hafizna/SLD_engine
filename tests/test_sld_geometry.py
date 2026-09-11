@@ -1,10 +1,41 @@
 """Electrical drawing invariants, rather than a snapshot of SVG formatting."""
 import re
 import xml.etree.ElementTree as ET
+from types import SimpleNamespace
 
 import pytest
 
 from app.services.sld_layout import offset_path, layered_positions
+from app.services.sld_renderer import _circuit_style, _sym_solar
+
+
+@pytest.mark.parametrize(('kv', 'kind', 'expected'), [
+    (500, 'SUTET', ('#0047AB', 'none')),
+    (500, 'SKTT', ('#0047AB', '7 5')),
+    (150, 'SUTT', ('#C00000', 'none')),
+    (70, 'SUTT', ('#E6B800', 'none')),
+    (66, 'SUTT', ('#E6B800', 'none')),
+    (30, 'SUTT', ('#39C96B', 'none')),
+    (20, 'SKTT', ('#E67300', '7 5')),
+])
+def test_energized_circuit_colour_is_bound_to_voltage(kv, kind, expected):
+    circuit = SimpleNamespace(status='ENERGIZED', circuit_type=kind, voltage_kv=kv)
+    assert _circuit_style(circuit) == expected
+
+
+def test_circuit_status_overrides_voltage_colour():
+    planned = SimpleNamespace(status='PLANNED', circuit_type='SUTET', voltage_kv=500)
+    new = SimpleNamespace(status='NEW_NOT_ENERGIZED', circuit_type='SUTET', voltage_kv=500)
+    off = SimpleNamespace(status='DE_ENERGIZED', circuit_type='SUTET', voltage_kv=500)
+    assert _circuit_style(planned) == ('#9AA0A6', '3 6')
+    assert _circuit_style(new) == ('#111111', '12 7')
+    assert _circuit_style(off) == ('#9AA0A6', '2 5')
+
+
+def test_plts_uses_panel_inverter_symbol():
+    symbol = _sym_solar(20, 30, '#0a8a3a')
+    assert '<rect ' in symbol and '<path d="M' in symbol
+    assert '<circle ' not in symbol
 
 
 def intersection(a, b, c, d):
@@ -65,7 +96,7 @@ def geometry_errors(svg):
                 for name, l, r, y in bars:
                     # Allow only the first/last point to meet a busbar.
                     if any(abs(pt[1] - y) < 0.2 and l <= pt[0] <= r for pt in (pts[0], pts[-1])):
-                        if a[0] == b[0] and min(a[1], b[1]) < y < max(a[1], b[1]):
+                        if a[0] == b[0] and min(a[1], b[1]) < y < max(a[1], b[1]) and l <= a[0] <= r:
                             errors.append(f'{code}: crosses its endpoint bus {name}')
                         continue
                     if intersection(a, b, (l, y), (r, y)):
@@ -176,6 +207,11 @@ def test_seeded_geometry(db):
         ns = {'s': 'http://www.w3.org/2000/svg'}
         if view.view_key == 'SS_LBK_BALARAJA':
             assert 'class="sld-bridge"' in svg
+            assert 'class="risk-pin" data-risk-seqs="5"' in svg
+            # A tiered BOUNDARY is a full busbar in this view, not silently
+            # collapsed into the Bay appearance used by another view.
+            busbars = svg.split('<g id="bays">', 1)[0]
+            assert 'data-code="DKSBI"' in busbars
         if view.view_key == 'SS_CWD_FULL':
             assert 'class="sld-bridge"' not in svg
         for bar in root.findall('.//s:g[@id="busbars"]/s:g', ns):
@@ -189,6 +225,40 @@ def test_seeded_geometry(db):
                 cap = bar.find('s:g[@class="shunt-capacitor"]/s:g', ns)
                 assert cap is not None and cap.get('stroke') == '#9AA0A6'
     assert not errors, '\n'.join(errors)
+
+
+def test_backbone_500_compacts_layout_and_keeps_routes_below_generators(db):
+    from app.models import AnalyticalView
+    from app.services.seed_backbone_500 import seed_backbone_500
+    from app.services.sld_renderer import render_view_svg
+
+    result = seed_backbone_500(db)
+    view = db.get(AnalyticalView, result['view_id'])
+    svg = render_view_svg(db, view)
+    root = ET.fromstring(svg)
+    ns = {'s': 'http://www.w3.org/2000/svg'}
+    width = float(root.get('viewBox').split()[2])
+    nodes = {g.get('data-code'): float(g.get('data-x'))
+             for g in root.findall('.//s:g[@class="sld-node"]', ns)
+             if g.get('data-node-kind') == 'SUBSTATION'}
+
+    assert root.get('data-layout-density') == 'compact-500'
+    assert width < 5000
+    ordered_x = sorted(nodes.values())
+    assert max(b - a for a, b in zip(ordered_x, ordered_x[1:])) < width * .2
+    assert root.findall('.//s:path[@class="sld-bridge"]', ns)
+    assert not [e for e in geometry_errors(svg) if 'crossing bridges' in e]
+    generators = root.findall('.//s:g[@id="generators"]/s:g[@class="sld-node"]', ns)
+    assert len(generators) == 18
+    assert all(g.find('s:path', ns) is not None for g in generators)
+    top_bus_y = min(float(g.get('data-y')) for g in root.findall('.//s:g[@class="sld-node"]', ns)
+                    if g.get('data-node-kind') == 'SUBSTATION')
+    wires = root.findall('.//s:g[@id="circuits"]//s:path[@class="sld-wire"]', ns)
+    wire_points = []
+    for wire in wires:
+        xy = list(map(float, re.findall(r'-?\d+(?:\.\d+)?', wire.get('d'))))
+        wire_points.extend(zip(xy[::2], xy[1::2]))
+    assert min(y for x, y in wire_points) >= top_bus_y
 
 
 def test_symbol_counts_do_not_use_ratings():

@@ -17,7 +17,15 @@ BUS_TOP = 52.0
 BUS_BOTTOM = 80.0
 
 
-def layered_positions(row_of, links, half, names, y_at, gutter=110):
+def layered_positions(row_of, links, half, names, y_at, gutter=110,
+                      virtual_gutter=24):
+    """Order and place a layered graph.
+
+    Long edges get virtual ordering nodes on intermediate rows.  Those markers
+    preserve crossing order but must not consume the same gutter as a real GI.
+    """
+    def gap(a, b):
+        return virtual_gutter if isinstance(a, tuple) or isinstance(b, tuple) else gutter
     layers = defaultdict(list)
     rank = {r: i for i, r in enumerate(sorted(set(row_of.values())))}
     node_rank = {n: rank[r] for n, r in row_of.items()}
@@ -97,9 +105,9 @@ def layered_positions(row_of, links, half, names, y_at, gutter=110):
     xs = {}
     for r, ns in layers.items():
         cursor = 0
-        for n in ns:
+        for idx, n in enumerate(ns):
             xs[n] = cursor + widths[n]
-            cursor += 2 * widths[n] + gutter
+            cursor += 2 * widths[n] + (gap(n, ns[idx + 1]) if idx + 1 < len(ns) else gutter)
         for n in ns:
             xs[n] -= cursor / 2
     # Project barycentres onto the ordered, non-overlapping row constraints.
@@ -114,7 +122,7 @@ def layered_positions(row_of, links, half, names, y_at, gutter=110):
                 x = 0.5 * xs[n] + 0.5 * wants[n]
                 if packed:
                     prev, px = packed[-1]
-                    x = max(x, px + widths[prev] + widths[n] + gutter)
+                    x = max(x, px + widths[prev] + widths[n] + gap(prev, n))
                 packed.append((n, x))
             shift = sum(wants[n] - x for n, x in packed) / max(1, len(packed))
             for n, x in packed:
@@ -161,7 +169,8 @@ class OrthogonalRouter:
     crossings are expensive. Endpoints escape vertically through their own bay
     before joining the routing grid. Row spacing is allocated by the caller.
     """
-    def __init__(self, pos, half, endpoints, extra_obstacles=()):
+    def __init__(self, pos, half, endpoints, extra_obstacles=(), min_route_y=None):
+        self.min_route_y = min_route_y
         self.rects = [(x - half(n) - 20, y - 40, x + half(n) + 20, y + 64)
                       for n, (x, y) in pos.items()] + list(extra_obstacles)
         self.used = []
@@ -183,6 +192,10 @@ class OrthogonalRouter:
             while a + k * CHANNEL_PITCH < b:
                 ys.add(a + k * CHANNEL_PITCH)
                 k += 1
+        if min_route_y is not None:
+            # Generator symbols occupy the space above the highest bus row.
+            # Transmission routing must stay below that hierarchy boundary.
+            ys = {y for y in ys if y >= min_route_y} | {round(y, 3) for x, y in endpoints}
         self.xs, self.ys = sorted(xs), sorted(ys)
         self.blocked = set()
         for i, x in enumerate(self.xs):
@@ -235,6 +248,8 @@ class OrthogonalRouter:
         # a valid 32-unit gap can be absent from the original visibility grid.
         additions = {a[1] + off for a, b in self.used if a[1] == b[1]
                      for off in (-CHANNEL_PITCH, CHANNEL_PITCH)} - set(self.ys)
+        if self.min_route_y is not None:
+            additions = {y for y in additions if y >= self.min_route_y}
         x_additions = {a[0] + off for a, b in self.used if a[0] == b[0]
                        for off in (-CHANNEL_PITCH, CHANNEL_PITCH)} - set(self.xs)
         if additions or x_additions:
@@ -292,7 +307,7 @@ class OrthogonalRouter:
         self.used.extend(zip(points, points[1:]))
 
 
-def route_bundles(pos, half, specs, extra_obstacles=()):
+def route_bundles(pos, half, specs, extra_obstacles=(), min_route_y=None):
     """Negotiate scarce channels: retry a blocked bundle before earlier routes.
 
     Greedy shortest-first routing alone can seal a later port, particularly
@@ -308,7 +323,8 @@ def route_bundles(pos, half, specs, extra_obstacles=()):
         if signature in tried:
             break
         tried.add(signature)
-        router = OrthogonalRouter(pos, half, endpoints, extra_obstacles)
+        router = OrthogonalRouter(pos, half, endpoints, extra_obstacles,
+                                  min_route_y=min_route_y)
         results = {}
         for spec in order:
             c, first, start, end, last = spec

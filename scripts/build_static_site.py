@@ -34,6 +34,7 @@ def build() -> None:
     from app.models import AnalyticalView
     from app.services.excel_register import export_register
     from app.services.seed import seed_demo
+    from app.services.seed_backbone_500 import seed_backbone_500
     from app.services.seed_ss_cwd import seed_ss_cwd
     from app.services.sld_renderer import render_view_svg
     from fastapi.testclient import TestClient
@@ -45,6 +46,10 @@ def build() -> None:
         # engine, seeded straight into the snapshot here. Kept out of seed_demo
         # so the /ingest test suite can still publish under code SS_CWD.
         seed_ss_cwd(db)
+        # Give the product-level 500 kV navigation a real projection. This
+        # stress fixture stays out of seed_demo while its geometry findings
+        # remain visible in the workbook audit.
+        seed_backbone_500(db)
 
     from app.main import app  # imports after DB is ready
 
@@ -57,6 +62,8 @@ def build() -> None:
         (data_dir / "views.json").write_text(json.dumps(views, indent=2), encoding="utf-8")
         subs = client.get("/api/subsystems").json()
         (data_dir / "subsystems.json").write_text(json.dumps(subs, indent=2), encoding="utf-8")
+        summary = client.get("/api/dashboard/summary").json()
+        (data_dir / "dashboard-summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
         for v in views:
             vid = v["id"]
@@ -68,7 +75,11 @@ def build() -> None:
 
         export_register(db, data_dir / "register.xlsx")
 
-    shutil.copy(ROOT / "scripts" / "static_index.html", OUT / "index.html")
+    # One shell for FastAPI and the frozen snapshot prevents the product flow
+    # from drifting between deployments.  The flag only changes data URLs.
+    shell = (ROOT / "app" / "static" / "index.html").read_text(encoding="utf-8")
+    shell = shell.replace("<script>\nconst API", "<script>\nwindow.STATIC_SNAPSHOT = true;\nconst API", 1)
+    (OUT / "index.html").write_text(shell, encoding="utf-8")
     (OUT / ".nojekyll").write_text("", encoding="utf-8")
 
     print(f"static site -> {OUT}")

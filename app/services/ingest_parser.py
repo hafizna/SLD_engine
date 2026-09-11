@@ -65,11 +65,14 @@ _NODE_DEFAULTS = {
     "confidence": 1.0, "is_bay": False, "bay_feeder_key": None,
     "has_transformer": False, "has_capacitor": False,
     "transformer_count": None, "capacitor_count": None, "symbol_note": None,
+    "view_keys": [], "outlet_key": None, "bay_circuit_count": None,
+    "role_hint": None, "bay_view_keys": [],
 }
 _CONN_DEFAULTS = {
     "relation_type": "CONNECTED_TO", "circuit_type_hint": "SUTT",
     "status_hint": "ENERGIZED", "circuit_count": 2, "unit_no": None,
     "confidence": 0.5, "note": None,
+    "view_keys": [], "single_phi": False,
 }
 _RISK_DEFAULTS = {
     "seq_no": None, "uit": "JBB", "category": "N-1", "priority": "High",
@@ -155,7 +158,8 @@ def normalise(raw: dict, filename: str | None = None, *, drop_bad_edges: bool = 
             "effective_date": raw.get("effective_date"),
             "dropped_edges": dropped,
         },
-        "subsystem": {"code": ss["code"], "name": ss["name"], "apb": ss.get("apb")},
+        "subsystem": {"code": ss["code"], "name": ss["name"], "apb": ss.get("apb"),
+                      "views": [dict(v) for v in (ss.get("views") or []) if isinstance(v, dict)]},
         "objects": norm_objs,
         "connections": norm_conns,
         "risks": norm_risks,
@@ -187,6 +191,8 @@ _ASSET_TYPE_MAP = {
     "gitet": ("GITET", False),
     "bay": ("GI", True),
     "spur": ("GI", True),
+    "pembangkit": ("GENERATING_UNIT", False),
+    "generating unit": ("GENERATING_UNIT", False),
 }
 _STATUS_MAP = {
     "beroperasi": "ENERGIZED", "operasi": "ENERGIZED", "energized": "ENERGIZED",
@@ -211,6 +217,20 @@ def _kv(v) -> float | None:
 
 def _norm(s) -> str:
     return str(s or "").strip().lower()
+
+
+def _tokens(value) -> list[str]:
+    return [part.strip().upper() for part in str(value or "").replace(",", ";").split(";") if part.strip()]
+
+
+def _risk_numbers(value) -> list[int]:
+    result = []
+    for token in _tokens(value):
+        try:
+            result.append(int(float(token)))
+        except ValueError:
+            continue
+    return result
 
 
 def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
@@ -288,13 +308,17 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
         if ext in seen:
             continue
         seen.add(ext)
+        tier_zero_based = _norm("Tier (Mulai 0)") in row
         tier = _get(row, "Tier (Mulai 0)", "Tier", "Tier (Mulai 1)")
         try:
             tier = int(tier) if tier is not None and str(tier).strip() != "" else None
         except (TypeError, ValueError):
             tier = None
-        if tier is not None:
-            tier = tier + 1 if tier == 0 else tier
+        if tier is not None and tier_zero_based:
+            # The workbook writers store every display tier as ``tier - 1``.
+            # Convert the whole zero-based column back, not just its first row;
+            # otherwise workbook tiers 1..n collapse one level upward.
+            tier += 1
         status = _STATUS_MAP.get(_norm(_get(row, "Status Operasi", "Status")), "ENERGIZED")
         no_kerawanan = _get(row, "No Kerawanan", "No. Kerawanan")
         objects.append({
@@ -307,12 +331,20 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             "status_hint": status,
             "confidence": 0.9 if kind in ("GITET", "GISTET") else 0.8,
             "is_bay": is_bay,
+            "bay_feeder_key": (str(_get(row, "Feeder (GI Induk)", "Feeder", "GI Induk", "Induk")).strip()
+                               if _get(row, "Feeder (GI Induk)", "Feeder", "GI Induk", "Induk") else None),
             "has_transformer": _bool_cell(_get(row, "Ada Trafo", "Has Transformer")),
             "has_capacitor": _bool_cell(_get(row, "Ada Kapasitor", "Has Capacitor")),
             "transformer_count": _get(row, "Jumlah Trafo", "Transformer Count"),
             "capacitor_count": _get(row, "Jumlah Kapasitor", "Capacitor Count"),
             "symbol_note": _get(row, "Catatan Simbol", "Symbol Note"),
-            "_no_kerawanan": _int_or_none(no_kerawanan),
+            "view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key")),
+            "outlet_key": (str(_get(row, "Bus Terhubung", "Outlet Bus", "Terhubung ke Bus")).strip()
+                           if _get(row, "Bus Terhubung", "Outlet Bus", "Terhubung ke Bus") else None),
+            "bay_circuit_count": _int_or_none(_get(row, "Jumlah Sirkit Bay", "Jumlah Sirkit", "Sirkit", "Circuit Count")),
+            "role_hint": (str(_get(row, "Role", "Peran", "Peran SLD") or "").strip().upper() or None),
+            "bay_view_keys": [],
+            "_no_kerawanan": _risk_numbers(no_kerawanan),
         })
 
     # IBT unit numbers per GITET, from the "IBT n-Winding" rows.
@@ -340,9 +372,14 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
         lv = str(lv).strip().upper() if lv else None
         if not lv or lv not in _all_ext:
             lv = tok if tok in _all_ext else gk
-        ibt_units.setdefault(gk, {"lv": lv, "units": []})["units"].append(unit)
-        nk = _int_or_none(_get(row, "No Kerawanan", "No. Kerawanan"))
-        if nk is not None:
+        raw_status = _get(row, "Status Operasi", "Status")
+        gitet_status = next((o["status_hint"] for o in objects if o["external_key"] == gk), "ENERGIZED")
+        link_status = (_STATUS_MAP.get(_norm(raw_status), "ENERGIZED")
+                       if raw_status not in (None, "") else gitet_status)
+        ibt_units.setdefault(gk, {"lv": lv, "units": []})["units"].append(
+            {"unit": unit, "status": link_status,
+             "view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key"))})
+        for nk in _risk_numbers(_get(row, "No Kerawanan", "No. Kerawanan")):
             ibt_pins[nk] = (gk, unit)
 
     # ---- Bay sheet (MANTAPS extension: GI drawn as a stub + its feeder) ----
@@ -364,12 +401,20 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                 "status_hint": _STATUS_MAP.get(_norm(_get(row, "Status Operasi", "Status")), "ENERGIZED"),
                 "confidence": 0.7, "is_bay": True, "bay_feeder_key": feeder,
                 "has_transformer": False,
-                "_no_kerawanan": _int_or_none(_get(row, "No Kerawanan", "No. Kerawanan")),
+                "bay_circuit_count": _int_or_none(_get(row, "Jumlah Sirkit", "Sirkit", "Circuit Count")),
+                "bay_view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key")),
+                "view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key")),
+                "_no_kerawanan": _risk_numbers(_get(row, "No Kerawanan", "No. Kerawanan")),
             }
             if code in existing:
                 for o in objects:
                     if o["external_key"] == code:
-                        o.update({"is_bay": True, "bay_feeder_key": feeder})
+                        # Existing full-bus assets may be rendered as a bay in
+                        # only one view. Keep the physical node full and scope
+                        # the Bay appearance separately.
+                        o.update({"bay_feeder_key": feeder,
+                                  "bay_circuit_count": row_obj["bay_circuit_count"],
+                                  "bay_view_keys": row_obj["bay_view_keys"]})
             else:
                 objects.append(row_obj)
                 existing.add(code)
@@ -398,9 +443,11 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                                             _kv(_get(row, "Tegangan"))),
             "status_hint": _STATUS_MAP.get(_norm(_get(row, "Status Operasi", "Status")), "ENERGIZED"),
             "circuit_count": cnt,
+            "single_phi": _bool_cell(_get(row, "Single Phi", "Single-phi", "Single Phase")),
             "confidence": _RAWAN_CONF.get(rawan, 0.8),
             "note": str(_get(row, "Nama Penghantar", "Nama") or "").strip() or None,
-            "_no_kerawanan": _int_or_none(_get(row, "No Kerawanan", "No. Kerawanan")),
+            "view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key")),
+            "_no_kerawanan": _risk_numbers(_get(row, "No Kerawanan", "No. Kerawanan")),
         })
 
     # ---- IBT-link connections (GITET -> its 150 kV bus), one per unit ----
@@ -408,26 +455,26 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
         lv = info["lv"]
         if gk not in obj_keys or lv not in obj_keys:
             continue
-        for u in info["units"]:
+        for unit_info in info["units"]:
+            u = unit_info["unit"]
             connections.append({
                 "from_external_key": gk, "to_external_key": lv,
                 "relation_type": "IBT_LINK", "circuit_type_hint": "IBT_LINK",
-                "status_hint": "ENERGIZED", "circuit_count": 1,
+                "status_hint": unit_info["status"], "circuit_count": 1,
                 "unit_no": u, "confidence": 1.0,
+                "view_keys": unit_info["view_keys"],
             })
 
     # auto-pin: template marks "No Kerawanan" on the asset / line / IBT it belongs to
     pin_by_seq: dict[int, tuple[str, str]] = {}
-    for nk, (gk, unit) in ibt_pins.items():
-        pin_by_seq[nk] = ("TRANSFORMER", f"{gk}:{unit}")
     for o in objects:
-        nk = o.pop("_no_kerawanan", None)
-        if nk is not None and nk not in pin_by_seq:
+        for nk in o.pop("_no_kerawanan", []):
             pin_by_seq[nk] = ("SUBSTATION", o["external_key"])
     for c in connections:
-        nk = c.pop("_no_kerawanan", None)
-        if nk is not None and nk not in pin_by_seq:
+        for nk in c.pop("_no_kerawanan", []):
             pin_by_seq[nk] = ("CIRCUIT", f"{c['from_external_key']}-{c['to_external_key']}")
+    for nk, (gk, unit) in ibt_pins.items():
+        pin_by_seq[nk] = ("TRANSFORMER", f"{gk}:{unit}")
 
     # ---- risks ----
     risks: list[dict] = []
@@ -458,6 +505,7 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
 
     # optional Info sheet: "Kode Subsistem" / "Nama Subsistem" / "APB"
     ss_code = ss_name = ss_apb = None
+    rule_profile = None
     ws_info = _sheet("Info", "Informasi", "Subsistem", "Header")
     if ws_info is not None:
         kv = {}
@@ -467,6 +515,7 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
         ss_code = kv.get("kode subsistem") or kv.get("kode")
         ss_name = kv.get("nama subsistem") or kv.get("nama")
         ss_apb = kv.get("apb") or kv.get("up2b")
+        rule_profile = kv.get("rule profile") or kv.get("profil aturan")
     # Optional multi-SLD manifest. Rows identify independent analytical views;
     # assets/connections remain shared and are never merged by the parser.
     ws_views = _sheet("Views", "Sudut Pandang", "SLD Views")
@@ -479,6 +528,8 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                     "view_key": str(vk).strip().upper(),
                     "name": str(_get(row, "Nama View", "Nama SLD", "Name") or vk).strip(),
                     "description": str(_get(row, "Keterangan", "Description") or "").strip(),
+                    "source_keys": _tokens(_get(row, "Sumber Tier-1 (kode GI, pisah ;)", "Sumber Tier-1", "Source Keys")),
+                    "source_page": _get(row, "Halaman Buku", "Page"),
                 })
     ss_name = str(ss_name).strip() if ss_name else _guess_ss_name(filename)
     ss_code = str(ss_code).strip().upper() if ss_code else _guess_ss_code(ss_name, filename)
@@ -486,7 +537,7 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
     return normalise({
         "filename": filename,
         "document_type": "SLD_TEMPLATE_XLSX",
-        "analytical_hint": "SUBSYSTEM_150",
+        "analytical_hint": str(rule_profile or "SUBSYSTEM_500_150").strip().upper(),
         "source_ref": f"Template subsistem PLN ({filename})",
         "subsystem": {"code": ss_code, "name": ss_name,
                       "apb": str(ss_apb).strip() if ss_apb else "UP2B Jakarta & Banten",

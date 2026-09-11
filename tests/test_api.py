@@ -40,6 +40,19 @@ def test_subsystems_lists_ss_lbk(client):
     assert any(s["code"] == "SS_LBK" for s in data)
 
 
+def test_dashboard_summary_deduplicates_multiview_risks(client):
+    data = client.get("/api/dashboard/summary").json()
+    assert data["scope"] == "JAMALI"
+    assert len(data["regions"]) >= 5
+    lbk = next(
+        ss for region in data["regions"] for ss in region["subsystems"]
+        if ss["code"] == "SS_LBK"
+    )
+    assert len(lbk["views"]) == 2
+    # Six records belong to the subsystem and remain six in a two-view SS.
+    assert lbk["risk"]["total"] == 6
+
+
 def test_two_views_no_merged(client):
     keys = {v["view_key"] for v in client.get("/api/views").json()}
     # SS_LBK spans two book SLDs -> two per-side views, and no force-merged

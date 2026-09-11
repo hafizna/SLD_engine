@@ -43,6 +43,44 @@
   header .navlink { color: #fff; font-size: 12px; text-decoration: none;
     border: 1px solid rgba(255,255,255,.35); padding: 6px 10px; border-radius: 7px; }
   header .navlink:hover { background: rgba(255,255,255,.14); }
+  #homebtn { display:none; }
+  body.mode-viewer #homebtn { display:inline-block; }
+
+  #portal { flex:1; overflow:auto; padding:28px; }
+  body.mode-viewer #portal { display:none; }
+  body.mode-portal main { display:none; }
+  .portal-wrap { max-width:1280px; margin:0 auto; }
+  .hero { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:20px; }
+  .hero h1 { margin:0; font-size:30px; letter-spacing:-.025em; }
+  .hero p { margin:7px 0 0; color:var(--muted); max-width:700px; line-height:1.5; }
+  .metric { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 17px; min-width:150px; }
+  .metric b { display:block; font-size:25px; }
+  .metric span { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .portal-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(320px,.85fr); gap:16px; }
+  .portal-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .portal-card h2 { margin:0 0 4px; font-size:17px; }
+  .portal-card .lead { color:var(--muted); font-size:12px; margin-bottom:14px; }
+  .jamali-map { position:relative; height:245px; overflow:hidden; border-radius:11px;
+    background:linear-gradient(160deg,#e6f3ff,#f7fbff); border:1px solid #d7e8f8; }
+  .jamali-map svg { position:absolute; inset:22px 30px 32px; width:calc(100% - 60px); height:calc(100% - 54px); }
+  .region-pin { position:absolute; transform:translate(-50%,-50%); border:0; background:transparent; cursor:pointer; text-align:center; }
+  .region-pin i { display:grid; place-items:center; width:36px; height:36px; margin:auto; border-radius:50%;
+    color:#fff; background:var(--blue); border:4px solid #fff; box-shadow:0 2px 8px rgba(15,39,74,.28); font-style:normal; font-weight:800; }
+  .region-pin span { display:block; white-space:nowrap; margin-top:4px; font-size:10.5px; font-weight:700; color:var(--ink); }
+  .region-pin.empty i { background:#94a3b8; }
+  .risk-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+  .risk-chip { font-size:10px; padding:3px 7px; border-radius:99px; background:#fff4dc; color:#9a5700; font-weight:700; }
+  .system-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .system-tile { border:1px solid var(--line); border-radius:10px; padding:13px; cursor:pointer; background:#fff; text-align:left; }
+  .system-tile:hover, .ss-card:hover { border-color:var(--blue); box-shadow:0 3px 12px rgba(11,92,171,.09); }
+  .system-tile b { display:block; font-size:14px; }
+  .system-tile small { color:var(--muted); }
+  .ss-list { display:grid; gap:8px; max-height:330px; overflow:auto; }
+  .ss-card { border:1px solid var(--line); border-radius:10px; padding:11px; cursor:pointer; background:#fff; }
+  .ss-card b { display:block; font-size:13px; }
+  .ss-card small { color:var(--muted); }
+  .empty-state { color:var(--muted); font-size:12px; padding:16px; text-align:center; border:1px dashed var(--line); border-radius:9px; }
+  @media(max-width:900px){ #portal{padding:16px}.portal-grid{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column}.jamali-map{height:220px} }
 
   main {
     flex: 1; min-height: 0;
@@ -174,7 +212,7 @@
   .sstree .pov small { display: block; color: var(--muted); font-weight: 400; }
 </style>
 </head>
-<body>
+<body class="mode-portal">
 <header>
   <div class="brand">
     <b>MANTAPS</b> &nbsp;<span class="sub">Peta Kerawanan</span>
@@ -183,8 +221,29 @@
   <div class="spacer"></div>
   <span class="hint" id="crumb"></span>
   <select id="scensel" title="Pola operasi"></select>
+  <button class="navlink" id="homebtn" type="button">Peta Jamali</button>
   <a class="navlink" href="/ingest" title="Tambah subsistem baru dari SLD">+ Tambah subsistem</a>
 </header>
+
+<section id="portal"><div class="portal-wrap">
+  <div class="hero">
+    <div><h1>Peta Kerawanan Sistem Jamali</h1><p>Snapshot topologi dan kerawanan sistem. Pilih wilayah UP2B, subsistem, atau proyeksi Sistem 500 kV untuk membuka SLD.</p></div>
+    <div class="metric"><b id="jamali-total">&ndash;</b><span>kerawanan tercatat</span></div>
+  </div>
+  <div class="portal-grid">
+    <div class="portal-card">
+      <h2>Wilayah UP2B</h2><div class="lead">Populasi dihitung per risk record; multiview tidak menggandakan angka.</div>
+      <div class="jamali-map" id="jamali-map">
+        <svg viewBox="0 0 900 210" aria-hidden="true"><path d="M38 82 C110 52 166 75 231 88 C300 103 350 69 425 78 C505 88 548 116 623 110 C699 104 765 65 829 82 L868 106 C803 127 736 134 667 137 C568 142 499 126 410 121 C309 116 219 143 127 125 C82 116 49 105 38 82Z" fill="#c8dfef" stroke="#8eb9d8" stroke-width="3"/><path d="M866 105 C881 96 893 98 898 111 C889 121 878 122 866 116Z" fill="#c8dfef" stroke="#8eb9d8" stroke-width="3"/></svg>
+      </div>
+      <div class="risk-chips" id="jamali-cats"></div>
+    </div>
+    <div style="display:grid;gap:16px">
+      <div class="portal-card"><h2>Sistem 500 kV</h2><div class="lead">Kerawanan sistem dan bayangan dampaknya tetap terpisah dari risiko lokal SS.</div><div class="system-grid" id="system500"></div></div>
+      <div class="portal-card"><h2 id="ss-heading">Subsistem tersedia</h2><div class="lead" id="ss-lead">Pilih pin UP2B untuk menyaring daftar.</div><div class="ss-list" id="portal-ss"></div></div>
+    </div>
+  </div>
+</div></section>
 
 <main>
   <!-- LEFT -->
@@ -272,7 +331,7 @@
 
 <script>
 const API = '';                       // same-origin FastAPI
-let VIEWS = [], SUBS = [], VIEW = null, GRAPH = null;
+let VIEWS = [], SUBS = [], SUMMARY = null, VIEW = null, GRAPH = null;
 let vb = null, vb0 = null;             // current / fit viewBox {x,y,w,h}
 const layerState = {};                 // group id -> bool
 
@@ -281,13 +340,24 @@ const $$ = s => [...document.querySelectorAll(s)];
 const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => (
   {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-async function j(p){ const r = await fetch(API + p); if(!r.ok) throw new Error(p+' '+r.status); return r.json(); }
-async function txt(p){ const r = await fetch(API + p); if(!r.ok) throw new Error(p+' '+r.status); return r.text(); }
+function resourcePath(p){
+  if(!window.STATIC_SNAPSHOT) return API+p;
+  if(p==='/api/views') return 'data/views.json';
+  if(p==='/api/subsystems') return 'data/subsystems.json';
+  if(p==='/api/dashboard/summary') return 'data/dashboard-summary.json';
+  let m=p.match(/^\/api\/views\/(\d+)\/graph$/); if(m) return `data/view-${m[1]}.json`;
+  m=p.match(/^\/api\/views\/(\d+)\/sld\.svg$/); if(m) return `data/view-${m[1]}.svg`;
+  return p;
+}
+async function j(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw new Error(p+' '+r.status); return r.json(); }
+async function txt(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw new Error(p+' '+r.status); return r.text(); }
 
 // ---------- boot ----------
 (async function boot(){
-  [VIEWS, SUBS] = await Promise.all([j('/api/views'), j('/api/subsystems')]);
+  if(window.STATIC_SNAPSHOT) document.querySelector('a[href="/ingest"]')?.remove();
+  [VIEWS, SUBS, SUMMARY] = await Promise.all([j('/api/views'), j('/api/subsystems'), j('/api/dashboard/summary')]);
   buildTree();
+  renderPortal();
 
   $$('.layer').forEach(l => {
     const g = l.dataset.group, cb = l.querySelector('input');
@@ -298,10 +368,52 @@ async function txt(p){ const r = await fetch(API + p); if(!r.ok) throw new Error
   $('#zin').onclick  = () => zoomBy(1/1.25);
   $('#zout').onclick = () => zoomBy(1.25);
   $('#zfit').onclick = () => { vb = {...vb0}; commitVB(); };
+  $('#homebtn').onclick = showPortal;
   wireStage();
+})().catch(e => {
+  showPortal();
+  $('#jamali-total').textContent = '!';
+  $('#jamali-cats').innerHTML = '<span class="risk-chip">data tidak tersedia</span>';
+  $('#system500').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Gagal memuat data dashboard.</div>';
+  $('#portal-ss').innerHTML = '<div class="empty-state">Jalankan aplikasi melalui FastAPI atau layani hasil build statis lewat HTTP. Detail: '+esc(e.message)+'</div>';
+});
 
-  if (VIEWS.length) selectView(VIEWS[0].id);
-})().catch(e => { $('#stage').innerHTML = '<p style="padding:16px;color:#b91c1c">'+esc(e.message)+'</p>'; });
+function showPortal(){
+  document.body.classList.remove('mode-viewer'); document.body.classList.add('mode-portal');
+  $('#crumb').textContent = 'JAMALI'; $('#scensel').style.display = 'none';
+}
+function riskChips(risk){
+  const cats = risk?.categories || {};
+  return Object.entries(cats).sort().map(([k,v]) => `<span class="risk-chip">${esc(k)} &middot; ${v}</span>`).join('')
+    || '<span class="muted" style="font-size:11px">Belum ada risiko</span>';
+}
+function renderPortal(){
+  document.body.classList.add('mode-portal');
+  $('#crumb').textContent = 'JAMALI'; $('#scensel').style.display = 'none';
+  $('#jamali-total').textContent = SUMMARY.risk.total;
+  $('#jamali-cats').innerHTML = riskChips(SUMMARY.risk);
+  const pos = [[14,55],[31,48],[51,51],[72,57],[91,52]];
+  $('#jamali-map').querySelectorAll('.region-pin').forEach(x => x.remove());
+  SUMMARY.regions.filter(r => r.key !== 'BELUM_DIPETAKAN').forEach((r,i) => {
+    const b=document.createElement('button'); b.className='region-pin'+(r.subsystems.length?'':' empty');
+    b.style.left=pos[i][0]+'%'; b.style.top=pos[i][1]+'%';
+    b.innerHTML=`<i>${r.risk.total}</i><span>${esc(r.name)}</span>`;
+    b.title=`${r.name}: ${r.subsystems.length} SS, ${r.risk.total} kerawanan`;
+    b.onclick=()=>renderSubsystems(r); $('#jamali-map').appendChild(b);
+  });
+  const groups=[['Transmisi','transmission'],['IBT','ibt']];
+  $('#system500').innerHTML=groups.map(([label,key])=>{const g=SUMMARY.system_500[key];return `<button class="system-tile" data-system="${key}" ${g.views.length?'':'disabled'}><b>${label}</b><small>${g.views.length} view &middot; ${g.risk.total} risiko</small>${riskChips(g.risk)}</button>`}).join('');
+  $$('#system500 [data-system]').forEach(b=>b.onclick=()=>{const g=SUMMARY.system_500[b.dataset.system];if(g.views.length)selectView(g.views[0].id)});
+  renderSubsystems(null);
+}
+function renderSubsystems(region){
+  const regions=SUMMARY.regions;
+  const list=region ? region.subsystems : regions.flatMap(r=>r.subsystems);
+  $('#ss-heading').textContent=region ? `SS ${region.name}` : 'Subsistem tersedia';
+  $('#ss-lead').innerHTML=region ? `${list.length} SS &middot; ${region.risk.total} kerawanan &nbsp; ${riskChips(region.risk)}` : 'Pilih pin UP2B untuk menyaring daftar.';
+  $('#portal-ss').innerHTML=list.length ? list.map(s=>`<div class="ss-card" data-sid="${s.id}"><b>${esc(s.name)}</b><small>${esc(s.code)} &middot; ${s.views.length} view &middot; ${s.risk.total} risiko</small><div class="risk-chips">${riskChips(s.risk)}</div></div>`).join('') : '<div class="empty-state">Belum ada snapshot SS untuk wilayah ini.</div>';
+  $$('#portal-ss [data-sid]').forEach(c=>c.onclick=()=>{const s=list.find(x=>x.id===+c.dataset.sid);if(s?.views.length)selectView(s.views[0].id)});
+}
 
 // ---------- UP2B -> SS -> point-of-view tree ----------
 function ssOf(id){ return SUBS.find(s => s.id === id) || null; }
@@ -361,6 +473,8 @@ function markTree(id){
 
 // ---------- view load ----------
 async function selectView(id){
+  document.body.classList.remove('mode-portal'); document.body.classList.add('mode-viewer');
+  $('#scensel').style.display = '';
   VIEW = VIEWS.find(v => v.id === id);
   const [svg, graph] = await Promise.all([
     txt(`/api/views/${id}/sld.svg`),

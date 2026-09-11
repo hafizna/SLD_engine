@@ -84,6 +84,97 @@ def list_views(db: Session = Depends(get_db)):
     ]
 
 
+def _risk_counts(rows):
+    counts: dict[str, int] = {}
+    for row in rows:
+        category = (row.category or "LAINNYA").upper()
+        counts[category] = counts.get(category, 0) + 1
+    return {"total": len(rows), "categories": counts}
+
+
+@router.get("/dashboard/summary")
+def dashboard_summary(db: Session = Depends(get_db)):
+    """One reconciled index for the Jamali landing page.
+
+    Risks are counted by RiskRecord, never by view, so a multiview subsystem
+    cannot inflate the population shown at Jamali or UP2B level.
+    """
+    subsystems = db.query(Subsystem).filter(Subsystem.active.is_(True)).all()
+    views = db.query(AnalyticalView).order_by(AnalyticalView.id).all()
+    risks = db.query(RiskRecord).all()
+    views_by_ss: dict[int | None, list[AnalyticalView]] = {}
+    risks_by_ss: dict[int | None, list[RiskRecord]] = {}
+    for view in views:
+        views_by_ss.setdefault(view.subsystem_id, []).append(view)
+    for risk in risks:
+        risks_by_ss.setdefault(risk.subsystem_id, []).append(risk)
+
+    def region_key(apb: str | None) -> str:
+        value = (apb or "").upper()
+        if "JAKARTA" in value or "BANTEN" in value or value == "JBB":
+            return "JAKARTA_BANTEN"
+        if "BARAT" in value or "JABAR" in value:
+            return "JAWA_BARAT"
+        if "TENGAH" in value or "DIY" in value or "JATENG" in value:
+            return "JAWA_TENGAH_DIY"
+        if "TIMUR" in value or "JATIM" in value:
+            return "JAWA_TIMUR"
+        if "BALI" in value:
+            return "BALI"
+        return "BELUM_DIPETAKAN"
+
+    region_names = {
+        "JAKARTA_BANTEN": "Jakarta & Banten", "JAWA_BARAT": "Jawa Barat",
+        "JAWA_TENGAH_DIY": "Jawa Tengah & DIY", "JAWA_TIMUR": "Jawa Timur",
+        "BALI": "Bali", "BELUM_DIPETAKAN": "Belum dipetakan",
+    }
+    regions = {key: {"key": key, "name": name, "subsystems": [], "risks": []}
+               for key, name in region_names.items()}
+    system_ss_ids = {
+        v.subsystem_id for v in views
+        if v.rule_profile in {"BACKBONE_500", "IBT_500_150"} and v.subsystem_id is not None
+    }
+    for subsystem in subsystems:
+        if subsystem.id in system_ss_ids:
+            continue
+        region = regions[region_key(subsystem.apb)]
+        ss_risks = risks_by_ss.get(subsystem.id, [])
+        region["risks"].extend(ss_risks)
+        region["subsystems"].append({
+            "id": subsystem.id, "code": subsystem.code, "name": subsystem.name,
+            "apb": subsystem.apb, "risk": _risk_counts(ss_risks),
+            "views": [{"id": v.id, "key": v.view_key, "name": v.name}
+                      for v in views_by_ss.get(subsystem.id, [])],
+        })
+    region_out = []
+    for region in regions.values():
+        region["risk"] = _risk_counts(region.pop("risks"))
+        if region["subsystems"] or region["key"] != "BELUM_DIPETAKAN":
+            region_out.append(region)
+
+    def system_group(profile: str):
+        selected = [v for v in views if v.rule_profile == profile]
+        ss_ids = {v.subsystem_id for v in selected}
+        selected_risks = [r for r in risks if r.subsystem_id in ss_ids]
+        return {
+            "risk": _risk_counts(selected_risks),
+            "views": [{"id": v.id, "key": v.view_key, "name": v.name}
+                      for v in selected],
+        }
+
+    local_risks = [r for r in risks if r.subsystem_id not in system_ss_ids]
+    system_risks = [r for r in risks if r.subsystem_id in system_ss_ids]
+    return {
+        "scope": "JAMALI", "risk": _risk_counts(local_risks + system_risks),
+        "local_risk": _risk_counts(local_risks), "system_risk": _risk_counts(system_risks),
+        "regions": region_out,
+        "system_500": {
+            "transmission": system_group("BACKBONE_500"),
+            "ibt": system_group("IBT_500_150"),
+        },
+    }
+
+
 @router.post("/views")
 def create_view(payload: CreateViewIn, db: Session = Depends(get_db)):
     v = AnalyticalView(**payload.model_dump())

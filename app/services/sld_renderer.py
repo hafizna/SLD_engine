@@ -55,14 +55,17 @@ def _view_title(db: Session, view: AnalyticalView) -> str:
         return f"SS {ss.name} — {view.name}"
     return f"SS {ss.name}"
 
-VOLT_COLOR = {500: "#0047AB", 275: "#00A6D6", 150: "#C00000", 70: "#E6B800", 20: "#E67300"}
+VOLT_COLOR = {
+    500: "#0047AB", 275: "#00A6D6", 150: "#C00000",
+    70: "#E6B800", 66: "#E6B800", 30: "#39C96B", 20: "#E67300",
+}
 
 # busbar styling by status (colour, dash)
 STATUS_STROKE = {
     "ENERGIZED": None,               # -> voltage colour
     "NEW_NOT_ENERGIZED": "#111111",  # black busbar = planned / not yet energised
     "PLANNED": "#9AA0A6",
-    "DE_ENERGIZED": "#C0392B",
+    "DE_ENERGIZED": "#9AA0A6",
     "OWNED_BY_CUSTOMER": "#7A5C00",
 }
 STATUS_DASH = {
@@ -75,17 +78,23 @@ STATUS_DASH = {
 
 
 def _circuit_style(c):
-    """(stroke, dash) for a circuit, from its type first, then its status."""
-    if c.status in ("NEW_NOT_ENERGIZED", "PLANNED"):
-        return "#111111", "3 6"            # RENCANA = black dashed
+    """Return a P2B-compatible (stroke, dash) for a circuit.
+
+    Colour carries the electrical voltage while dash carries the conductor
+    type.  Operational status may override both, matching the busbar legend.
+    """
+    if c.status == "NEW_NOT_ENERGIZED":
+        return STATUS_STROKE["NEW_NOT_ENERGIZED"], STATUS_DASH["NEW_NOT_ENERGIZED"]
+    if c.status == "PLANNED":
+        return STATUS_STROKE["PLANNED"], STATUS_DASH["PLANNED"]
     if c.status == "DE_ENERGIZED":
-        return "#9AA0A6", "none"           # OFF = grey solid
+        return "#9AA0A6", STATUS_DASH["DE_ENERGIZED"]
     ct = (c.circuit_type or "SUTT").upper()
     if ct in ("SKTT", "SKLT"):
-        return "#C00000", "7 5"            # cable = red dashed
+        return _vcol(c.voltage_kv), "7 5"   # cable = dashed, voltage still owns colour
     if ct == "IBT_LINK":
         return "#8a6a3a", "none"
-    return "#C00000", "none"               # SUTT / SUTET = solid
+    return _vcol(c.voltage_kv), "none"       # SUTT / SUTET = solid
 
 BAY_SLOT = 46          # horizontal space per attachment (bay / circuit / trafo)
 BUS_MIN_HALF = 55      # minimum busbar half-length
@@ -167,6 +176,18 @@ def _sym_generator(x, y, color):
     )
 
 
+def _sym_solar(x, y, color):
+    """PLTS/PV source: inverter panel symbol used by the P2B SLD."""
+    return (
+        f'<g stroke="{color}" fill="none" stroke-width="1.7">'
+        f'<line x1="{x:.1f}" y1="{y:.1f}" x2="{x:.1f}" y2="{y + 5:.1f}"/>'
+        f'<rect x="{x - 10:.1f}" y="{y + 5:.1f}" width="20" height="24"/>'
+        f'<path d="M{x - 7:.1f},{y + 26:.1f} L{x:.1f},{y + 9:.1f} '
+        f'L{x + 7:.1f},{y + 26:.1f} Z"/>'
+        f'</g>'
+    )
+
+
 def render_view_svg(db: Session, view: AnalyticalView) -> str:
     nodes, edges, roles, seeds, _ = get_view_graph(db, view)
     tier = calculate_tier(db, view)
@@ -177,6 +198,25 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     if not subs:
         return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120">'
                 '<text x="20" y="60" font-family="Arial" font-size="14">No substations in view</text></svg>')
+
+    # A generator outlet is an actual source busbar even when it has only one
+    # transmission neighbour. Leaf classification must not collapse it into a
+    # hanging bay; otherwise the generator symbol survives but its lead has no
+    # bus position to connect to.
+    generator_outlets = {g.outlet_substation_id for g in gens.values() if g.outlet_substation_id in subs}
+    core_ids.update(generator_outlets)
+    for sid in generator_outlets:
+        spur.pop(sid, None)
+
+    # The backbone contains dozens of same-voltage GITETs. It needs a denser
+    # drawing grid than an operational subsystem SLD, while retaining enough
+    # room for two-circuit bundles and bridge arcs.
+    compact_500 = view.rule_profile == "BACKBONE_500"
+    bay_slot = BAY_SLOT
+    bus_min_half = BUS_MIN_HALF
+    layout_gutter = 54 if compact_500 else 110
+    margin_x = 88 if compact_500 else MARGIN_X
+    edge_margin = 44 if compact_500 else EDGE_MARGIN
 
     loads = {sid: symbol_count(s.symbol_note, 'transformer', s.has_transformer) for sid, s in subs.items()}
     capacitors = {sid: symbol_count(s.symbol_note, 'capacitor', s.has_shunt_capacitor) for sid, s in subs.items()}
@@ -197,6 +237,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if b.feeder_substation_id:
             bays_by_feeder[b.feeder_substation_id].append(b)
             bay_gi_ids.add(b.substation_id)
+
+    def _bay_note_count(b):
+        m = re.search(r"circuit_count\s*=\s*(\d+)", b.note or "", re.I)
+        return max(1, int(m.group(1))) if m else 1
+
+    bay_counts = {b.id: _bay_note_count(b) for b in bay_rows}
 
     risk_on: dict[tuple[str, int], list[int]] = defaultdict(list)
     if view.subsystem_id:
@@ -277,16 +323,17 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     for sid in drawn_ids:
         s = subs[sid]
         n = (loads[sid] if sid not in gitet_feeds else 0) + capacitors[sid]
-        n += len(bays_by_feeder.get(sid, []))
-        n += sum(1 for spr, fd in spur.items()
-                 if fd == sid and spr not in bay_gi_ids and spr not in gitet_feeds)
+        n += sum(bay_counts[b.id] for b in bays_by_feeder.get(sid, []))
+        n += sum(max(1, c.circuit_count or 1) for spr, fd in spur.items()
+                 for c in edges if fd == sid and spr not in bay_gi_ids and spr not in gitet_feeds
+                 and {c.from_substation_id, c.to_substation_id} == {spr, fd})
         n += sum(1 for c in line_edges if sid in (c.from_substation_id, c.to_substation_id))
         n += sum(len(ls) for (hv, lv), ls in ibt_links_by_pair.items() if lv == sid)
         n += sum(1 for g in gens.values() if g.outlet_substation_id == sid)
         att[sid] = max(n, 2)
 
     def bus_half(sid: int) -> float:
-        return max(BUS_MIN_HALF, att[sid] * BAY_SLOT / 2)
+        return max(bus_min_half, att[sid] * bay_slot / 2)
 
     # ---- rows keyed by fractional Tier --------------------------------
     # a GITET whose IBT chain feeds a LIVE bus sits just above that bus. A
@@ -313,20 +360,53 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # Use all connections, not the first encountered feeder as a parent.
     layout_links = [(c.from_substation_id, c.to_substation_id) for c in line_edges
                     if c.from_substation_id in row_of and c.to_substation_id in row_of]
-    # Allocate actual routing capacity between rows. The old six turn heights
-    # collided whenever more than six overlapping bundles shared a gap.
-    congestion = max((sum(min(row_of[a], row_of[b]) <= r < max(row_of[a], row_of[b])
-                          for a, b in layout_links) for r in rows), default=0)
-    row_height = max(220, 130 + congestion * 24)
-    y_at = lambda rk: 210 + (rk - 1) * row_height
+    # Allocate routing capacity per tier gap. A dense boundary can grow without
+    # forcing every other pair of tiers to inherit its height.
+    integer_tiers = list(range(1, max(1, int(max(row_of.values(), default=1))) + 1))
+    gap_height = {}
+    for t in integer_tiers[:-1]:
+        crossing = sum(min(row_of[a], row_of[b]) <= t < max(row_of[a], row_of[b])
+                       for a, b in layout_links)
+        gap_height[t] = (max(210, 120 + crossing * 20) if compact_500
+                         else max(220, 130 + crossing * 24))
+    tier_y = {1: 210.0}
+    for t in integer_tiers[:-1]:
+        tier_y[t + 1] = tier_y[t] + gap_height[t]
+
+    def y_at(rk):
+        lo = max(1, int(rk))
+        if rk == lo or lo not in gap_height:
+            return tier_y.get(lo, 210.0)
+        return tier_y[lo] + (rk - lo) * gap_height[lo]
     regular_rows = {sid: rk for sid, rk in row_of.items() if sid not in gitet_feeds}
     regular_links = [(a, b) for a, b in layout_links if a in regular_rows and b in regular_rows]
     pos = layered_positions(regular_rows, regular_links, bus_half,
-                            {sid: subs[sid].code for sid in regular_rows}, y_at)
+                            {sid: subs[sid].code for sid in regular_rows}, y_at,
+                            gutter=layout_gutter,
+                            virtual_gutter=18 if compact_500 else 24)
+    # Virtual ordering nodes may leave a completely empty vertical strip.
+    # Collapse such strips globally, moving every row on the right together so
+    # parent/child alignment remains intact and real busbar clearances remain.
+    target_strip = layout_gutter + (80 if compact_500 else 100)
+    while True:
+        intervals = sorted((x - bus_half(sid), x + bus_half(sid)) for sid, (x, y) in pos.items())
+        merged = []
+        for left, right in intervals:
+            if merged and left <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], right))
+            else:
+                merged.append((left, right))
+        gap = next(((a[1], b[0]) for a, b in zip(merged, merged[1:])
+                    if b[0] - a[1] > target_strip), None)
+        if not gap:
+            break
+        cut_left, cut_right = gap
+        shift = cut_right - cut_left - target_strip
+        pos = {sid: ((x - shift if x >= cut_right else x), y) for sid, (x, y) in pos.items()}
     for hv, lv in gitet_feeds.items():
         if hv in row_of and lv in pos:
             pos[hv] = (pos[lv][0], pos[lv][1] - 130)
-    W = max((x + bus_half(sid) for sid, (x, y) in pos.items()), default=800) + MARGIN_X
+    W = max((x + bus_half(sid) for sid, (x, y) in pos.items()), default=800) + margin_x
     gen_pos = {gid: (pos.get(gens[gid].outlet_substation_id, (W / 2, 0))[0],
                      pos.get(gens[gid].outlet_substation_id, (0, 210))[1] - 85)
                for gid, rk in gen_row.items()}
@@ -334,7 +414,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # Normalise automatic positions before applying saved coordinates. A saved
     # node must not be translated because an unrelated automatic node is < 0.
     auto_left = min((x - bus_half(sid) for sid, (x, y) in pos.items()), default=0)
-    auto_shift = MARGIN_X + EDGE_MARGIN - auto_left
+    auto_shift = margin_x + edge_margin - auto_left
     pos = {sid: (x + auto_shift, y) for sid, (x, y) in pos.items()}
     gen_pos = {gid: (x + auto_shift, y) for gid, (x, y) in gen_pos.items()}
 
@@ -391,13 +471,13 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # Once a person has arranged this view, don't translate their layout --
         # only clamp so nothing runs off the left edge. Pure auto-layout is
         # snapped to the margin to kill the dead gutter.
-        target_left = MARGIN_X + EDGE_MARGIN
+        target_left = margin_x + edge_margin
         shift = (target_left - left) if not saved else max(0.0, target_left - left)
         if abs(shift) > 0.5:
             pos = {sid: (x + shift, y) for sid, (x, y) in pos.items()}
             gen_pos = {gid: (x + shift, y) for gid, (x, y) in gen_pos.items()}
         right = max([_right_edge(sid) for sid in pos] + [p[0] + 20 for p in gen_pos.values()])
-        W = right + MARGIN_X + EDGE_MARGIN
+        W = right + margin_x + edge_margin
 
     all_y = [p[1] for p in pos.values()] + [p[1] for p in gen_pos.values()]
     H = max(all_y, default=210) + 180
@@ -539,11 +619,21 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             # this keeps the equipment symbol out of the middle of a dense bay row.
             rank = {"load": 0, "cap": 1, "ibt": 2, "gen": 3, "in": 4, "out": 5}
             group.sort(key=lambda it: (rank.get(it[1], 9), *_order_key(sid, it[1], it[2]), it[0]))
-            weights = [max(1, sum(len(ls) for (hv, lv), ls in ibt_links_by_pair.items()
-                                  if lv == sid)) if key == "ibt" else 1
-                       for key, _, _ in group]
+            weights = []
+            for key, _, _ in group:
+                if key == "ibt":
+                    weight = max(1, sum(len(ls) for (hv, lv), ls in ibt_links_by_pair.items() if lv == sid))
+                elif key.startswith("bay") and key[3:].isdigit():
+                    weight = bay_counts.get(int(key[3:]), 1)
+                elif key.startswith("spur") and key[4:].isdigit():
+                    spr = int(key[4:])
+                    weight = max([max(1, c.circuit_count or 1) for c in edges
+                                  if {c.from_substation_id, c.to_substation_id} == {sid, spr}] or [1])
+                else:
+                    weight = 1
+                weights.append(weight)
             total = sum(weights)
-            pitch = min(BAY_SLOT, (2 * bh - 32) / max(total, 1))
+            pitch = min(bay_slot, (2 * bh - 32) / max(total, 1))
             cursor = cx - total * pitch / 2
             for (key, kind, _), weight in zip(group, weights):
                 px = cursor + weight * pitch / 2
@@ -579,10 +669,11 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             if key[0] == sid:
                 PORT[key] += dx
         top_port_x[sid] = [px + dx for px in top_port_x[sid]]
-    W = max(W, max((x + bus_half(sid) for sid, (x, y) in pos.items()), default=0) + MARGIN_X)
+    W = max(W, max((x + bus_half(sid) for sid, (x, y) in pos.items()), default=0) + margin_x)
 
     p: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:.0f} {H}" '
+        f'data-layout-density="{"compact-500" if compact_500 else "standard"}" '
         f'font-family="Arial, Helvetica, sans-serif">',
         f'<rect width="{W:.0f}" height="{H}" fill="#ffffff"/>',
         f'<text x="18" y="26" font-size="14" font-weight="700" fill="#0f274a">'
@@ -600,7 +691,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         y = y_at(t)
         # boundary rule sits half a row ABOVE this tier's busbars (between it
         # and the tier above); the first tier's rule sits just above it.
-        by = y - (row_height / 2 if idx else 60)
+        previous_gap = y - y_at(t - 1) if t > 1 else 120
+        by = y - (previous_gap / 2 if idx else 60)
         p.append(f'<line x1="16" y1="{by:.0f}" x2="{W - 16:.0f}" y2="{by:.0f}" '
                  f'stroke="#b9c6d8" stroke-width="1.2" stroke-dasharray="6 5"/>')
         p.append(f'<rect x="14" y="{by - 9:.0f}" width="54" height="17" rx="3" '
@@ -638,7 +730,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     routes = []
     # Within a tier gap, reserve the long runs before shorter local ties.
     specs.sort(key=lambda z: (abs(z[2][1] - z[3][1]), -abs(z[2][0] - z[3][0]), z[0].code))
-    centres = route_bundles(pos, bus_half, specs, symbol_obstacles) if specs else {}
+    route_floor = min((y for x, y in pos.values()), default=0) + BUS_BOTTOM if compact_500 else None
+    centres = (route_bundles(pos, bus_half, specs, symbol_obstacles,
+                             min_route_y=route_floor) if specs else {})
     for c, first, start, end, last in specs:
         centre = centres[c.id]
         members = bundle_members[c.id]
@@ -751,8 +845,11 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # ---- generators --------------------------------------------
     p.append('<g id="generators">')
     for gid, g in gens.items():
+        if not g.tap_circuit_id and gid not in gen_pos:
+            continue
         standby = (g.status or "").upper() in ("STANDBY", "OFF")
         col = "#7c9a6a" if standby else "#0a8a3a"
+        is_solar = "PLTS" in f"{g.unit_type or ''} {g.name or ''}".upper()
         if g.tap_circuit_id:
             # a small plant that is NOT a GI (no in/out busbar) -- it sits ON an
             # existing circuit. Draw a node tapped ONTO a real segment of that
@@ -794,9 +891,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             p.append(f'<circle cx="{lx_:.1f}" cy="{ly_:.1f}" r="2.5" fill="{col}"/>')
             p.append(f'<path d="M{lx_:.1f},{ly_:.1f} L{nx:.1f},{ny:.1f}" stroke="{col}" stroke-width="1.4" '
                      f'stroke-dasharray="4 3"/>')
-            p.append(f'<circle cx="{nx:.1f}" cy="{ny:.1f}" r="4" fill="#ffffff" '
-                     f'stroke="{col}" stroke-width="2"/>')
-            p.append(f'<text x="{nx + 8:.1f}" y="{ny + 3:.1f}" font-size="9" '
+            if is_solar:
+                p.append(_sym_solar(nx, ny - 14, col))
+            else:
+                p.append(f'<circle cx="{nx:.1f}" cy="{ny:.1f}" r="4" fill="#ffffff" '
+                         f'stroke="{col}" stroke-width="2"/>')
+            p.append(f'<text x="{nx + 13 if is_solar else nx + 8:.1f}" y="{ny + 3:.1f}" font-size="9" '
                      f'fill="{col}">{esc(g.name)}{" (standby)" if standby else ""}</text>')
             p.append('</g>')
             continue
@@ -806,7 +906,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         _gp = "1" if ("GENERATING_UNIT", gid) in saved else "0"
         p.append(f'<g class="sld-node" data-node-kind="GENERATING_UNIT" data-node-id="{gid}" '
                  f'data-code="{esc(g.code)}" data-x="{gx:.1f}" data-y="{gy:.1f}" data-pinned="{_gp}">')
-        p.append(_sym_generator(gx, gy - 30, col))
+        p.append(_sym_solar(gx, gy - 30, col) if is_solar else _sym_generator(gx, gy - 30, col))
         p.append(f'<text x="{gx:.1f}" y="{gy - 42:.1f}" font-size="10" text-anchor="middle" '
                  f'fill="{col}">{esc(g.name)}</text>')
         if outlet:
@@ -868,20 +968,22 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         right_top_clear = not any(px > right_lim for px in tps)
         has_left_pin = any(risk_on.get(("TRANSFORMER", t.id)) for t in tx_by_sub.get(sid, []))
 
+        label_size = 10.5 if compact_500 else 12.5
+        label_halo = 'paint-order="stroke" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"'
         if is_gitet:
-            p.append(f'<text x="{x:.1f}" y="{y - 12:.1f}" font-size="11" font-weight="700" '
+            p.append(f'<text x="{x:.1f}" y="{y - 12:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
                      f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         elif centre_clear:
-            p.append(f'<text x="{x:.1f}" y="{y - 26:.1f}" font-size="11" font-weight="700" '
+            p.append(f'<text x="{x:.1f}" y="{y - 26:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
                      f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         elif right_room and right_top_clear:
-            p.append(f'<text x="{x + bh + 6:.1f}" y="{y + 3:.1f}" font-size="11" '
-                     f'font-weight="700" text-anchor="start" fill="#0f274a">{blabel}</text>')
+            p.append(f'<text x="{x + bh + 6:.1f}" y="{y + 3:.1f}" font-size="{label_size}" '
+                     f'font-weight="700" {label_halo} text-anchor="start" fill="#0f274a">{blabel}</text>')
         elif left_room and left_top_clear and not has_left_pin:
-            p.append(f'<text x="{x - bh - 6:.1f}" y="{y + 3:.1f}" font-size="11" '
-                     f'font-weight="700" text-anchor="end" fill="#0f274a">{blabel}</text>')
+            p.append(f'<text x="{x - bh - 6:.1f}" y="{y + 3:.1f}" font-size="{label_size}" '
+                     f'font-weight="700" {label_halo} text-anchor="end" fill="#0f274a">{blabel}</text>')
         else:
-            p.append(f'<text x="{x:.1f}" y="{y - 34:.1f}" font-size="11" font-weight="700" '
+            p.append(f'<text x="{x:.1f}" y="{y - 34:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
                      f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         p.append(f'<line x1="{x - bh:.1f}" x2="{x + bh:.1f}" y1="{y:.1f}" y2="{y:.1f}" '
                  f'stroke="{bstroke}" stroke-width="6"{da}/>')
@@ -934,6 +1036,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         return port(fid, k, pos[fid][0]) if fid in pos else 0.0
 
     STUB_LEN = 42   # every bay stub is exactly this long -- consistent, per the book
+    stub_pin_by_circuit = {}
 
     for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], _stub_x(it))):
         fx, fy = pos[feeder_id]
@@ -946,21 +1049,31 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             stroke, dash = "#9AA0A6", "none"
         da = f' stroke-dasharray="{dash}"' if dash != "none" else ""
         _bc = bay_circuit.get((feeder_id, gi.id))
+        if _bc:
+            stub_pin_by_circuit[_bc.id] = (sx + 16, sy - STUB_LEN / 2)
         _bc_attr = (f' data-circuit-id="{_bc.id}" data-circuit-code="{esc(_bc.code)}"'
                     if _bc else "")
+        bay_row = next((b for b in bay_rows if b.substation_id == gi.id and b.feeder_substation_id == feeder_id), None)
+        circuit_count = max(1, (_bc.circuit_count if _bc and _bc.circuit_count else
+                                bay_counts.get(bay_row.id, 1) if bay_row else 1))
         p.append(f'<g class="sld-bay" data-node-kind="SUBSTATION" data-node-id="{gi.id}" '
-                 f'data-code="{esc(gi.code)}"{_bc_attr}>'
+                 f'data-code="{esc(gi.code)}" data-circuit-count="{circuit_count}"{_bc_attr}>'
                  f'<title>{esc(gi.name)} [{esc(gi.code)}] - bay di bus {esc(subs[feeder_id].name)} '
                  f'({esc(status)}){" - " + esc(meta) if meta else ""}</title>')
-        p.append(f'<path d="M{sx:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
-                 f'stroke="{stroke}" stroke-width="1.8"{da}/>')
-        p.append(_cb(sx, fy + CB_GAP, stroke))
+        offsets = [(i - (circuit_count - 1) / 2) * WIRE_PITCH for i in range(circuit_count)]
+        for off in offsets:
+            px = sx + off
+            p.append(f'<path d="M{px:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
+                     f'stroke="{stroke}" stroke-width="2.1"{da}/>')
+            p.append(_cb(px, fy + CB_GAP, stroke))
         # A bay is ALWAYS just stub + CB + endpoint dot + code. It never gets a
         # transformer -- that is only for a GI with its own busbar. The code
         # (singkatan) is written below the dot, exactly as the book does it.
-        p.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
-        p.append(f'<text x="{sx:.1f}" y="{sy + 13:.1f}" font-size="8" '
-                 f'text-anchor="middle" fill="#6b7787">{esc(gi.code)}</text>')
+        for off in offsets:
+            p.append(f'<circle cx="{sx + off:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
+        p.append(f'<text x="{sx:.1f}" y="{sy + 15:.1f}" font-size="10" font-weight="700" '
+                 f'paint-order="stroke" stroke="#ffffff" stroke-width="3" '
+                 f'text-anchor="middle" fill="#334155">{esc(gi.code)}</text>')
         p.append('</g>')
     p.append('</g>')
 
@@ -986,11 +1099,13 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     p.append('<g id="overlay-risk">')
 
     def _pin(cx, cy, seqs):
-        return (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="9" fill="#F6C000" '
+        values = ",".join(str(q) for q in sorted(seqs))
+        return (f'<g class="risk-pin" data-risk-seqs="{esc(values)}">'
+                f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="9" fill="#F6C000" '
                 f'stroke="#B8860B" stroke-width="1.5"/>'
                 f'<text x="{cx:.1f}" y="{cy + 3:.1f}" font-size="9" font-weight="700" '
                 f'text-anchor="middle" fill="#5a4500">'
-                f'{esc(",".join(str(q) for q in sorted(seqs)))}</text>')
+                f'{esc(values)}</text></g>')
 
     for sid in drawn_ids:
         seqs = risk_on.get(("SUBSTATION", sid))
@@ -1007,6 +1122,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 u, v = max(zip(wire, wire[1:]), key=lambda e: abs(e[0][0] - e[1][0]) + abs(e[0][1] - e[1][1]))
                 px, py = (u[0] + v[0]) / 2, (u[1] + v[1]) / 2
                 p.append(_pin(px + (22 if u[0] == v[0] else 0), py - (20 if u[1] == v[1] else 0), seqs))
+    for cid, (px, py) in stub_pin_by_circuit.items():
+        seqs = risk_on.get(("CIRCUIT", cid))
+        if seqs:
+            p.append(_pin(px, py, seqs))
     for sid, tx_list in tx_by_sub.items():
         for t in tx_list:
             seqs = risk_on.get(("TRANSFORMER", t.id))
@@ -1024,6 +1143,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         bottom = max(H, max(y for x, y in route_points) + 80)
         p[0] = (f'<svg xmlns="http://www.w3.org/2000/svg" '
                 f'viewBox="{left:.1f} {top:.1f} {right-left:.1f} {bottom-top:.1f}" '
+                f'data-layout-density="{"compact-500" if compact_500 else "standard"}" '
                 f'font-family="Arial, Helvetica, sans-serif">')
         p[1] = f'<rect x="{left}" y="{top}" width="{right-left}" height="{bottom-top}" fill="#ffffff"/>'
     return "".join(p)
