@@ -104,6 +104,11 @@ render semua view -> invariant geometri. Laporan rinci ditulis ke
 | SS Pelabuhan Ratu-Salak-Cibinong 1,2-Depok 2 | 2 | **FAIL: 1 near-continuation** |
 | SS Bekasi 1,3-Cibinong 3 | 1 | PASS |
 | SS Gandul 2,4 | 1 | PASS |
+| SS New Tambun (Jabar) | 1 | PASS |
+| SS Sukatani 1,2 (Jabar) | 1 | PASS |
+| SS Tasikmalaya 1,2 (Jabar) | 1 | PASS |
+| SS Cibatu 1,2-Deltamas 1,2 (Jabar) | 1 | PASS |
+| SS Cirata 1,2,3 (Jabar) | 1 | PASS |
 | SS Pemalang 1,2 (Jateng) | 1 | PASS |
 | SS Boyolali 1,2 (Jateng) | 1 | PASS |
 | SS Kesugihan 1,2 (Jateng) | 1 | PASS |
@@ -112,11 +117,37 @@ render semua view -> invariant geometri. Laporan rinci ditulis ke
 | SS Paiton 1,2,3 (Jatim) | 1 | PASS |
 | Backbone 500 kV | 1 | **FAIL: 1 near-continuation** (turun dari 2 temuan) |
 
-Dengan demikian delapan belas SS dapat diparse dan dirender. SS GUCL, SS PRBC dan
-SS Pelabuhan Ratu masih memiliki temuan near-continuation. Backbone 500 kV
+Dengan demikian dua puluh tiga SS dapat diparse dan dirender. SS GUCL, SS PRBC
+dan SS Pelabuhan Ratu masih memiliki temuan near-continuation. Backbone 500 kV
 dihitung sebagai fixture sistem tersendiri. Fixture berstatus FAIL tidak boleh
 dinyatakan production-ready atau dipakai sebagai bukti bahwa renderer sudah
 menangani semua pola.
+
+### Perluasan ke UP2B Jawa Barat
+
+Lima dari tujuh subsistem Jawa Barat sudah dibangkitkan; sisa dua (Cibatu 3,4 -
+PLTU Indramayu - Mandirancan 1,2 dengan 19 kerawanan, dan Bandung Selatan 1,2 -
+New Ujungberung 1,2 dengan 12) belum dikerjakan.
+
+| Subsistem | Sec | Halaman tabel | Aset | Ruas | Kerawanan |
+|---|---|---|---:|---:|---:|
+| New Tambun | 3.8 | 136-137 | 10 | 7 | 2 |
+| Sukatani 1,2 | 3.9 | 138-140 | 11 | 8 | 2 |
+| Tasikmalaya 1,2 | 3.7 | 133-135 | 16 | 11 | 5 |
+| Cibatu 1,2 - Deltamas 1,2 | 3.5 | 123-126 | 30 | 23 | 8 |
+| Cirata 1,2,3 | 3.4 | 119-122 | 37 | 29 | 10 |
+
+Rentang halaman tabel diambil dari penomoran risiko per halaman, BUKAN dari
+halaman judul seksi. Tabel satu subsistem berlanjut melewati judul seksi
+berikutnya, sehingga rentang berbasis judul diam-diam menarik baris tetangga --
+New Tambun sempat membawa risiko #5 milik Tasikmalaya. `as_risk_dicts` sekarang
+menolak rentang yang penomorannya bukan 1..N berurutan.
+
+Kotak abu-abu dengan nama pemilik dalam kurung pada Gambar 3.4-3.12 adalah aset
+subsistem tetangga, bukan GI subsistem tersebut, dan dimodelkan SOURCE_BOUNDARY.
+Beberapa di antaranya sudah muncul dari sisi seberang: TMBUN pada sheet New
+Tambun, BKASI/KSBRU/DWUAN pada sheet Bekasi 1,3 - Cibinong 3, dan MNANG pada
+sheet Kesugihan 1,2.
 
 ### UP2B Jakarta & Banten lengkap + perbaikan renderer IBT 150/70
 
