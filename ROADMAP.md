@@ -112,16 +112,54 @@ render semua view -> invariant geometri. Laporan rinci ditulis ke
 | SS Pemalang 1,2 (Jateng) | 1 | PASS |
 | SS Boyolali 1,2 (Jateng) | 1 | PASS |
 | SS Kesugihan 1,2 (Jateng) | 1 | PASS |
+| SS Cibatu 3,4-PLTU Indramayu-Mandirancan 1,2 (Jabar) | 2 | PASS |
+| SS Bandung Selatan 1,2-New Ujungberung 1,2 (Jabar) | 2 | PASS |
+| SS Tanjung Jati 1,2-Ungaran 3 (Jateng) | 1 | PASS |
+| SS Ungaran 1,2 (Jateng) | 1 | PASS |
+| SS Pedan 1,2 (Jateng) | 1 | PASS |
+| SS Pedan 3,4 (Jateng) | 1 | PASS |
 | SS Krian 3,4,5,6 (Jatim) | 1 | PASS |
 | SS Kediri 1,2 (Jatim) | 1 | PASS |
 | SS Paiton 1,2,3 (Jatim) | 1 | PASS |
+| SS Krian 1,2-Gresik 1,2 (Jatim) | 1 | PASS |
+| SS Ngimbang (Jatim) | 1 | PASS |
+| SS Kediri 3,4 (Jatim) | 1 | PASS |
+| SS Grati 1,2,3 (Jatim) | 1 | PASS |
 | Backbone 500 kV | 1 | **FAIL: 1 near-continuation** (turun dari 2 temuan) |
 
-Dengan demikian dua puluh tiga SS dapat diparse dan dirender. SS GUCL, SS PRBC
-dan SS Pelabuhan Ratu masih memiliki temuan near-continuation. Backbone 500 kV
-dihitung sebagai fixture sistem tersendiri. Fixture berstatus FAIL tidak boleh
-dinyatakan production-ready atau dipakai sebagai bukti bahwa renderer sudah
-menangani semua pola.
+**Seluruh 32 subsistem Buku Kerawanan SJB 2026 sudah dibangkitkan**, mencakup
+kelima UP2B. SS GUCL dan SS Pelabuhan Ratu masih memiliki temuan
+near-continuation; SS PRBC sudah lulus setelah dipecah menjadi tiga view.
+Backbone 500 kV dihitung sebagai fixture sistem tersendiri. Fixture berstatus
+FAIL tidak boleh dinyatakan production-ready atau dipakai sebagai bukti bahwa
+renderer sudah menangani semua pola.
+
+### Cakupan per UP2B
+
+| UP2B | Subsistem | Catatan |
+|---|---:|---|
+| Jakarta & Banten | 11 | lengkap |
+| Jawa Barat | 7 | lengkap; 2 multiview |
+| Jawa Tengah & DIY | 7 | lengkap |
+| Jawa Timur | 7 | lengkap |
+| Bali | 1 | lengkap |
+
+Temuan lintas-sheet yang muncul selama penelusuran:
+
+* **Hijau = pembangkit**, bukan kelas tegangan. Sekunder 20 kV digambar oranye
+  seperti sekunder trafo lain. Salah membaca ini sempat menghilangkan PLTA Jelok
+  dan Timo dari Boyolali, serta PLTA Mrica/Dieng/Garung/Wadaslintang dari
+  Kesugihan.
+* Buku memakai lima kelas tegangan: 500, 150, 70, **66** dan 20 kV. Rasio 150/66
+  hanya ada di GI Sunyaragi, dan kerawanan #11 Cibatu 3,4 justru tentang IBT
+  150/70 dan 150/66 di situ yang tidak bisa paralel. **30 kV tidak ada** di
+  dokumen ini.
+* Kotak batas bertuliskan pemiliknya dalam kurung terbukti konsisten dua arah:
+  TMBUN, BKASI/KSBRU/DWUAN, MNANG, WATES, NGAWI, CEPU dan PCTAN semuanya muncul
+  dari kedua sisi, sehingga trace dua sheet bisa saling memeriksa.
+* Lampiran (tanpa pop-up risiko) lebih terbaca daripada Gambar per-seksi untuk
+  membaca simbol dan kapasitas; Gambar per-seksi lebih baik untuk Tier dan pin
+  kerawanan.
 
 ### Perluasan ke UP2B Jawa Barat
 

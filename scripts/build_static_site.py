@@ -62,13 +62,18 @@ def build() -> None:
                      # UP2B Jawa Barat
                      "ss_cirata_ingest.xlsx", "ss_cbatu12_dltms_ingest.xlsx",
                      "ss_tasik_ingest.xlsx", "ss_ntmbn_ingest.xlsx",
-                     "ss_sktni_ingest.xlsx",
+                     "ss_sktni_ingest.xlsx", "ss_cbatu34_mdrcn_ingest.xlsx",
+                     "ss_bdgsel_nubrg_ingest.xlsx",
                      # UP2B Jawa Tengah & DIY
                      "ss_pmlng_ingest.xlsx", "ss_byoli_ingest.xlsx",
-                     "ss_ksghn_ingest.xlsx",
+                     "ss_ksghn_ingest.xlsx", "ss_tjati_ungaran3_ingest.xlsx",
+                     "ss_ungaran12_ingest.xlsx", "ss_pedan12_ingest.xlsx",
+                     "ss_pedan34_ingest.xlsx",
                      # UP2B Jawa Timur
                      "ss_krian3456_ingest.xlsx", "ss_kediri12_ingest.xlsx",
-                     "ss_paiton123_ingest.xlsx",
+                     "ss_paiton123_ingest.xlsx", "ss_krian12_gresik_ingest.xlsx",
+                     "ss_ngimbang_ingest.xlsx", "ss_kediri34_ingest.xlsx",
+                     "ss_grati_ingest.xlsx",
                      # UP2B Bali
                      "ss_bali_ingest.json"):
             seed_xlsx_fixture(db, ROOT / "samples" / name)
