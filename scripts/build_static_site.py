@@ -54,7 +54,8 @@ def build() -> None:
         # Remaining reviewed workbook fixtures. LBK/BLL/CWD use dedicated
         # seeders above; shared physical GI rows are reused across SS.
         for name in ("ss_dkgd_ingest.xlsx", "ss_gucl_ingest.xlsx",
-                     "ss_prbc_ingest.xlsx", "ss_slcg_ingest.xlsx"):
+                     "ss_prbc_ingest.xlsx", "ss_slcg_ingest.xlsx",
+                     "ss_muarakarang_durikosambi_ingest.xlsx"):
             seed_xlsx_fixture(db, ROOT / "samples" / name)
 
     from app.main import app  # imports after DB is ready

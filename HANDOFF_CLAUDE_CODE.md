@@ -45,8 +45,8 @@ dan warna tegangan tidak boleh berubah.
   `data/dashboard-summary.json`; file duplikat `scripts/static_index.html`
   dihapus.
 - Test API memastikan enam risiko SS_LBK tidak menjadi dua kali karena dua view.
-- Static build sekarang memuat tujuh SS repo (LBK, BLL, CWD, DKGD, GUCL,
-  PRBC, SLCG) dan backbone 500. Navigasi viewer Sistem 500 dipisahkan dari
+- Static build sekarang memuat delapan SS repo (LBK, BLL, CWD, DKGD, GUCL,
+  PRBC, SLCG, Muarakarang-Durikosambi) dan backbone 500. Navigasi viewer Sistem 500 dipisahkan dari
   pohon UP2B/SS.
 - Jalur metadata `Latitude`/`Longitude` sudah tersedia dari parser -> draft ->
   canonical Substation -> graph API. Longitude menjadi soft ordering hint hanya

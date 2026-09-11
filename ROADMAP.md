@@ -120,7 +120,7 @@ Status: **in progress**. Shell FastAPI dan snapshot statis sekarang memakai
 satu `app/static/index.html`, memiliki landing Jamali, lima titik UP2B, populasi
 risiko per kategori, kartu Sistem 500 kV Transmisi/IBT, daftar SS, serta jalur
 kembali dari viewer. API agregasi menghitung `RiskRecord`, bukan kemunculan per
-view. Snapshot statis memuat tujuh SS dari workbook repo dan satu backbone 500
+view. Snapshot statis memuat delapan SS dari workbook repo dan satu backbone 500
 kV. Workspace Sistem 500 dipisahkan dari navigasi SS agar backbone tidak tampil
 sebagai subsistem. QA visual responsif dan data fixture lima UP2B masih perlu
 dilengkapi.

@@ -97,7 +97,10 @@ def main() -> int:
     backbone = ROOT / "samples" / "backbone_500_ingest.xlsx"
     if backbone.exists():
         paths.append(backbone)
-    if EXTERNAL_FINAL.exists() and EXTERNAL_FINAL.resolve() not in {p.resolve() for p in paths}:
+    # Once the final workbook is checked into samples, do not audit the local
+    # authoring copy a second time under the same subsystem code.
+    if (EXTERNAL_FINAL.exists()
+            and EXTERNAL_FINAL.name not in {p.name for p in paths}):
         paths.append(EXTERNAL_FINAL)
 
     rows = [audit_one(path) for path in paths]
