@@ -322,9 +322,9 @@
       "status_hint": "ENERGIZED",
       "confidence": 0.85,
       "outlet_key": null,
-      "is_bay": true,
-      "bay_feeder_key": "GILIMANUK",
-      "bay_circuit_count": 4,
+      "is_bay": false,
+      "bay_feeder_key": null,
+      "bay_circuit_count": null,
       "role_hint": "BOUNDARY"
     },
     {
@@ -401,24 +401,19 @@
       "bay_feeder_key": null,
       "bay_circuit_count": null,
       "role_hint": null
-    },
-    {
-      "external_key": "PLTD_SEWA_KUBU",
-      "object_type": "GENERATING_UNIT",
-      "raw_label": "PLTD Sewa Bali Tahap 3",
-      "site_name": "PLTD Sewa Bali Tahap 3",
-      "voltage_hv_kv": 150,
-      "tier_hint": 0,
-      "status_hint": "ENERGIZED",
-      "confidence": 0.85,
-      "outlet_key": "KUBU",
-      "is_bay": false,
-      "bay_feeder_key": null,
-      "bay_circuit_count": null,
-      "role_hint": null
     }
   ],
   "connections": [
+    {
+      "from_external_key": "BANYUWANGI",
+      "to_external_key": "GILIMANUK",
+      "relation_type": "CONNECTED_TO",
+      "circuit_type_hint": "SKLT",
+      "status_hint": "ENERGIZED",
+      "circuit_count": 4,
+      "confidence": 0.8,
+      "note": "Traced from Appendix-5; verify circuit label against native SLD."
+    },
     {
       "from_external_key": "GILIMANUK",
       "to_external_key": "NEGARA",
@@ -737,8 +732,8 @@
       "impact": "1. Pengoperasian SKLT 1,2 tidak dapat maksimum. 2. Akan terjadi over voltage ketika Bali terpisah dengan Jawa (Island Operation). 3. Pembebanan SKLT tidak maksimal dan terdapat potensi penggunaan BBM jika beban sub sistem Bali di atas 832 MW.",
       "mitigation": "1. Pembebanan SKLT 1–2 tidak dibebani di atas 450 A. 2. Pembatasan transfer agar OLS tidak bekerja pada kontigensi N–1, pembebanan SKLT dibatasi 270 MW. 3. Pengaktifan OVR kapasitor pada setting 157,5 kV dengan 2 tahap.",
       "follow_up": "JangkaPendek: 1. Usulan pengaktifan mode AVR (P konstan / V konstan) di Pembangkit PLTU Celukan Bawang (IPP), diusulkan COD di 2026. (Akan koordinasi dan bersurat ke PT GEB PLTU Celukan Bawang) 2. Mempercepat pembangunan GITET 500 kV Watudodol/Kalipuro beserta line bay terkait. (Berdasarkan RUPTL 2025 – 2034, COD Tahun 2025) Mundur COD Desember 2028. 3. Pembangunan SUTET 500 kV Paiton – Kalipuro. (Berdasarkan RUPTL 2025 – 2034, COD Tahun 2026) Mundur COD Desember 2028). Jangka Menengah: 4. Pembangunan proyek Jawa Bali Connection (JBC) beserta seluruh lingkup terkait. (RUPTL 2025–2034, COD di 2030).",
-      "pin_kind": "SUBSTATION",
-      "pin_key": "BANYUWANGI"
+      "pin_kind": "CIRCUIT",
+      "pin_key": "BANYUWANGI-GILIMANUK"
     },
     {
       "seq_no": 4,

@@ -100,11 +100,11 @@ render semua view -> invariant geometri. Laporan rinci ditulis ke
 | SS Priok-Bekasi-Cawang | 2 | **FAIL: 1 near-continuation** |
 | SS Suralaya-Cilegon | 1 | PASS |
 | SS Muarakarang-Durikosambi (template final eksternal) | 2 | PASS |
-| SS Bali | 1 | **FAIL: 1 near-continuation** |
+| SS Bali | 1 | PASS (accepted visual review) |
 | Backbone 500 kV | 1 | **FAIL: 1 near-continuation** (turun dari 2 temuan) |
 
-Dengan demikian sembilan SS dapat diparse dan dirender, tetapi SS Bali,
-SS GUCL, dan SS PRBC masih memiliki temuan near-continuation. Backbone 500 kV
+Dengan demikian sembilan SS dapat diparse dan dirender. SS GUCL dan SS PRBC
+masih memiliki temuan near-continuation. Backbone 500 kV
 dihitung sebagai fixture sistem tersendiri. Fixture berstatus FAIL tidak boleh
 dinyatakan production-ready atau dipakai sebagai bukti bahwa renderer sudah
 menangani semua pola.
@@ -140,7 +140,7 @@ perbaikan: bus 150 kV pada GUCL tetap merah, hanya `GITET_CLBRU` (sisi 500 kV)
 yang biru; backbone 500 kV seluruhnya biru `#0047AB`, bukan lagi campuran
 merah. Tidak ada override warna manual — hanya memulihkan parsing input.
 
-### Blocker near-continuation yang tersisa (5 temuan, 4 fixture)
+### Blocker near-continuation yang tersisa (4 temuan, 3 fixture)
 
 Root cause sudah diverifikasi: keempatnya adalah **pasangan dua sirkit yang
 TIDAK berbagi bus** (dikonfirmasi lewat endpoint check), jalurnya kebetulan
@@ -153,9 +153,6 @@ murni heuristik visual "berpotensi dibaca sebagai satu garis lurus".
 - `SS_GUCL_FULL`: `SUTT_MNA_KRWTU`/`SUTT_CLGON_MITSUI` (spacing=25.0, gap=35.2)
 - `SS_PRBC_PRIOK`: `SUTT_PLPNG20_PKRNG`/`SUTT_PLPRU_MGBSR` (spacing=14.0, gap=38.6)
 - `BACKBONE_500_JB_BACKBONE500`: `SUTT_GNDUL_DEPOK`/`SUTT_KMBNG_DKSBI` (spacing=32.0, gap=15.3)
-- `SS_BALI_FULL`: `SUTT_GILIMANUK_CELUKAN_BAWANG`/`SUTT_PESANGGARAN_SANUR`
-  (spacing=14.0, gap=32.0)
-
 Root cause arsitektural: grid `OrthogonalRouter` (`sld_layout.py`) memakai
 `CHANNEL_PITCH = 32` sebagai jarak antar-lane, sementara checker menandai
 "near-continuation" untuk jarak `<40`. Grid tidak dapat menjamin hasil >=40

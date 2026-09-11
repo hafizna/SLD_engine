@@ -75,7 +75,6 @@ def main():
         ("PLTG_PEMARON", "PLTG Pemaron 1-2", "GENERATING_UNIT", 0, "PEMARON"),
         ("PLTG_PESANGGARAN", "PLTG Pesanggaran 1-6", "GENERATING_UNIT", 0, "PESANGGARAN"),
         ("PLTDG_PESANGGARAN", "PLTDG Pesanggaran Blok 1-4", "GENERATING_UNIT", 0, "GIS_PESANGGARAN"),
-        ("PLTD_SEWA_KUBU", "PLTD Sewa Bali Tahap 3", "GENERATING_UNIT", 0, "KUBU"),
     ]
     objects = []
     for code, name, kind, tier, outlet in assets:
@@ -84,12 +83,12 @@ def main():
             "site_name": name, "voltage_hv_kv": 150, "tier_hint": tier,
             "status_hint": "ENERGIZED", "confidence": 0.85,
             "outlet_key": outlet,
-            "is_bay": code == "BANYUWANGI", "bay_feeder_key": "GILIMANUK" if code == "BANYUWANGI" else None,
-            "bay_circuit_count": 4 if code == "BANYUWANGI" else None,
+            "is_bay": False, "bay_feeder_key": None, "bay_circuit_count": None,
             "role_hint": "BOUNDARY" if code == "BANYUWANGI" else None,
         })
 
     links = [
+        ("BANYUWANGI", "GILIMANUK", 4),
         ("GILIMANUK", "NEGARA", 2), ("GILIMANUK", "CELUKAN_BAWANG", 2),
         ("CELUKAN_BAWANG", "PEMARON", 2), ("CELUKAN_BAWANG", "KAPAL", 2),
         ("PEMARON", "BATURITI", 2), ("NEGARA", "ANTOSARI", 2),
@@ -108,7 +107,11 @@ def main():
     ]
     connections = [{
         "from_external_key": a, "to_external_key": b, "relation_type": "CONNECTED_TO",
-        "circuit_type_hint": "SKTT" if {a, b} in ({"KAPAL", "PEMECUTAN_KELOD"}, {"NUSA_DUA", "PECATU"}, {"BANDARA", "PECATU"}) else "SUTT",
+        "circuit_type_hint": (
+            "SKLT" if {a, b} == {"BANYUWANGI", "GILIMANUK"}
+            else "SKTT" if {a, b} in ({"KAPAL", "PEMECUTAN_KELOD"}, {"NUSA_DUA", "PECATU"}, {"BANDARA", "PECATU"})
+            else "SUTT"
+        ),
         "status_hint": "PLANNED" if "PECATU" in (a, b) else "ENERGIZED",
         "circuit_count": count, "confidence": 0.8,
         "note": "Traced from Appendix-5; verify circuit label against native SLD.",
@@ -129,7 +132,7 @@ def main():
     }
     pins = {
         1: ("SUBSYSTEM", "SS_BALI"), 2: ("SUBSTATION", "CELUKAN_BAWANG"),
-        3: ("SUBSTATION", "BANYUWANGI"), 4: ("CIRCUIT", "PEMARON-BATURITI"),
+        3: ("CIRCUIT", "BANYUWANGI-GILIMANUK"), 4: ("CIRCUIT", "PEMARON-BATURITI"),
         5: ("CIRCUIT", "KAPAL-PEMECUTAN_KELOD"), 6: ("SUBSTATION", "KAPAL"),
         7: ("SUBSTATION", "GILIMANUK"), 8: ("SUBSTATION", "GIANYAR"),
         9: ("SUBSTATION", "PESANGGARAN"), 10: ("SUBSTATION", "GIS_PESANGGARAN"),

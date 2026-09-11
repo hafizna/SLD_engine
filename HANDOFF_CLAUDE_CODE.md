@@ -26,9 +26,8 @@ renderer, ingest, fixture, dokumentasi, dan Sprint A yang belum di-commit.
     (spacing 14, gap 38.6).
   - `BACKBONE_500_JB_BACKBONE500`: dua near-continuation:
     IDMYU-MDCAN / CWANG-GNDUL dan GNDUL-DEPOK / KMBNG-DKSBI.
-  - `SS_BALI_FULL`: GILIMANUK-CELUKAN_BAWANG / PESANGGARAN-SANUR
-    near-continuation (spacing 14, gap 32). Risiko 1-11 diekstrak dari Tabel
-    6.1; topologi ditelusuri dari Lampiran-5 Buku Kerawanan 2026.
+  - `SS_BALI_FULL` diterima melalui visual review user. Risiko 1-11 diekstrak
+    dari Tabel 6.1; topologi ditelusuri dari Lampiran-5 Buku Kerawanan 2026.
 - Laporan lengkap: `.render_tmp/sample-audit/workbook-audit.json` dan
   `.render_tmp/sample-audit/WORKBOOK_AUDIT.md` (generated, gitignored).
 
