@@ -401,6 +401,21 @@
       "bay_feeder_key": null,
       "bay_circuit_count": null,
       "role_hint": null
+    },
+    {
+      "external_key": "PLTD_SEWA_KUBU",
+      "object_type": "GENERATING_UNIT",
+      "raw_label": "PLTD Sewa Tahap 3 170 MW",
+      "site_name": "PLTD Sewa Tahap 3 170 MW",
+      "voltage_hv_kv": 150,
+      "tier_hint": 0,
+      "status_hint": "ENERGIZED",
+      "confidence": 0.85,
+      "outlet_key": "KUBU",
+      "is_bay": false,
+      "bay_feeder_key": null,
+      "bay_circuit_count": null,
+      "role_hint": null
     }
   ],
   "connections": [
@@ -423,6 +438,17 @@
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
       "unit_no": "3,4",
+      "confidence": 0.8,
+      "note": "Traced from Appendix-5; verify circuit label against native SLD."
+    },
+    {
+      "from_external_key": "GIS_PESANGGARAN",
+      "to_external_key": "PESANGGARAN",
+      "relation_type": "CONNECTED_TO",
+      "circuit_type_hint": "SKTT",
+      "status_hint": "ENERGIZED",
+      "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },

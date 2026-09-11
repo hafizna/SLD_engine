@@ -75,6 +75,7 @@ def main():
         ("PLTG_PEMARON", "PLTG Pemaron 1-2", "GENERATING_UNIT", 0, "PEMARON"),
         ("PLTG_PESANGGARAN", "PLTG Pesanggaran 1-6", "GENERATING_UNIT", 0, "PESANGGARAN"),
         ("PLTDG_PESANGGARAN", "PLTDG Pesanggaran Blok 1-4", "GENERATING_UNIT", 0, "GIS_PESANGGARAN"),
+        ("PLTD_SEWA_KUBU", "PLTD Sewa Tahap 3 170 MW", "GENERATING_UNIT", 0, "KUBU"),
     ]
     objects = []
     for code, name, kind, tier, outlet in assets:
@@ -90,6 +91,8 @@ def main():
     links = [
         ("BANYUWANGI", "GILIMANUK", 2, "1,2"),
         ("BANYUWANGI", "GILIMANUK", 2, "3,4"),
+        # Two AIS-GIS incomers shown on Single Line Bali 2026.
+        ("GIS_PESANGGARAN", "PESANGGARAN", 2),
         ("GILIMANUK", "NEGARA", 2), ("GILIMANUK", "CELUKAN_BAWANG", 2),
         ("CELUKAN_BAWANG", "PEMARON", 2), ("CELUKAN_BAWANG", "KAPAL", 2),
         ("PEMARON", "BATURITI", 2), ("NEGARA", "ANTOSARI", 2),
@@ -113,6 +116,7 @@ def main():
             "from_external_key": a, "to_external_key": b, "relation_type": "CONNECTED_TO",
             "circuit_type_hint": (
                 "SKLT" if {a, b} == {"BANYUWANGI", "GILIMANUK"}
+                else "SKTT" if {a, b} == {"GIS_PESANGGARAN", "PESANGGARAN"}
                 else "SKTT" if {a, b} in ({"KAPAL", "PEMECUTAN_KELOD"}, {"NUSA_DUA", "PECATU"}, {"BANDARA", "PECATU"})
                 else "SUTT"
             ),

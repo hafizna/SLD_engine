@@ -109,6 +109,13 @@ dihitung sebagai fixture sistem tersendiri. Fixture berstatus FAIL tidak boleh
 dinyatakan production-ready atau dipakai sebagai bukti bahwa renderer sudah
 menangani semua pola.
 
+Catatan sumber Bali: peta kerawanan Buku Kerawanan dipakai untuk Tier, nomor,
+dan konteks risiko. Daftar GI/GIS, hubungan penghantar, bus section, bay,
+trafo/kapasitor, dan pembangkit harus direkonsiliasi terhadap referensi rinci
+`Single Line Bali 2026`. `PESANGGARAN` (GI/AIS) dan `GIS_PESANGGARAN` adalah
+dua node berbeda; keduanya sudah ada di fixture, tetapi rincian bay/asetnya
+belum diaudit penuh terhadap referensi tersebut.
+
 ### Perbaikan sesi ini (11 September 2026, Claude Code)
 
 Dua defect nyata diperbaiki di root cause, bukan dilonggarkan di checker:

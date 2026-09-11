@@ -156,6 +156,9 @@ def test_bali_sklt_is_two_separated_pairs_from_source_boundary(client):
     sklt = [e for e in d["edges"]
             if {e["from_key"], e["to_key"]} == {"BANYUWANGI", "GILIMANUK"}]
     assert [(e["unit_no"], e["circuit_count"]) for e in sklt] == [("1,2", 2), ("3,4", 2)]
+    ais_gis = next(e for e in d["edges"]
+                   if {e["from_key"], e["to_key"]} == {"PESANGGARAN", "GIS_PESANGGARAN"})
+    assert ais_gis["circuit_type_hint"] == "SKTT" and ais_gis["circuit_count"] == 2
     risk = next(x for x in d["risks"] if x["seq_no"] == 3)
     assert risk["pin_key"] == "BANYUWANGI-GILIMANUK:1,2"
 
