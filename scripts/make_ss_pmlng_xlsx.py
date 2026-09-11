@@ -29,7 +29,7 @@ ASSETS = [
     # -- 500 kV GITET (shares its code with the 150 kV bus -> parser auto-splits) --
     dict(code="PMLNG7", name="GITET Pemalang", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="IBT 1 PMLNG7", name="IBT 1,2 Pemalang 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus150="NBTNG", trafo=2,
+         tier=2, kv="500/150 kV", ibt="1", bus_hv="PMLNG7", bus_lv="NBTNG", trafo=2,
          simbol="2 IBT (unit 1,2)", kerawanan="1"),
     # -- 150 kV injection bus fed by the IBT --
     dict(code="NBTNG", name="New Batang (bus 150 kV)", type="Busbar GI", tier=1,

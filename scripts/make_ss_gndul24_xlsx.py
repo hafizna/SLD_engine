@@ -26,7 +26,7 @@ WIL = "DKI Jakarta"
 ASSETS = [
     dict(code="GNDUL7", name="GITET Gandul", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="IBT 2 GNDUL7", name="IBT 2,4 Gandul 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="2", bus150="GNDUL", trafo=2,
+         tier=2, kv="500/150 kV", ibt="2", bus_hv="GNDUL7", bus_lv="GNDUL", trafo=2,
          simbol="2 IBT (unit 2,4)"),
     dict(code="GNDUL", name="Gandul (bus 150 kV)", type="Busbar GI", tier=1,
          simbol="bus section + kopel"),

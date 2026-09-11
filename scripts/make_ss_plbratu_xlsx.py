@@ -59,12 +59,12 @@ ASSETS = [
     dict(code="CIBNG7", name="GITET Cibinong", type="Busbar GITET", tier=1,
          kv="500 kV", views=CBN),
     dict(code="IBT 1 CIBNG7", name="IBT 1,2 Cibinong 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus150="CIBNG", trafo=2,
+         tier=2, kv="500/150 kV", ibt="1", bus_hv="CIBNG7", bus_lv="CIBNG", trafo=2,
          simbol="2 IBT (unit 1,2)", views=CBN),
     dict(code="DEPOK7", name="GITET Depok", type="Busbar GITET", tier=1,
          kv="500 kV", views=CBN),
     dict(code="IBT 2 DEPOK7", name="IBT 2 Depok 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="2", bus150="DEPOK", trafo=1,
+         tier=2, kv="500/150 kV", ibt="2", bus_hv="DEPOK7", bus_lv="DEPOK", trafo=1,
          simbol="1 IBT (unit 2)", views=CBN),
     # ================= sisi Cibinong: 150 kV =================
     dict(code="CIBNG", name="Cibinong (bus 150 kV)", type="Busbar GI", tier=1,
@@ -81,7 +81,7 @@ ASSETS = [
     # an orange transformer pair dropping off the 150 kV bus -- without these
     # rows the 70 kV buses float as a disconnected island in the rendered SLD.
     dict(code="IBT 1 CIBNG", name="IBT 150/70 kV Cibinong", type="IBT 3-Winding",
-         tier=2, kv="150/70 kV", ibt="1", bus150="CIBN4", trafo=2,
+         tier=2, kv="150/70 kV", ibt="1", bus_hv="CIBNG", bus_lv="CIBN4", trafo=2,
          simbol="2 IBT 150/70 kV", views=CBN),
     dict(code="CIBN4", name="Cibinong (bus 70 kV)", type="Busbar GI", tier=2,
          kv=70, views=CBN),
@@ -90,7 +90,7 @@ ASSETS = [
     # Gambar 2.10 puts the 70 kV Semen Baru bus on Tier-3, in the same row as
     # Cileungsi, fed by its own IBT from the 150 kV Semen Baru bus on Tier-2.
     dict(code="IBT 1 SMNRU", name="IBT 150/70 kV Semen Baru", type="IBT 3-Winding",
-         tier=3, kv="150/70 kV", ibt="1", bus150="SMNRU4", trafo=1,
+         tier=3, kv="150/70 kV", ibt="1", bus_hv="SMNRU", bus_lv="SMNRU4", trafo=1,
          simbol="IBT 150/70 kV", views=CBN),
     dict(code="SMNRU4", name="Semen Baru (bus 70 kV)", type="Busbar GI", tier=3,
          kv=70, views=CBN),
@@ -118,7 +118,7 @@ ASSETS = [
     dict(code="MPING", name="Mangunreja/Mping", type="Busbar GI", tier=2, views=SLK),
     # 70 kV sisi Salak -- fed from the 150 kV CBDRU bus through its IBT 150/70.
     dict(code="IBT 1 CBDRU", name="IBT 150/70 kV Cibadak", type="IBT 3-Winding",
-         tier=3, kv="150/70 kV", ibt="1", bus150="CBDK4", trafo=1,
+         tier=3, kv="150/70 kV", ibt="1", bus_hv="CBDRU", bus_lv="CBDK4", trafo=1,
          simbol="IBT 150/70 kV", views=SLK),
     dict(code="CBDK4", name="Cibadak (bus 70 kV)", type="Busbar GI", tier=3,
          kv=70, views=SLK),

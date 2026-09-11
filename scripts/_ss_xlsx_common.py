@@ -18,8 +18,17 @@ from openpyxl.styles import Font
 
 SAMPLES = Path(__file__).resolve().parents[1] / "samples"
 
+# `Bus HV` / `Bus LV` name an IBT's two endpoints explicitly. The parser used to
+# infer the HV side from the last token of the asset code and the LV side from
+# `Bus 150 kV`, which silently put a transformer on the wrong bus whenever the
+# code did not happen to match.
+#
+# The legacy `Bus 150 kV` column is deliberately NOT emitted. `ingest_parser._get`
+# returns on the first header it recognises, not the first non-empty value, so an
+# empty `Bus 150 kV` column shadows `Bus LV` entirely and every IBT collapses into
+# a self-link (GNDUL7 -> GNDUL7). Writing only `Bus LV` keeps the lookup honest.
 ASSET_HEADER = ["No", "Nama Asset / GI", "Kode Singkatan", "Tipe Asset",
-                "Tier (Mulai 0)", "Tegangan", "No IBT", "Bus 150 kV",
+                "Tier (Mulai 0)", "Tegangan", "No IBT", "Bus HV", "Bus LV",
                 "Jumlah Trafo", "Jumlah Kapasitor", "Catatan Simbol",
                 "Jumlah Sirkit Bay", "Status Operasi", "Role", "Status Kerawanan",
                 "No Kerawanan", "Wilayah", "Sudut Pandang", "Latitude", "Longitude"]
@@ -51,10 +60,16 @@ def build_workbook(spec: dict) -> Path:
     """spec keys:
         code, name, apb, wilayah, source_ref
         views:   [ (view_key, view_name, "GI;GI;..", page) ]   (optional; omit -> single SLD)
-        assets:  [ dict(code, name, type, tier, kv=150, ibt=None, bus150=None,
+        assets:  [ dict(code, name, type, tier, kv=150, ibt=None,
+                        bus_hv=None, bus_lv=None, bus150=None,
                         status="Beroperasi", kerawanan=None, views=None) ]
             type: "Busbar GITET" | "Busbar GI" | "Busbar GIS" | "Pembangkit" |
                   "IBT 3-Winding" | "Bay"
+            On an IBT row state BOTH endpoints by asset code: `bus_hv` is the
+            HV side (the GITET for a 500/150, the 150 kV bus for a 150/70) and
+            `bus_lv` the bus it feeds. Both must match a `code` in this same
+            list -- the parser now raises on an unknown endpoint instead of
+            guessing, which is what keeps a transformer off the wrong bus.
             status: "Beroperasi" | "Rencana" | "Belum Operasi"
         lines:   [ dict(fr, to, name, kv=150, sirkit=2, status="Beroperasi",
                         kerawanan=None, koridor=None, tier_fr=None, tier_to=None,
@@ -95,7 +110,8 @@ def build_workbook(spec: dict) -> Path:
                    a["tier"] - 1 if a["tier"] else a["tier"],
                    a.get("kv", "150 kV") if isinstance(a.get("kv"), str)
                    else f"{a.get('kv', 150)} kV",
-                   a.get("ibt", ""), a.get("bus150", ""),
+                   a.get("ibt", ""), a.get("bus_hv", ""),
+                   a.get("bus_lv", "") or a.get("bus150", ""),
                    a.get("trafo", ""), a.get("kapasitor", ""), a.get("simbol", ""),
                    a.get("bay_sirkit", ""), a.get("status", "Beroperasi"), a.get("role", ""),
                    "Rawan" if kno else "Normal", kno or "", wil, vw or ""])

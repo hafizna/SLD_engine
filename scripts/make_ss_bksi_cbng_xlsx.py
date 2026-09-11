@@ -42,10 +42,10 @@ ASSETS = [
     dict(code="BKASI7", name="GITET Bekasi", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="CIBNG7", name="GITET Cibinong", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="IBT 1 BKASI7", name="IBT 1,3 Bekasi 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus150="BKASI", trafo=2,
+         tier=2, kv="500/150 kV", ibt="1", bus_hv="BKASI7", bus_lv="BKASI", trafo=2,
          simbol="2 IBT (unit 1,3)", kerawanan="1"),
     dict(code="IBT 3 CIBNG7", name="IBT 3 Cibinong 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="3", bus150="CIBNG", trafo=1,
+         tier=2, kv="500/150 kV", ibt="3", bus_hv="CIBNG7", bus_lv="CIBNG", trafo=1,
          simbol="1 IBT (unit 3)", kerawanan="1"),
     # ================= Tier-1 150 kV =================
     dict(code="BKASI", name="Bekasi (bus 150 kV)", type="Busbar GI", tier=1,

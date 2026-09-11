@@ -29,10 +29,10 @@ ASSETS = [
     # -- 500 kV GITET --
     dict(code="KRIAN7", name="GITET Krian", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="IBT 3 KRIAN7", name="IBT 3,4,5 Krian 500/150/66 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="3", bus150="KRIAN", trafo=3,
+         tier=2, kv="500/150 kV", ibt="3", bus_hv="KRIAN7", bus_lv="KRIAN", trafo=3,
          simbol="3 IBT x 500 MVA (unit 3,4,5) 500/150/66 kV"),
     dict(code="IBT 6 KRIAN7", name="IBT 6 Krian 500/150/66 kV (sementara)",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="6", bus150="KRIAN",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="6", bus_hv="KRIAN7", bus_lv="KRIAN",
          trafo=1, kerawanan="1",
          simbol="1 IBT x 500 MVA; sementara sampai SUTET 500 kV siap"),
     # -- 150 kV --
@@ -50,7 +50,7 @@ ASSETS = [
          simbol="T/L bay Surabaya Barat single phi", kerawanan="2"),
     # -- IBT 150/70 kV Driyorejo + jaringan 70 kV --
     dict(code="IBT 1 DRYJO5", name="IBT 150/70 kV Driyorejo", type="IBT 3-Winding",
-         tier=3, kv="150/70 kV", ibt="1", bus150="DRYJO4", trafo=2,
+         tier=3, kv="150/70 kV", ibt="1", bus_hv="DRYJO5", bus_lv="DRYJO4", trafo=2,
          simbol="kapasitas IBT tidak seimbang", kerawanan="5"),
     dict(code="DRYJO4", name="Driyorejo (bus 70 kV)", type="Busbar GI", tier=3,
          kv=70, simbol="single busbar; 30 MVA (bay 8)", kerawanan="6"),
