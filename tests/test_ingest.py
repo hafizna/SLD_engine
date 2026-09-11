@@ -15,6 +15,7 @@ import pytest
 SAMPLE_JSON = Path(__file__).resolve().parent.parent / "samples" / "ss_cwd_ingest.json"
 SAMPLE_XLSX = Path(__file__).resolve().parent.parent / "samples" / "ss_cwd_ingest.xlsx"
 LBK_XLSX = Path(__file__).resolve().parent.parent / "samples" / "ss_lbk_ingest.xlsx"
+BALI_JSON = Path(__file__).resolve().parent.parent / "samples" / "ss_bali_ingest.json"
 
 
 @pytest.fixture()
@@ -143,6 +144,20 @@ def test_parse_json_handoff_still_works(client):
     assert dc["needs_review"] is False
     gd = next(n for n in d["nodes"] if n["external_key"] == "GITET_DEPOK")
     assert gd["resolution"] == "NEW"
+
+
+def test_bali_sklt_is_two_separated_pairs_from_source_boundary(client):
+    r = client.post("/api/ingest/parse-file", files={
+        "file": (BALI_JSON.name, BALI_JSON.read_bytes(), "application/json")})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    bw = next(n for n in d["nodes"] if n["external_key"] == "BANYUWANGI")
+    assert bw["tier_hint"] == 0 and bw["role_hint"] == "SOURCE_BOUNDARY"
+    sklt = [e for e in d["edges"]
+            if {e["from_key"], e["to_key"]} == {"BANYUWANGI", "GILIMANUK"}]
+    assert [(e["unit_no"], e["circuit_count"]) for e in sklt] == [("1,2", 2), ("3,4", 2)]
+    risk = next(x for x in d["risks"] if x["seq_no"] == 3)
+    assert risk["pin_key"] == "BANYUWANGI-GILIMANUK:1,2"
 
 
 def test_ingest_flags_an_existing_subsystem(client):

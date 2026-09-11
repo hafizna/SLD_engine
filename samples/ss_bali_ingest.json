@@ -318,14 +318,14 @@
       "raw_label": "Transfer SKLT Banyuwangi",
       "site_name": "Transfer SKLT Banyuwangi",
       "voltage_hv_kv": 150,
-      "tier_hint": null,
+      "tier_hint": 0,
       "status_hint": "ENERGIZED",
       "confidence": 0.85,
       "outlet_key": null,
       "is_bay": false,
       "bay_feeder_key": null,
       "bay_circuit_count": null,
-      "role_hint": "BOUNDARY"
+      "role_hint": "SOURCE_BOUNDARY"
     },
     {
       "external_key": "PLTG_GILIMANUK",
@@ -410,7 +410,19 @@
       "relation_type": "CONNECTED_TO",
       "circuit_type_hint": "SKLT",
       "status_hint": "ENERGIZED",
-      "circuit_count": 4,
+      "circuit_count": 2,
+      "unit_no": "1,2",
+      "confidence": 0.8,
+      "note": "Traced from Appendix-5; verify circuit label against native SLD."
+    },
+    {
+      "from_external_key": "BANYUWANGI",
+      "to_external_key": "GILIMANUK",
+      "relation_type": "CONNECTED_TO",
+      "circuit_type_hint": "SKLT",
+      "status_hint": "ENERGIZED",
+      "circuit_count": 2,
+      "unit_no": "3,4",
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -421,6 +433,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -431,6 +444,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -441,6 +455,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -451,6 +466,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -461,6 +477,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -471,6 +488,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -481,6 +499,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -491,6 +510,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -501,6 +521,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -511,6 +532,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -521,6 +543,7 @@
       "circuit_type_hint": "SKTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 1,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -531,6 +554,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -541,6 +565,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -551,6 +576,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -561,6 +587,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -571,6 +598,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -581,6 +609,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -591,6 +620,7 @@
       "circuit_type_hint": "SKTT",
       "status_hint": "PLANNED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -601,6 +631,7 @@
       "circuit_type_hint": "SKTT",
       "status_hint": "PLANNED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -611,6 +642,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -621,6 +653,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -631,6 +664,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -641,6 +675,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -651,6 +686,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -661,6 +697,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -671,6 +708,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -681,6 +719,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     },
@@ -691,6 +730,7 @@
       "circuit_type_hint": "SUTT",
       "status_hint": "ENERGIZED",
       "circuit_count": 2,
+      "unit_no": null,
       "confidence": 0.8,
       "note": "Traced from Appendix-5; verify circuit label against native SLD."
     }
@@ -733,7 +773,7 @@
       "mitigation": "1. Pembebanan SKLT 1–2 tidak dibebani di atas 450 A. 2. Pembatasan transfer agar OLS tidak bekerja pada kontigensi N–1, pembebanan SKLT dibatasi 270 MW. 3. Pengaktifan OVR kapasitor pada setting 157,5 kV dengan 2 tahap.",
       "follow_up": "JangkaPendek: 1. Usulan pengaktifan mode AVR (P konstan / V konstan) di Pembangkit PLTU Celukan Bawang (IPP), diusulkan COD di 2026. (Akan koordinasi dan bersurat ke PT GEB PLTU Celukan Bawang) 2. Mempercepat pembangunan GITET 500 kV Watudodol/Kalipuro beserta line bay terkait. (Berdasarkan RUPTL 2025 – 2034, COD Tahun 2025) Mundur COD Desember 2028. 3. Pembangunan SUTET 500 kV Paiton – Kalipuro. (Berdasarkan RUPTL 2025 – 2034, COD Tahun 2026) Mundur COD Desember 2028). Jangka Menengah: 4. Pembangunan proyek Jawa Bali Connection (JBC) beserta seluruh lingkup terkait. (RUPTL 2025–2034, COD di 2030).",
       "pin_kind": "CIRCUIT",
-      "pin_key": "BANYUWANGI-GILIMANUK"
+      "pin_key": "BANYUWANGI-GILIMANUK:1,2"
     },
     {
       "seq_no": 4,

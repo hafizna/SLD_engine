@@ -24,6 +24,7 @@ render and validate, and walk away leaving no trace.
 from __future__ import annotations
 
 from datetime import datetime
+import re
 
 from sqlalchemy.orm import Session
 
@@ -345,7 +346,8 @@ def _resolve_pin(kind: str | None, key: str | None, keys: set[str]):
     if kind == "SUBSYSTEM":
         return ("SUBSYSTEM", key)
     if kind == "CIRCUIT" or (kind != "SUBSTATION" and "-" in key and ":" not in key):
-        a, _, b = key.partition("-")
+        endpoints = key.split(":", 1)[0]
+        a, _, b = endpoints.partition("-")
         return ("CIRCUIT", key) if a in keys and b in keys else None
     if kind == "TRANSFORMER" or ":" in key:
         gk = key.partition(":")[0]
@@ -501,7 +503,10 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         else:
             a = (by_key[fk].get("confirmed_code") or fk).upper()
             b = (by_key[tk].get("confirmed_code") or tk).upper()
+            unit_suffix = re.sub(r"[^A-Z0-9]+", "", str(e.get("unit_no") or "").upper())
             ccode = f"{(e.get('circuit_type_hint') or 'SUTT')}_{a}_{b}"
+            if unit_suffix:
+                ccode += f"_{unit_suffix}"
 
         # a physical line can already exist (a GI-pair genuinely shared by two
         # real subsystems, e.g. New Balaraja - Balaraja). Reuse by code.
@@ -525,7 +530,8 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         else:
             note = e.get("note") or f"traced dari SLD; confidence {conf:.1f}"
             c = Circuit(
-                code=ccode, name=f"{subs[fk].name} - {subs[tk].name}",
+                code=ccode, name=(f"{subs[fk].name} - {subs[tk].name}"
+                                  + (f" #{e.get('unit_no')}" if e.get("unit_no") else "")),
                 circuit_type=e.get("circuit_type_hint") or "SUTT",
                 voltage_kv=by_key[fk].get("voltage_hv_kv") or 150,
                 from_substation_id=subs[fk].id, to_substation_id=subs[tk].id,
@@ -539,8 +545,11 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         db.add(c)
         db.flush()
         circuits[ccode] = c
-        circuits[f"{fk}-{tk}"] = c
-        circuits[f"{tk}-{fk}"] = c
+        circuits.setdefault(f"{fk}-{tk}", c)
+        circuits.setdefault(f"{tk}-{fk}", c)
+        if e.get("unit_no"):
+            circuits[f"{fk}-{tk}:{e['unit_no']}"] = c
+            circuits[f"{tk}-{fk}:{e['unit_no']}"] = c
 
     for n in nodes:
         if not (n.get("is_bay") or n.get("bay_feeder_key")):
@@ -599,7 +608,8 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                                       role=role, tier_seed=tier_seed, display_order=tier_seed))
                 member_seen.add((kind, obj.id))
         for e in view_edges:
-            c = circuits.get(f'{e["from_key"]}-{e["to_key"]}')
+            base_key = f'{e["from_key"]}-{e["to_key"]}'
+            c = circuits.get(f'{base_key}:{e["unit_no"]}') if e.get("unit_no") else circuits.get(base_key)
             if c and ("CIRCUIT", c.id) not in member_seen:
                 db.add(ViewMembership(view_id=view.id, node_kind="CIRCUIT", node_id=c.id,
                                       role="CORE", tier_seed=None, display_order=None))

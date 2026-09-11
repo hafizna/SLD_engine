@@ -36,10 +36,17 @@ def seed_backbone_500(db: Session) -> dict:
 
     payload = ingest_parser.parse_upload(_XLSX.read_bytes(), _XLSX.name)
     draft = ingest.build_draft(db, payload)
-    # every node here is a brand-new 500 kV GITET / KIT -> NEW is correct
+    # A 500 kV GITET and its 150 kV GI may share the short label used in the
+    # book (for example CWANG).  They are different canonical substations.
+    # Prefix the canonical GITET code so a previously seeded 150 kV GI cannot
+    # donate its voltage, transformer, or capacitor attributes to this view.
     for n in draft["nodes"]:
         n["resolution"] = "NEW"
-        n["confirmed_code"] = n["external_key"]
+        n["confirmed_code"] = (
+            f"GITET_{n['external_key']}"
+            if n.get("object_type") in ("GITET", "GISTET")
+            else n["external_key"]
+        )
     return ingest.publish(
         db, draft,
         code="BACKBONE_500_JB",

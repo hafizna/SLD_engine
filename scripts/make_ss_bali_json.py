@@ -69,7 +69,7 @@ def main():
         ("GIANYAR", "GI Gianyar", "GI", 3, None),
         ("AMLAPURA", "GI Amlapura", "GI", 4, None),
         ("KUBU", "GI Kubu", "GI", 5, None),
-        ("BANYUWANGI", "Transfer SKLT Banyuwangi", "GI", None, None),
+        ("BANYUWANGI", "Transfer SKLT Banyuwangi", "GI", 0, None),
         ("PLTG_GILIMANUK", "PLTG Gilimanuk", "GENERATING_UNIT", 0, "GILIMANUK"),
         ("PLTU_CELUKAN_BAWANG", "PLTU Celukan Bawang 1-3", "GENERATING_UNIT", 0, "CELUKAN_BAWANG"),
         ("PLTG_PEMARON", "PLTG Pemaron 1-2", "GENERATING_UNIT", 0, "PEMARON"),
@@ -84,11 +84,12 @@ def main():
             "status_hint": "ENERGIZED", "confidence": 0.85,
             "outlet_key": outlet,
             "is_bay": False, "bay_feeder_key": None, "bay_circuit_count": None,
-            "role_hint": "BOUNDARY" if code == "BANYUWANGI" else None,
+            "role_hint": "SOURCE_BOUNDARY" if code == "BANYUWANGI" else None,
         })
 
     links = [
-        ("BANYUWANGI", "GILIMANUK", 4),
+        ("BANYUWANGI", "GILIMANUK", 2, "1,2"),
+        ("BANYUWANGI", "GILIMANUK", 2, "3,4"),
         ("GILIMANUK", "NEGARA", 2), ("GILIMANUK", "CELUKAN_BAWANG", 2),
         ("CELUKAN_BAWANG", "PEMARON", 2), ("CELUKAN_BAWANG", "KAPAL", 2),
         ("PEMARON", "BATURITI", 2), ("NEGARA", "ANTOSARI", 2),
@@ -105,17 +106,21 @@ def main():
         ("PADANG_SAMBIAN", "SANUR", 2), ("SANUR", "GIANYAR", 2),
         ("GIANYAR", "AMLAPURA", 2), ("AMLAPURA", "KUBU", 2),
     ]
-    connections = [{
-        "from_external_key": a, "to_external_key": b, "relation_type": "CONNECTED_TO",
-        "circuit_type_hint": (
-            "SKLT" if {a, b} == {"BANYUWANGI", "GILIMANUK"}
-            else "SKTT" if {a, b} in ({"KAPAL", "PEMECUTAN_KELOD"}, {"NUSA_DUA", "PECATU"}, {"BANDARA", "PECATU"})
-            else "SUTT"
-        ),
-        "status_hint": "PLANNED" if "PECATU" in (a, b) else "ENERGIZED",
-        "circuit_count": count, "confidence": 0.8,
-        "note": "Traced from Appendix-5; verify circuit label against native SLD.",
-    } for a, b, count in links]
+    connections = []
+    for link in links:
+        a, b, count, *unit = link
+        connections.append({
+            "from_external_key": a, "to_external_key": b, "relation_type": "CONNECTED_TO",
+            "circuit_type_hint": (
+                "SKLT" if {a, b} == {"BANYUWANGI", "GILIMANUK"}
+                else "SKTT" if {a, b} in ({"KAPAL", "PEMECUTAN_KELOD"}, {"NUSA_DUA", "PECATU"}, {"BANDARA", "PECATU"})
+                else "SUTT"
+            ),
+            "status_hint": "PLANNED" if "PECATU" in (a, b) else "ENERGIZED",
+            "circuit_count": count, "unit_no": unit[0] if unit else None,
+            "confidence": 0.8,
+            "note": "Traced from Appendix-5; verify circuit label against native SLD.",
+        })
 
     titles = {
         1: "Defisit daya Subsistem Bali pada N-1/N-1-1 unit terbesar",
@@ -132,7 +137,7 @@ def main():
     }
     pins = {
         1: ("SUBSYSTEM", "SS_BALI"), 2: ("SUBSTATION", "CELUKAN_BAWANG"),
-        3: ("CIRCUIT", "BANYUWANGI-GILIMANUK"), 4: ("CIRCUIT", "PEMARON-BATURITI"),
+        3: ("CIRCUIT", "BANYUWANGI-GILIMANUK:1,2"), 4: ("CIRCUIT", "PEMARON-BATURITI"),
         5: ("CIRCUIT", "KAPAL-PEMECUTAN_KELOD"), 6: ("SUBSTATION", "KAPAL"),
         7: ("SUBSTATION", "GILIMANUK"), 8: ("SUBSTATION", "GIANYAR"),
         9: ("SUBSTATION", "PESANGGARAN"), 10: ("SUBSTATION", "GIS_PESANGGARAN"),

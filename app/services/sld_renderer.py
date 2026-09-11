@@ -737,12 +737,20 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     for c, first, start, end, last in specs:
         centre = centres[c.id]
         members = bundle_members[c.id]
-        count = sum(1 if m.single_phi else max(1, m.circuit_count or 1) for m in members)
-        index = 0
-        for member in members:
-            n = 1 if member.single_phi else max(1, member.circuit_count or 1)
-            offsets = [(i - (count - 1) / 2) * WIRE_PITCH for i in range(index, index + n)]
-            index += n
+        member_counts = [1 if m.single_phi else max(1, m.circuit_count or 1) for m in members]
+        # Separate distinct parallel line groups more clearly than the
+        # conductors inside one group.  Example: SKLT 1-2 | 3-4 must read as
+        # two pairs, not four equally spaced, ambiguous strokes.
+        lane_offsets = []
+        cursor = 0.0
+        for mi, n in enumerate(member_counts):
+            lane_offsets.append([cursor + i * WIRE_PITCH for i in range(n)])
+            cursor += max(0, n - 1) * WIRE_PITCH
+            if mi < len(member_counts) - 1:
+                cursor += WIRE_PITCH * 2
+        extent_mid = cursor / 2
+        lane_offsets = [[x - extent_mid for x in group] for group in lane_offsets]
+        for member, offsets in zip(members, lane_offsets):
             paths = [offset_path(centre, off) for off in offsets]
             stroke, dash = _circuit_style(member)
             routes.append({"cid": member.id, "code": member.code, "paths": paths, "centre": centre,
@@ -961,8 +969,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         gap_right = (pos[row_order[idx + 1]][0] - pos[sid][0]) if idx < len(row_order) - 1 else 9e9
         # the label on the diagram is the SLD CODE (singkatan), like the book;
         # the full name lives in the <title> tooltip and the Excel register.
-        blabel = esc(s.code)
-        est_w = 7 * len(s.code) + 12          # rough label width
+        display_code = s.code.removeprefix("GITET_") if compact_500 else s.code
+        blabel = esc(display_code)
+        est_w = 7 * len(display_code) + 12          # rough label width
         left_room = gap_left - bh - bus_half(row_order[idx - 1] if idx > 0 else sid) > est_w
         right_room = gap_right - bh - bus_half(row_order[idx + 1] if idx < len(row_order) - 1 else sid) > est_w
         left_top_clear = not any(px < left_lim for px in tps)

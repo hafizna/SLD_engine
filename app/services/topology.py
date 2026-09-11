@@ -218,8 +218,8 @@ def calculate_tier(db: Session, view: AnalyticalView) -> dict[tuple[str, int], i
         if nid not in live_sub_ids:
             continue  # not-yet-energised -> no Tier
         m = members.get((kind, nid))
-        book_t = (m.tier_seed if m and m.tier_seed else
-                  (m.display_order if m and m.display_order else None))
+        book_t = (m.tier_seed if m and m.tier_seed is not None else
+                  (m.display_order if m and m.display_order is not None else None))
         if book_t is not None:
             tier[(kind, nid)] = int(book_t)
         else:

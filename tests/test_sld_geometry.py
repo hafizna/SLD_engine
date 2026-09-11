@@ -237,12 +237,19 @@ def test_seeded_geometry(db):
 
 
 def test_backbone_500_compacts_layout_and_keeps_routes_below_generators(db):
-    from app.models import AnalyticalView
+    from app.models import AnalyticalView, Substation
     from app.services.seed_backbone_500 import seed_backbone_500
     from app.services.sld_renderer import render_view_svg
 
     result = seed_backbone_500(db)
     view = db.get(AnalyticalView, result['view_id'])
+    # Short book labels overlap with 150 kV GI codes in subsystem fixtures.
+    # The 500 kV projection must own distinct canonical GITET objects, or SS
+    # capacitor/transformer attributes leak into the backbone.
+    for code in ('BLRJA', 'CWANG', 'DEPOK', 'DKSBI'):
+        s = db.query(Substation).filter(Substation.code == f'GITET_{code}').one()
+        assert s.voltage_kv == 500
+        assert not s.has_transformer and not s.has_shunt_capacitor
     svg = render_view_svg(db, view)
     root = ET.fromstring(svg)
     ns = {'s': 'http://www.w3.org/2000/svg'}
