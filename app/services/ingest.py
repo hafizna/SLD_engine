@@ -342,6 +342,8 @@ def validate(db: Session, draft: dict) -> dict:
 def _resolve_pin(kind: str | None, key: str | None, keys: set[str]):
     if not key:
         return None
+    if kind == "SUBSYSTEM":
+        return ("SUBSYSTEM", key)
     if kind == "CIRCUIT" or (kind != "SUBSTATION" and "-" in key and ":" not in key):
         a, _, b = key.partition("-")
         return ("CIRCUIT", key) if a in keys and b in keys else None
@@ -619,6 +621,8 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                 tcode = f"IBT_{(by_key[gk].get('confirmed_code') or gk).upper()}_{unit or '1'}"
                 t = txs.get(tcode) or db.query(Transformer).filter(Transformer.code == tcode).first()
                 aid = t.id if t else None
+            elif akind == "SUBSYSTEM":
+                aid = ss.id
         seq = r.get("seq_no") or 0
         db.add(RiskRecord(
             risk_key=f"RISK-{code}-{seq:02d}",

@@ -26,6 +26,9 @@ renderer, ingest, fixture, dokumentasi, dan Sprint A yang belum di-commit.
     (spacing 14, gap 38.6).
   - `BACKBONE_500_JB_BACKBONE500`: dua near-continuation:
     IDMYU-MDCAN / CWANG-GNDUL dan GNDUL-DEPOK / KMBNG-DKSBI.
+  - `SS_BALI_FULL`: GILIMANUK-CELUKAN_BAWANG / PESANGGARAN-SANUR
+    near-continuation (spacing 14, gap 32). Risiko 1-11 diekstrak dari Tabel
+    6.1; topologi ditelusuri dari Lampiran-5 Buku Kerawanan 2026.
 - Laporan lengkap: `.render_tmp/sample-audit/workbook-audit.json` dan
   `.render_tmp/sample-audit/WORKBOOK_AUDIT.md` (generated, gitignored).
 
@@ -45,8 +48,8 @@ dan warna tegangan tidak boleh berubah.
   `data/dashboard-summary.json`; file duplikat `scripts/static_index.html`
   dihapus.
 - Test API memastikan enam risiko SS_LBK tidak menjadi dua kali karena dua view.
-- Static build sekarang memuat delapan SS repo (LBK, BLL, CWD, DKGD, GUCL,
-  PRBC, SLCG, Muarakarang-Durikosambi) dan backbone 500. Navigasi viewer Sistem 500 dipisahkan dari
+- Static build sekarang memuat sembilan SS/fixture repo (LBK, BLL, CWD, DKGD,
+  GUCL, PRBC, SLCG, Muarakarang-Durikosambi, Bali) dan backbone 500. Navigasi viewer Sistem 500 dipisahkan dari
   pohon UP2B/SS.
 - Jalur metadata `Latitude`/`Longitude` sudah tersedia dari parser -> draft ->
   canonical Substation -> graph API. Longitude menjadi soft ordering hint hanya

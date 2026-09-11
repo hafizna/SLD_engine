@@ -208,6 +208,11 @@ _RAWAN_CONF = {   # "Tingkat Kerawanan" -> a rough confidence for a traced ruas
 def _kv(v) -> float | None:
     if v is None:
         return None
+    s = str(v).lower().replace("kv", "").split("/")[0].strip().replace(",", ".")
+    try:
+        return float("".join(ch for ch in s if ch.isdigit() or ch == "."))
+    except ValueError:
+        return None
 
 
 def _coordinate(v, low: float, high: float) -> float | None:
@@ -218,11 +223,6 @@ def _coordinate(v, low: float, high: float) -> float | None:
     except (TypeError, ValueError):
         return None
     return value if low <= value <= high else None
-    s = str(v).lower().replace("kv", "").split("/")[0].strip().replace(",", ".")
-    try:
-        return float("".join(ch for ch in s if ch.isdigit() or ch == "."))
-    except ValueError:
-        return None
 
 
 def _norm(s) -> str:

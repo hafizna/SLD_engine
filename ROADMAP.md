@@ -82,30 +82,93 @@ Diff minimum mencakup node/circuit baru atau hilang, jumlah sirkit, status, tier
 
 ## Roadmap sprint
 
-## Baseline fixture dan quality gate (11 September 2026)
+## Baseline fixture dan quality gate (11 September 2026, diperbarui setelah sesi Claude Code)
 
 Audit dapat diulang dengan `python scripts/audit_sample_workbooks.py`. Setiap
 workbook masuk melalui jalur produksi parse -> validate -> publish sementara ->
 render semua view -> invariant geometri. Laporan rinci ditulis ke
-`.render_tmp/sample-audit/WORKBOOK_AUDIT.md`.
+`.render_tmp/sample-audit/WORKBOOK_AUDIT.md` dan
+`.render_tmp/sample-audit/workbook-audit.json` (generated, gitignored).
 
 | Fixture | View | Status |
 |---|---:|---|
 | SS Balaraja-Lengkong | 1 | PASS |
 | SS Cawang-Depok | 1 | PASS |
 | SS Daya-Gandul | 1 | PASS |
-| SS Gandul-Cilegon | 1 | **FAIL: 20 temuan geometri** |
+| SS Gandul-Cilegon | 1 | **FAIL: 2 near-continuation** (turun dari 20 temuan) |
 | SS Lontar-Balaraja-Kembangan | 2 | PASS |
 | SS Priok-Bekasi-Cawang | 2 | **FAIL: 1 near-continuation** |
 | SS Suralaya-Cilegon | 1 | PASS |
 | SS Muarakarang-Durikosambi (template final eksternal) | 2 | PASS |
-| Backbone 500 kV | 1 | **FAIL: 2 near-continuation** |
+| SS Bali | 1 | **FAIL: 1 near-continuation** |
+| Backbone 500 kV | 1 | **FAIL: 1 near-continuation** (turun dari 2 temuan) |
 
-Dengan demikian delapan SS memang dapat diparse dan dirender, tetapi baru enam
-yang lolos quality gate geometri. Backbone 500 kV dihitung sebagai fixture
-sistem tersendiri, bukan SS kedelapan. Fixture berstatus FAIL tidak boleh
+Dengan demikian sembilan SS dapat diparse dan dirender, tetapi SS Bali,
+SS GUCL, dan SS PRBC masih memiliki temuan near-continuation. Backbone 500 kV
+dihitung sebagai fixture sistem tersendiri. Fixture berstatus FAIL tidak boleh
 dinyatakan production-ready atau dipakai sebagai bukti bahwa renderer sudah
 menangani semua pola.
+
+### Perbaikan sesi ini (11 September 2026, Claude Code)
+
+Dua defect nyata diperbaiki di root cause, bukan dilonggarkan di checker:
+
+1. **False positive checker "crosses its endpoint bus"** (16 dari 20 temuan
+   GUCL) — `tests/test_sld_geometry.py::geometry_errors` menandai crossing
+   berdasarkan y saja tanpa memverifikasi x segmen berada dalam rentang bus
+   tersebut. Karena banyak bus berbagi ketinggian-y yang sama (satu tier),
+   setiap segmen vertikal di titik x manapun yang kebetulan melewati y itu ikut
+   tertandai. Diperbaiki dengan menambahkan syarat `l <= x <= r` (rentang bus).
+2. **Overlap nyata SUTT_CLBRU_MENES/SUTT_CLBRU_ASAHI** (GUCL) —
+   `OrthogonalRouter._cost` di `sld_layout.py` hanya memblokir dua segmen
+   sejajar-berdekatan bila rentang-y-nya *strictly* tumpang tindih; dua segmen
+   yang hanya *bersinggungan* di satu titik y lolos tanpa block, padahal
+   setelah offset bundle +/-7 unit keduanya benar-benar bertabrakan. Diperbaiki
+   dengan mengubah syarat overlap dari `<` ketat menjadi `<=` (inklusif
+   singgung), plus melebarkan pita penalti `COLLINEAR_TOUCH_PENALTY` dari
+   `< CHANNEL_PITCH` menjadi `<= CHANNEL_PITCH` supaya router tidak konvergen
+   ke jarak minimum legal (32) sebagai default tanpa penalti sama sekali.
+
+Satu defect data/warna tegangan yang **tidak berkaitan dengan geometri**
+ditemukan dan diperbaiki di sesi yang sama: `app/services/ingest_parser.py`'s
+`_kv()` kehilangan badan fungsinya (ke-orphan di bawah `return` milik
+`_coordinate()`, kemungkinan tabrakan edit bersamaan saat fitur
+Latitude/Longitude ditambahkan), sehingga SEMUA `voltage_hv_kv` terparse
+sebagai `None` dan setiap sirkit/bus jatuh ke warna fallback merah `#C00000`
+(warna 150 kV), termasuk sirkit 500 kV dan bus GITET. Diverifikasi setelah
+perbaikan: bus 150 kV pada GUCL tetap merah, hanya `GITET_CLBRU` (sisi 500 kV)
+yang biru; backbone 500 kV seluruhnya biru `#0047AB`, bukan lagi campuran
+merah. Tidak ada override warna manual — hanya memulihkan parsing input.
+
+### Blocker near-continuation yang tersisa (5 temuan, 4 fixture)
+
+Root cause sudah diverifikasi: keempatnya adalah **pasangan dua sirkit yang
+TIDAK berbagi bus** (dikonfirmasi lewat endpoint check), jalurnya kebetulan
+sejajar-berdekatan (jarak 14-39 unit; ambang checker `spacing<40 and gap<40`)
+di diagram padat. Tidak ada overlap kabel nyata (checker "unrelated wires
+overlap" dan "conductors intersect" tidak ikut menyala untuk keempatnya) —
+murni heuristik visual "berpotensi dibaca sebagai satu garis lurus".
+
+- `SS_GUCL_FULL`: `SUTT_ASAHI_POLMA`/`SUTT_CLBRU_MENES` (spacing=39.0, gap=39.0)
+- `SS_GUCL_FULL`: `SUTT_MNA_KRWTU`/`SUTT_CLGON_MITSUI` (spacing=25.0, gap=35.2)
+- `SS_PRBC_PRIOK`: `SUTT_PLPNG20_PKRNG`/`SUTT_PLPRU_MGBSR` (spacing=14.0, gap=38.6)
+- `BACKBONE_500_JB_BACKBONE500`: `SUTT_GNDUL_DEPOK`/`SUTT_KMBNG_DKSBI` (spacing=32.0, gap=15.3)
+- `SS_BALI_FULL`: `SUTT_GILIMANUK_CELUKAN_BAWANG`/`SUTT_PESANGGARAN_SANUR`
+  (spacing=14.0, gap=32.0)
+
+Root cause arsitektural: grid `OrthogonalRouter` (`sld_layout.py`) memakai
+`CHANNEL_PITCH = 32` sebagai jarak antar-lane, sementara checker menandai
+"near-continuation" untuk jarak `<40`. Grid tidak dapat menjamin hasil >=40
+tanpa lompat ke lane berikutnya (+32 lagi), yang membuat banyak rute lain
+berpotensi infeasible pada diagram sepadat GUCL/PRBC/backbone. Percobaan
+menaikkan `COLLINEAR_TOUCH_PENALTY` (22 -> 60) hanya memindahkan pasangan mana
+yang kena, bukan menghilangkan totalnya — bukan solusi.
+
+Opsi yang dipertimbangkan dan sengaja ditunda (keputusan user, 11 September
+2026): melonggarkan ambang checker dari `<40` ke `<=32` (samakan dengan grid
+pitch asli), atau memperhalus grid router. Keduanya butuh keputusan desain,
+bukan tuning coba-coba, dan disimpan sebagai pekerjaan lanjutan eksplisit
+alih-alih diputuskan sepihak oleh agent.
 
 ### A. Shell produk dan navigasi
 
@@ -120,7 +183,7 @@ Status: **in progress**. Shell FastAPI dan snapshot statis sekarang memakai
 satu `app/static/index.html`, memiliki landing Jamali, lima titik UP2B, populasi
 risiko per kategori, kartu Sistem 500 kV Transmisi/IBT, daftar SS, serta jalur
 kembali dari viewer. API agregasi menghitung `RiskRecord`, bukan kemunculan per
-view. Snapshot statis memuat delapan SS dari workbook repo dan satu backbone 500
+view. Snapshot statis memuat sembilan SS dari fixture repo dan satu backbone 500
 kV. Workspace Sistem 500 dipisahkan dari navigasi SS agar backbone tidak tampil
 sebagai subsistem. QA visual responsif dan data fixture lima UP2B masih perlu
 dilengkapi.
@@ -130,6 +193,14 @@ dilengkapi.
 - Tambahkan relasi affected-object tanpa menggandakan `RiskRecord`.
 - Endpoint/UI untuk primary attachment dan affected objects.
 - Selected, shadowed, dan dimmed state pada SVG/viewer.
+- Gambar satu bidang transparan di belakang gabungan objek terdampak. Gunakan
+  padding yang cukup, sudut membulat, dan opacity rendah agar warna tegangan
+  serta status aset tetap terbaca dan tidak berubah.
+- Untuk dampak yang terpisah secara geografis, gambar beberapa bidang per
+  kelompok terhubung, bukan satu kotak besar yang menutupi area aman di
+  antaranya. Risiko berscope `SUBSYSTEM` boleh menaungi seluruh area SLD.
+- Daftar affected objects wajib berasal dari data risiko yang direview; viewer
+  tidak boleh menebak cakupan hanya dari posisi visual atau kedekatan node.
 - Terapkan pada Transmisi 500, IBT, dan SS.
 
 Selesai bila satu risiko dapat menyorot banyak objek dengan hitungan tetap satu.
@@ -183,3 +254,4 @@ Setiap handoff wajib menyebutkan objective dan acceptance criteria, file yang di
 - penggantian NMM;
 - approval korporat berjenjang;
 - publish otomatis dari hasil AI tanpa review.
+

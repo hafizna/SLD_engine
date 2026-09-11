@@ -93,7 +93,8 @@ def audit_one(path: Path) -> dict:
 
 
 def main() -> int:
-    paths = sorted((ROOT / "samples").glob("ss_*_ingest.xlsx"))
+    paths = sorted(p for p in (ROOT / "samples").glob("ss_*_ingest.*")
+                   if p.suffix.lower() in {".xlsx", ".json"})
     backbone = ROOT / "samples" / "backbone_500_ingest.xlsx"
     if backbone.exists():
         paths.append(backbone)
