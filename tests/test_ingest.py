@@ -180,6 +180,30 @@ def test_parse_writes_nothing_to_db(client):
     assert not any(v["view_key"] == "SS_CWD_FULL" for v in client.get("/api/views").json())
 
 
+def test_coordinates_survive_draft_publish_and_graph(client):
+    payload = {
+        "subsystem": {"code": "SS_GEO", "name": "Geo fixture"},
+        "objects": [
+            {"external_key": "GEOW", "object_type": "GI", "raw_label": "Geo West",
+             "tier_hint": 1, "latitude": -6.2, "longitude": 106.5},
+            {"external_key": "GEOE", "object_type": "GI", "raw_label": "Geo East",
+             "tier_hint": 2, "latitude": -6.3, "longitude": 107.5},
+        ],
+        "connections": [{"from_external_key": "GEOW", "to_external_key": "GEOE"}],
+        "risks": [],
+    }
+    draft = client.post("/api/ingest/parse", json=payload).json()
+    assert draft["nodes"][0]["latitude"] == -6.2
+    published = client.post("/api/ingest/publish", json={
+        "draft": draft, "subsystem_code": "SS_GEO", "subsystem_name": "Geo fixture",
+    })
+    assert published.status_code == 200, published.text
+    graph = client.get(f"/api/views/{published.json()['view_id']}/graph").json()
+    coords = {n["code"]: (n["latitude"], n["longitude"]) for n in graph["nodes"]
+              if n["kind"] == "SUBSTATION"}
+    assert coords == {"GEOW": (-6.2, 106.5), "GEOE": (-6.3, 107.5)}
+
+
 def test_preview_renders_from_blob_and_rolls_back(client):
     d = _draft(client)
     r = client.post("/api/ingest/preview.svg", json=d)

@@ -36,6 +36,7 @@ def build() -> None:
     from app.services.seed import seed_demo
     from app.services.seed_backbone_500 import seed_backbone_500
     from app.services.seed_ss_cwd import seed_ss_cwd
+    from app.services.seed_xlsx_fixture import seed_xlsx_fixture
     from app.services.sld_renderer import render_view_svg
     from fastapi.testclient import TestClient
 
@@ -50,6 +51,11 @@ def build() -> None:
         # stress fixture stays out of seed_demo while its geometry findings
         # remain visible in the workbook audit.
         seed_backbone_500(db)
+        # Remaining reviewed workbook fixtures. LBK/BLL/CWD use dedicated
+        # seeders above; shared physical GI rows are reused across SS.
+        for name in ("ss_dkgd_ingest.xlsx", "ss_gucl_ingest.xlsx",
+                     "ss_prbc_ingest.xlsx", "ss_slcg_ingest.xlsx"):
+            seed_xlsx_fixture(db, ROOT / "samples" / name)
 
     from app.main import app  # imports after DB is ready
 

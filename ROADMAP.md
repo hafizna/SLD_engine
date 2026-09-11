@@ -60,6 +60,11 @@ Risiko pembangkit/peralatan yang tidak mempunyai representasi tepat pada SLD dit
 - Tier adalah band vertikal analitis, bukan parent-child tree.
 - Posisi geografis dapat menjadi constraint horizontal, terutama pada SLD sistem, tetapi tetap tunduk pada tier, konektivitas, dan keterbacaan.
 - Jarak tier tumbuh per gap yang padat. Generator selalu paling atas dan penghantar tidak boleh melintasi zona generator.
+- Latitude/longitude adalah metadata referensi urutan horizontal, bukan posisi
+  absolut dan bukan penentu Tier. Longitude hanya dipakai sebagai soft
+  tie-break apabila sedikitnya dua GI pada satu view memiliki koordinat; tanpa
+  koordinat, layout lama tidak berubah. Constraint crossing, jarak busbar,
+  port, dan keterbacaan tetap lebih kuat daripada urutan geografis.
 
 ## Alur update snapshot
 
@@ -115,7 +120,10 @@ Status: **in progress**. Shell FastAPI dan snapshot statis sekarang memakai
 satu `app/static/index.html`, memiliki landing Jamali, lima titik UP2B, populasi
 risiko per kategori, kartu Sistem 500 kV Transmisi/IBT, daftar SS, serta jalur
 kembali dari viewer. API agregasi menghitung `RiskRecord`, bukan kemunculan per
-view. QA visual responsif dan data fixture lima UP2B masih perlu dilengkapi.
+view. Snapshot statis memuat tujuh SS dari workbook repo dan satu backbone 500
+kV. Workspace Sistem 500 dipisahkan dari navigasi SS agar backbone tidak tampil
+sebagai subsistem. QA visual responsif dan data fixture lima UP2B masih perlu
+dilengkapi.
 
 ### B. Risk affected objects dan shadowing
 

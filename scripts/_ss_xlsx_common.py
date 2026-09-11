@@ -22,7 +22,7 @@ ASSET_HEADER = ["No", "Nama Asset / GI", "Kode Singkatan", "Tipe Asset",
                 "Tier (Mulai 0)", "Tegangan", "No IBT", "Bus 150 kV",
                 "Jumlah Trafo", "Jumlah Kapasitor", "Catatan Simbol",
                 "Jumlah Sirkit Bay", "Status Operasi", "Role", "Status Kerawanan",
-                "No Kerawanan", "Wilayah", "Sudut Pandang"]
+                "No Kerawanan", "Wilayah", "Sudut Pandang", "Latitude", "Longitude"]
 LINE_HEADER = ["No", "No Kerawanan", "Nama Penghantar", "Dari GI", "Ke GI",
                "Tegangan", "Panjang Saluran (km)", "Jumlah Sirkit",
                "Status Operasi", "Tingkat Kerawanan", "Pembebanan Sirkit 1 (%)",
@@ -99,6 +99,8 @@ def build_workbook(spec: dict) -> Path:
                    a.get("trafo", ""), a.get("kapasitor", ""), a.get("simbol", ""),
                    a.get("bay_sirkit", ""), a.get("status", "Beroperasi"), a.get("role", ""),
                    "Rawan" if kno else "Normal", kno or "", wil, vw or ""])
+        ws.cell(ws.max_row, len(ASSET_HEADER) - 1, a.get("latitude"))
+        ws.cell(ws.max_row, len(ASSET_HEADER), a.get("longitude"))
 
     ws = wb.create_sheet("Jalur_Transmisi")
     ws.append(LINE_HEADER); _bold(ws)

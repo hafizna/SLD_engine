@@ -383,7 +383,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     pos = layered_positions(regular_rows, regular_links, bus_half,
                             {sid: subs[sid].code for sid in regular_rows}, y_at,
                             gutter=layout_gutter,
-                            virtual_gutter=18 if compact_500 else 24)
+                            virtual_gutter=18 if compact_500 else 24,
+                            order_hints={sid: subs[sid].lon for sid in regular_rows})
     # Virtual ordering nodes may leave a completely empty vertical strip.
     # Collapse such strips globally, moving every row on the right together so
     # parent/child alignment remains intact and real busbar clearances remain.

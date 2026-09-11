@@ -66,7 +66,7 @@ _NODE_DEFAULTS = {
     "has_transformer": False, "has_capacitor": False,
     "transformer_count": None, "capacitor_count": None, "symbol_note": None,
     "view_keys": [], "outlet_key": None, "bay_circuit_count": None,
-    "role_hint": None, "bay_view_keys": [],
+    "role_hint": None, "bay_view_keys": [], "latitude": None, "longitude": None,
 }
 _CONN_DEFAULTS = {
     "relation_type": "CONNECTED_TO", "circuit_type_hint": "SUTT",
@@ -208,6 +208,16 @@ _RAWAN_CONF = {   # "Tingkat Kerawanan" -> a rough confidence for a traced ruas
 def _kv(v) -> float | None:
     if v is None:
         return None
+
+
+def _coordinate(v, low: float, high: float) -> float | None:
+    if v is None or str(v).strip() == "":
+        return None
+    try:
+        value = float(str(v).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+    return value if low <= value <= high else None
     s = str(v).lower().replace("kv", "").split("/")[0].strip().replace(",", ".")
     try:
         return float("".join(ch for ch in s if ch.isdigit() or ch == "."))
@@ -343,6 +353,8 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                            if _get(row, "Bus Terhubung", "Outlet Bus", "Terhubung ke Bus") else None),
             "bay_circuit_count": _int_or_none(_get(row, "Jumlah Sirkit Bay", "Jumlah Sirkit", "Sirkit", "Circuit Count")),
             "role_hint": (str(_get(row, "Role", "Peran", "Peran SLD") or "").strip().upper() or None),
+            "latitude": _coordinate(_get(row, "Latitude", "Lat", "Lintang"), -90, 90),
+            "longitude": _coordinate(_get(row, "Longitude", "Lon", "Long", "Bujur"), -180, 180),
             "bay_view_keys": [],
             "_no_kerawanan": _risk_numbers(no_kerawanan),
         })

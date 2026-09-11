@@ -18,7 +18,7 @@ BUS_BOTTOM = 80.0
 
 
 def layered_positions(row_of, links, half, names, y_at, gutter=110,
-                      virtual_gutter=24):
+                      virtual_gutter=24, order_hints=None):
     """Order and place a layered graph.
 
     Long edges get virtual ordering nodes on intermediate rows.  Those markers
@@ -30,7 +30,10 @@ def layered_positions(row_of, links, half, names, y_at, gutter=110,
     rank = {r: i for i, r in enumerate(sorted(set(row_of.values())))}
     node_rank = {n: rank[r] for n, r in row_of.items()}
     widths = {n: half(n) for n in row_of}
-    keys = {n: names[n] for n in row_of}
+    order_hints = order_hints or {}
+    has_geo = sum(v is not None for v in order_hints.values()) >= 2
+    keys = ({n: (order_hints.get(n) is None, order_hints.get(n) or 0, names[n]) for n in row_of}
+            if has_geo else {n: names[n] for n in row_of})
     adjacent = defaultdict(list)
     segments = []
     ties = []
@@ -51,7 +54,8 @@ def layered_positions(row_of, links, half, names, y_at, gutter=110,
             dummy = ('edge', idx, r)
             node_rank[dummy] = r
             widths[dummy] = 12
-            keys[dummy] = f'~{names[a]}:{names[b]}:{r}'
+            keys[dummy] = ((True, 0, f'~{names[a]}:{names[b]}:{r}') if has_geo
+                           else f'~{names[a]}:{names[b]}:{r}')
             layers[r].append(dummy)
             chain.append(dummy)
         chain.append(b)
@@ -75,8 +79,14 @@ def layered_positions(row_of, links, half, names, y_at, gutter=110,
             for i, (a, b) in enumerate(edges):
                 for c, d in edges[i + 1:]:
                     crossings += (ix[a] - ix[c]) * (ix[b] - ix[d]) < 0
+        geo_inversions = 0
+        if has_geo:
+            for nodes in layers.values():
+                known = [n for n in nodes if order_hints.get(n) is not None]
+                for i, a in enumerate(known):
+                    geo_inversions += sum(order_hints[a] > order_hints[b] for b in known[i + 1:])
         return (crossings, sum(abs(ix[a] - ix[b]) for a, b in ties),
-                sum(abs(ix[a] - ix[b]) for a, b in segments))
+                geo_inversions, sum(abs(ix[a] - ix[b]) for a, b in segments))
 
     best_score = score()
     best = {r: list(ns) for r, ns in layers.items()}
@@ -227,11 +237,18 @@ class OrthogonalRouter:
             if vertical == other_vertical:
                 # Reserve enough centreline clearance for the outer wires of
                 # neighbouring two-conductor bundles (14-unit wire pitch).
+                # Spans that merely touch (share one endpoint) still collide
+                # once each bundle's own +/-7 wire offset is applied, so the
+                # overlap test must not require strictly interior overlap.
                 if (abs(a[axis] - c[axis]) < 32 and
-                        max(low, min(c[span], d[span])) < min(high, max(c[span], d[span])) - 0.01):
+                        max(low, min(c[span], d[span])) <= min(high, max(c[span], d[span])) + 0.01):
                     return None
                 gap = max(low, min(c[span], d[span])) - min(high, max(c[span], d[span]))
-                if abs(a[axis] - c[axis]) < CHANNEL_PITCH and 0 <= gap < BUNDLE_CLEAR:
+                # <= CHANNEL_PITCH (not strictly less): a route sitting exactly
+                # at the minimum legal clearance is still a near-continuation
+                # risk for two long, unrelated parallel runs and must not be
+                # the router's zero-penalty default.
+                if abs(a[axis] - c[axis]) <= CHANNEL_PITCH and 0 <= gap < BUNDLE_CLEAR:
                     penalty += COLLINEAR_TOUCH_PENALTY
             elif (low - 0.01 <= c[span] <= high + 0.01 and
                   min(c[axis], d[axis]) <= a[axis] <= max(c[axis], d[axis])):

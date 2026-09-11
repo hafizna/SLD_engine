@@ -205,6 +205,7 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
             entry.update({
                 "code": obj.code, "name": obj.name, "type": obj.substation_type,
                 "voltage_kv": obj.voltage_kv, "status": obj.status,
+                "latitude": obj.lat, "longitude": obj.lon,
                 "busbar_config": obj.busbar_config, "busbar_note": obj.busbar_note,
                 "has_transformer": obj.has_transformer,
                 "has_shunt_capacitor": obj.has_shunt_capacitor,

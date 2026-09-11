@@ -249,7 +249,7 @@
   <!-- LEFT -->
   <div class="col">
     <div class="card">
-      <h3>UP2B &amp; subsistem</h3>
+      <h3 id="nav-heading">UP2B &amp; subsistem</h3>
       <div id="sstree" class="sstree"></div>
     </div>
 
@@ -420,12 +420,23 @@ function ssOf(id){ return SUBS.find(s => s.id === id) || null; }
 function ssName(id){ const s = ssOf(id); return s ? s.name : 'Lain-lain'; }
 function apbOf(id){ const s = ssOf(id); return (s && s.apb) || 'UP2B lain'; }
 
-function buildTree(){
+function isSystemView(v){ return ['BACKBONE_500','IBT_500_150'].includes(v?.rule_profile); }
+function buildTree(scope='subsystem'){
   const box = $('#sstree');
   box.innerHTML = '';
+  $('#nav-heading').textContent = scope === 'system' ? 'Sistem 500 kV' : 'UP2B & subsistem';
+  if(scope === 'system'){
+    [['Transmisi','BACKBONE_500'],['IBT','IBT_500_150']].forEach(([label,profile])=>{
+      const matches=VIEWS.filter(v=>v.rule_profile===profile);
+      const ah=document.createElement('div'); ah.className='apb'; ah.textContent=label; box.appendChild(ah);
+      if(!matches.length){const e=document.createElement('div');e.className='muted';e.style.cssText='font-size:12px;padding:7px 4px';e.textContent='Belum ada snapshot';box.appendChild(e);return;}
+      matches.forEach(v=>{const b=document.createElement('button');b.className='pov';b.dataset.viewId=v.id;b.textContent=v.name;b.onclick=()=>selectView(v.id);box.appendChild(b)});
+    });
+    return;
+  }
   // UP2B -> SS -> views
   const apbs = [];
-  VIEWS.forEach(v => {
+  VIEWS.filter(v => !isSystemView(v)).forEach(v => {
     const apb = apbOf(v.subsystem_id);
     let a = apbs.find(x => x.apb === apb);
     if (!a) { a = { apb, ss: [] }; apbs.push(a); }
@@ -467,8 +478,9 @@ function buildTree(){
 function markTree(id){
   $$('#sstree .pov').forEach(b => b.classList.toggle('active', +b.dataset.viewId === id));
   const v = VIEWS.find(v => v.id === id);
-  $('#crumb').textContent = v
-    ? `${apbOf(v.subsystem_id)}  ›  SS ${ssName(v.subsystem_id)}  ›  ${v.name}` : '';
+  $('#crumb').textContent = v ? (isSystemView(v)
+    ? `JAMALI  ?  Sistem 500 kV  ?  ${v.rule_profile === 'BACKBONE_500' ? 'Transmisi' : 'IBT'}  ?  ${v.name}`
+    : `${apbOf(v.subsystem_id)}  ?  SS ${ssName(v.subsystem_id)}  ?  ${v.name}`) : '';
 }
 
 // ---------- view load ----------
@@ -476,6 +488,7 @@ async function selectView(id){
   document.body.classList.remove('mode-portal'); document.body.classList.add('mode-viewer');
   $('#scensel').style.display = '';
   VIEW = VIEWS.find(v => v.id === id);
+  buildTree(isSystemView(VIEW) ? 'system' : 'subsystem');
   const [svg, graph] = await Promise.all([
     txt(`/api/views/${id}/sld.svg`),
     j(`/api/views/${id}/graph`),

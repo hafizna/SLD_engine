@@ -88,6 +88,8 @@ def build_draft(db: Session, payload: dict) -> dict:
             "bay_circuit_count": o.get("bay_circuit_count"),
             "role_hint": o.get("role_hint"),
             "bay_view_keys": list(o.get("bay_view_keys") or []),
+            "latitude": o.get("latitude"),
+            "longitude": o.get("longitude"),
             "resolution": "NEW",
             "confirmed_code": o["external_key"],
             "confirmed_name": o.get("site_name") or o["raw_label"],
@@ -208,6 +210,7 @@ _ALLOWED_NODE = {"external_key", "object_type", "raw_label", "site_name",
                  "has_transformer", "has_capacitor", "resolution",
                  "transformer_count", "capacitor_count", "symbol_note",
                  "view_keys", "outlet_key", "bay_circuit_count", "role_hint", "bay_view_keys",
+                 "latitude", "longitude",
                  "confirmed_code", "confirmed_name", "canonical_id"}
 _ALLOWED_EDGE = {"from_key", "to_key", "relation_type", "circuit_type_hint",
                  "status_hint", "circuit_count", "unit_no", "confidence",
@@ -267,6 +270,13 @@ def validate(db: Session, draft: dict) -> dict:
             problems.append(f"{n['external_key']}: MATCH tapi belum pilih GI kanonik")
         if n.get("resolution") == "NEW" and not (n.get("confirmed_code") or "").strip():
             problems.append(f"{n['external_key']}: GI baru belum diberi kode")
+        lat, lon = n.get("latitude"), n.get("longitude")
+        if (lat is None) != (lon is None):
+            problems.append(f"{n['external_key']}: latitude dan longitude harus diisi berpasangan")
+        if lat is not None and not -90 <= float(lat) <= 90:
+            problems.append(f"{n['external_key']}: latitude di luar rentang -90..90")
+        if lon is not None and not -180 <= float(lon) <= 180:
+            problems.append(f"{n['external_key']}: longitude di luar rentang -180..180")
         code = (n.get("confirmed_code") or "").strip().upper()
         if code:
             if code in seen and seen[code] != n["external_key"]:
@@ -432,9 +442,13 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                 apb=apb, uit="JBB",
                 note=f"Bootstrap via /ingest ({fname}).",
                 confidence=n.get("confidence") or 1.0,
+                lat=n.get("latitude"), lon=n.get("longitude"),
             )
             db.add(s)
             db.flush()
+        elif n.get("latitude") is not None and n.get("longitude") is not None:
+            # A later reviewed workbook may enrich a shared canonical GI.
+            s.lat, s.lon = n["latitude"], n["longitude"]
         subs[n["external_key"]] = s
         kinds[n["external_key"]] = "SUBSTATION"
         _member("SUBSTATION", s.id, _role(n), n.get("tier_hint"))

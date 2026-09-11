@@ -72,6 +72,15 @@ def test_layout_does_not_depend_on_from_to_or_input_order():
     assert a == b
 
 
+def test_longitude_is_a_soft_order_hint_without_changing_tier():
+    rows = {1: 1, 2: 1, 3: 1}
+    names = {1: "WEST-NAME-Z", 2: "CENTRE", 3: "EAST-NAME-A"}
+    pos = layered_positions(rows, [], lambda _: 20, names, lambda r: r * 200,
+                            order_hints={1: 106.0, 2: 108.0, 3: 112.0})
+    assert pos[1][0] < pos[2][0] < pos[3][0]
+    assert {xy[1] for xy in pos.values()} == {200}
+
+
 def geometry_errors(svg):
     ns = {'s': 'http://www.w3.org/2000/svg'}
     root = ET.fromstring(svg)
