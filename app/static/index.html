@@ -59,17 +59,15 @@
   .portal-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px; }
   .portal-card h2 { margin:0 0 4px; font-size:17px; }
   .portal-card .lead { color:var(--muted); font-size:12px; margin-bottom:14px; }
+  /* Sea tone as the panel background, land painted over it, so the coastline
+     reads as coastline at any zoom instead of a pale shape on pale. */
   .jamali-map { position:relative; height:245px; overflow:hidden; border-radius:11px;
-    background:linear-gradient(160deg,#e6f3ff,#f7fbff); border:1px solid #d7e8f8; }
-  .jamali-map svg { position:absolute; inset:22px 30px 32px; width:calc(100% - 60px); height:calc(100% - 54px); }
-  /* The Jawa outline is a Jamali-wide decoration; once the map is zoomed into
-     one UP2B it no longer matches what the dots mean, so it is hidden and a
-     plain grid stands in for "this is a map, not a diagram". */
-  .jamali-map.zoomed svg { display:none; }
-  .jamali-map.zoomed { background:
-      linear-gradient(#e3eefa 1px, transparent 1px) 0 0 / 34px 34px,
-      linear-gradient(90deg, #e3eefa 1px, transparent 1px) 0 0 / 34px 34px,
-      linear-gradient(160deg,#eef6ff,#f9fcff); }
+    background:#dceefb; border:1px solid #c3ddf1; }
+  /* The coastline is drawn from real geography by the same projection that
+     places the pins, so it stays correct when the map zooms into one UP2B -
+     Jakban's dots then sit on Jawa's western tip, which is the whole point. */
+  .jamali-map svg { position:absolute; inset:0; width:100%; height:100%; }
+  .jamali-map .coast { fill:#f2f8ff; stroke:#94bcd9; stroke-width:1.1; stroke-linejoin:round; }
   .region-pin { position:absolute; transform:translate(-50%,-50%); border:0; background:transparent; cursor:pointer; text-align:center; }
   .region-pin i { display:grid; place-items:center; width:36px; height:36px; margin:auto; border-radius:50%;
     color:#fff; background:var(--blue); border:4px solid #fff; box-shadow:0 2px 8px rgba(15,39,74,.28); font-style:normal; font-weight:800; }
@@ -332,7 +330,7 @@
       <div class="portal-card">
         <h2>Wilayah UP2B</h2><div class="lead">Populasi dihitung per risk record; multiview tidak menggandakan angka.</div>
         <div class="jamali-map" id="jamali-map">
-          <svg viewBox="0 0 900 210" aria-hidden="true"><path d="M38 82 C110 52 166 75 231 88 C300 103 350 69 425 78 C505 88 548 116 623 110 C699 104 765 65 829 82 L868 106 C803 127 736 134 667 137 C568 142 499 126 410 121 C309 116 219 143 127 125 C82 116 49 105 38 82Z" fill="#c8dfef" stroke="#8eb9d8" stroke-width="3"/><path d="M866 105 C881 96 893 98 898 111 C889 121 878 122 866 116Z" fill="#c8dfef" stroke="#8eb9d8" stroke-width="3"/></svg>
+          <svg id="jamali-coast" aria-hidden="true" preserveAspectRatio="none"></svg>
         </div>
         <div class="risk-chips" id="jamali-cats"></div>
       </div>
@@ -445,6 +443,9 @@ const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => (
   {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 function resourcePath(p){
+  // The map backdrop is a static asset, served from /static by FastAPI but
+  // sitting next to index.html in the exported snapshot.
+  if(p==='jamali_outline.json') return window.STATIC_SNAPSHOT ? p : '/static/'+p;
   if(!window.STATIC_SNAPSHOT) return API+p;
   if(p==='/api/views') return 'data/views.json';
   if(p==='/api/subsystems') return 'data/subsystems.json';
@@ -531,23 +532,99 @@ function renderHub(){
 }
 // Which UP2B the map is currently zoomed into (null = all five pins).
 let MAP_REGION = null;
+let COAST = null;          // Java/Madura/Bali rings, loaded once
+
+// Whole Jamali extent. Fixed rather than derived, so the overview always shows
+// the same familiar island shape no matter which fixtures happen to be loaded.
+const JAMALI_VIEW = {lon0: 104.9, lon1: 116.1, lat0: -9.2, lat1: -5.6};
+
+async function loadCoast(){
+  if(COAST !== null) return COAST;
+  try {
+    COAST = (await j('jamali_outline.json')).rings || [];
+  } catch(_) {
+    COAST = [];        // no backdrop is fine; the pins still carry the meaning
+  }
+  return COAST;
+}
+
+// One projection for both the coastline and the markers, so a pin always lands
+// where that coordinate actually is on the drawn island.
+function makeProjection(view, W, H, pad){
+  const {lon0, lon1, lat0, lat1} = view;
+  return {
+    view,
+    x: lon => pad.l + (lon - lon0) / (lon1 - lon0) * (W - pad.l - pad.r),
+    y: lat => pad.t + (lat1 - lat) / (lat1 - lat0) * (H - pad.t - pad.b),
+  };
+}
+
+// Fit a lat/lon box to the panel while preserving shape, so the coastline is
+// never stretched. Padded first, then widened to the panel's aspect ratio.
+function fitView(lons, lats, W, H, marginDeg, minSpan){
+  let lon0 = Math.min(...lons) - marginDeg, lon1 = Math.max(...lons) + marginDeg;
+  let lat0 = Math.min(...lats) - marginDeg, lat1 = Math.max(...lats) + marginDeg;
+  let spanLon = Math.max(lon1 - lon0, minSpan), spanLat = Math.max(lat1 - lat0, minSpan);
+  const cLon = (lon0 + lon1) / 2, cLat = (lat0 + lat1) / 2;
+  // 1 degree of longitude is shorter than one of latitude away from the
+  // equator; at ~7S that factor is cos(7 deg) ~ 0.993, i.e. negligible here,
+  // so plain equirectangular is used and only the aspect ratio is corrected.
+  const panelAR = W / H;
+  if(spanLon / spanLat < panelAR) spanLon = spanLat * panelAR;
+  else spanLat = spanLon / panelAR;
+  return {lon0: cLon - spanLon/2, lon1: cLon + spanLon/2,
+          lat0: cLat - spanLat/2, lat1: cLat + spanLat/2};
+}
+
+function drawCoast(proj, W, H){
+  const svg = $('#jamali-coast');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = (COAST || []).map(ring => {
+    const d = ring.map(([lon, lat], i) =>
+      `${i ? 'L' : 'M'}${proj.x(lon).toFixed(1)},${proj.y(lat).toFixed(1)}`).join('') + 'Z';
+    return `<path class="coast" d="${d}"/>`;
+  }).join('');
+}
+
+function mapBox(){
+  const map = $('#jamali-map');
+  const rect = map.getBoundingClientRect();
+  return {map, W: Math.round(rect.width) || 700, H: Math.round(rect.height) || 245};
+}
+
+function clearMap(map){
+  map.querySelectorAll('.region-pin,.ss-pin,.ss-leader,.map-note').forEach(x => x.remove());
+}
 
 function renderUp2bScreen(){
   $('#jamali-cats').innerHTML = riskChips(SUMMARY.local_risk);
   MAP_REGION = null;
-  drawRegionMap();
+  loadCoast().then(drawRegionMap);
   renderSubsystems(null);
 }
 
-// ---------- UP2B overview: the five region pins ----------
+// ---------- UP2B overview: the five region pins over the whole of Jamali ----
 function drawRegionMap(){
-  const map = $('#jamali-map');
-  map.classList.remove('zoomed');
-  map.querySelectorAll('.region-pin,.ss-pin,.ss-leader,.map-note').forEach(x => x.remove());
-  const pos = [[14,55],[31,48],[51,51],[72,57],[91,52]];
-  SUMMARY.regions.filter(r => r.key !== 'BELUM_DIPETAKAN').forEach((r,i) => {
+  const {map, W, H} = mapBox();
+  clearMap(map);
+  const proj = makeProjection(JAMALI_VIEW, W, H, {l:8, r:8, t:8, b:8});
+  drawCoast(proj, W, H);
+
+  // Approximate centre of each UP2B's service area - these label the island,
+  // they are not derived from the fixtures, so the five pins stay put even
+  // before any subsystem for that region exists.
+  const REGION_AT = {
+    JAKARTA_BANTEN:  [-6.25, 106.20],
+    JAWA_BARAT:      [-6.95, 107.60],
+    JAWA_TENGAH_DIY: [-7.30, 110.10],
+    JAWA_TIMUR:      [-7.60, 112.60],
+    BALI:            [-8.40, 115.15],
+  };
+  SUMMARY.regions.filter(r => r.key !== 'BELUM_DIPETAKAN').forEach(r => {
+    const at = REGION_AT[r.key];
+    if(!at) return;
     const b=document.createElement('button'); b.className='region-pin'+(r.subsystems.length?'':' empty');
-    b.style.left=pos[i][0]+'%'; b.style.top=pos[i][1]+'%';
+    b.style.left=proj.x(at[1])+'px'; b.style.top=proj.y(at[0])+'px';
     b.innerHTML=`<i>${r.risk.total}</i><span>${esc(r.name)}</span>`;
     b.title=`${r.name}: ${r.subsystems.length} SS, ${r.risk.total} kerawanan`;
     b.onclick=()=>{ MAP_REGION = r; drawSubsystemMap(r); renderSubsystems(r); };
@@ -560,39 +637,29 @@ function drawRegionMap(){
 // share or nearly share a point, so markers are pushed apart and a thin leader
 // line is drawn back to the true position rather than silently relocating them.
 function drawSubsystemMap(region){
-  const map = $('#jamali-map');
-  map.classList.add('zoomed');
-  map.querySelectorAll('.region-pin,.ss-pin,.ss-leader,.map-note').forEach(x => x.remove());
+  const {map, W, H} = mapBox();
+  clearMap(map);
 
   const withPos = region.subsystems.filter(s => s.anchor);
   if(!withPos.length){
+    drawCoast(makeProjection(JAMALI_VIEW, W, H, {l:8, r:8, t:8, b:8}), W, H);
     const n=document.createElement('div'); n.className='map-note';
     n.textContent = `${region.name} — belum ada koordinat subsistem`;
     map.appendChild(n);
     return;
   }
 
-  const rect = map.getBoundingClientRect();
-  const W = rect.width || 700, H = rect.height || 245;
-  const PAD = 46, TOP = 26, BOT = 30;
+  // Zoom to this UP2B's own subsystems, keeping the coastline in the same
+  // projection so the dots visibly sit on their part of the island.
+  const view = fitView(withPos.map(s => s.anchor.lon), withPos.map(s => s.anchor.lat),
+                       W, H, 0.35, 0.9);
+  const proj = makeProjection(view, W, H, {l:34, r:34, t:24, b:28});
+  drawCoast(proj, W, H);
 
-  const lats = withPos.map(s => s.anchor.lat), lons = withPos.map(s => s.anchor.lon);
-  // A minimum span stops two nearby SS from being stretched across the panel.
-  const MIN_SPAN = 0.45;
-  const cLat = (Math.min(...lats)+Math.max(...lats))/2, cLon = (Math.min(...lons)+Math.max(...lons))/2;
-  const spanLat = Math.max(Math.max(...lats)-Math.min(...lats), MIN_SPAN);
-  const spanLon = Math.max(Math.max(...lons)-Math.min(...lons), MIN_SPAN);
-  const lat0 = cLat - spanLat/2, lat1 = cLat + spanLat/2;
-  const lon0 = cLon - spanLon/2, lon1 = cLon + spanLon/2;
-
-  // lon -> x, lat -> y (north up). Plain linear projection: at this scale the
-  // Mercator correction is far smaller than the error already in the anchors.
-  const project = s => ({
-    x: PAD + (s.anchor.lon - lon0) / (lon1 - lon0) * (W - 2*PAD),
-    y: TOP + (lat1 - s.anchor.lat) / (lat1 - lat0) * (H - TOP - BOT),
+  const placed = withPos.map(s => {
+    const x = proj.x(s.anchor.lon), y = proj.y(s.anchor.lat);
+    return {s, tx:x, ty:y, x, y};
   });
-
-  const placed = withPos.map(s => { const p = project(s); return {s, tx:p.x, ty:p.y, x:p.x, y:p.y}; });
 
   // Nudge overlapping markers apart, keeping the true point for the leader line.
   const MIN_GAP = 42;
@@ -610,8 +677,8 @@ function drawSubsystemMap(region){
     if(!moved) break;
   }
   placed.forEach(p => {
-    p.x = Math.max(PAD*0.5, Math.min(W-PAD*0.5, p.x));
-    p.y = Math.max(TOP, Math.min(H-BOT*0.5, p.y));
+    p.x = Math.max(20, Math.min(W-20, p.x));
+    p.y = Math.max(18, Math.min(H-22, p.y));
   });
 
   placed.forEach(p => {

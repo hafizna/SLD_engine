@@ -100,6 +100,12 @@ def build() -> None:
     (OUT / "index.html").write_text(shell, encoding="utf-8")
     (OUT / ".nojekyll").write_text("", encoding="utf-8")
 
+    # Map backdrop: FastAPI serves it from /static, the snapshot keeps it next
+    # to index.html. Absent, the map simply draws no coastline.
+    outline = ROOT / "app" / "static" / "jamali_outline.json"
+    if outline.exists():
+        shutil.copyfile(outline, OUT / outline.name)
+
     print(f"static site -> {OUT}")
     for p in sorted(OUT.rglob("*")):
         if p.is_file():

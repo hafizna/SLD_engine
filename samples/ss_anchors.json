@@ -17,6 +17,23 @@
   ],
   "subsystems": [
     {
+      "code": "SS_BALI",
+      "name": "Subsistem Bali",
+      "apb": "UP2B Bali",
+      "lat": -8.34318,
+      "lon": 114.90418,
+      "anchor_rule": "sources",
+      "anchored_on": [
+        "GILIMANUK",
+        "GIS_PESANGGARAN",
+        "PEMARON",
+        "PESANGGARAN"
+      ],
+      "anchor_points": 3,
+      "members_with_coords": 4,
+      "members_total": 21
+    },
+    {
       "code": "SS_BKSI_CBNG",
       "name": "Bekasi 1,3 - Cibinong 3",
       "apb": "UP2B Jakarta & Banten",

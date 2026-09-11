@@ -40,10 +40,10 @@
     "source": "OpenStreetMap via Overpass API",
     "licence": "ODbL - (c) OpenStreetMap contributors",
     "purpose": "demo dashboard map only",
-    "matched_strong": 178,
-    "distinct_points": 152,
-    "shared_point_groups": 21,
-    "unmatched_count": 138
+    "matched_strong": 196,
+    "distinct_points": 169,
+    "shared_point_groups": 22,
+    "unmatched_count": 139
   },
   "substations": {
     "ALTRA": {
@@ -53,6 +53,14 @@
       "match_score": 1.0,
       "lat": -6.22023,
       "lon": 106.65646
+    },
+    "AMLAPURA": {
+      "name": "GI Amlapura",
+      "osm_name": "Gardu Induk Amlapura",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.44814,
+      "lon": 115.58784
     },
     "ANCOL": {
       "name": "ANCOL",
@@ -70,6 +78,14 @@
       "lat": -6.13457,
       "lon": 106.79147
     },
+    "ANTOSARI": {
+      "name": "GI Antosari",
+      "osm_name": "Gardu Induk Antosari",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.51638,
+      "lon": 115.01481
+    },
     "ANYER": {
       "name": "Anyer",
       "osm_name": "Gardu Induk Anyer",
@@ -86,6 +102,24 @@
       "lat": -6.03272,
       "lon": 105.93978
     },
+    "BANDARA": {
+      "name": "GIS Bandara",
+      "osm_name": "GIS Bandara Ngurah Rai",
+      "confidence": "weak",
+      "match_score": 0.513,
+      "lat": null,
+      "lon": null,
+      "osm_candidate_note": "similar name found; verify before use"
+    },
+    "BANYUWANGI": {
+      "name": "Transfer SKLT Banyuwangi",
+      "osm_name": "Gardu Induk Banyuwangi",
+      "confidence": "weak",
+      "match_score": 0.523,
+      "lat": null,
+      "lon": null,
+      "osm_candidate_note": "similar name found; verify before use"
+    },
     "BAROS": {
       "name": "Baros",
       "osm_name": "GI BAROS",
@@ -93,6 +127,14 @@
       "match_score": 1.0,
       "lat": -6.17012,
       "lon": 106.15352
+    },
+    "BATURITI": {
+      "name": "GI Baturiti",
+      "osm_name": "Gardu Induk Baturiti",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.25774,
+      "lon": 115.16101
     },
     "BAYAH": {
       "name": "Bayah",
@@ -584,6 +626,22 @@
       "lat": -7.49657,
       "lon": 110.81561
     },
+    "GIANYAR": {
+      "name": "GI Gianyar",
+      "osm_name": "Gardu Induk Gianyar",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.56187,
+      "lon": 115.33461
+    },
+    "GILIMANUK": {
+      "name": "GI Gilimanuk",
+      "osm_name": "Gardu Induk Gilimanuk",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.17487,
+      "lon": 114.44168
+    },
     "GIS PLTD SNY": {
       "name": "GIS PLTD Senayan",
       "osm_name": "GIS Senayan",
@@ -604,6 +662,17 @@
       "lon": 106.79444,
       "shares_point_with": [
         "GIS PLTD SNY"
+      ]
+    },
+    "GIS_PESANGGARAN": {
+      "name": "GIS Pesanggaran",
+      "osm_name": "Gardu Induk Pesanggaran",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.71847,
+      "lon": 115.211,
+      "shares_point_with": [
+        "PESANGGARAN"
       ]
     },
     "GITET_BKASI": {
@@ -843,6 +912,14 @@
       "lat": -6.27571,
       "lon": 106.96232
     },
+    "KAPAL": {
+      "name": "GI Kapal",
+      "osm_name": "Gardu Induk Kapal",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.58259,
+      "lon": 115.18231
+    },
     "KBMEN": {
       "name": "Kebumen",
       "osm_name": "Gardu Induk Kebumen",
@@ -1053,6 +1130,14 @@
       "lon": null,
       "osm_candidate_note": "similar name found; verify before use"
     },
+    "KUBU": {
+      "name": "GI Kubu",
+      "osm_name": "Gardu Induk Kubu",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.20378,
+      "lon": 115.49791
+    },
     "LBSTU": {
       "name": "Lembur Situ",
       "osm_name": "Gardu Induk Lembursitu",
@@ -1228,6 +1313,14 @@
         "GITET_NBRJA"
       ]
     },
+    "NEGARA": {
+      "name": "GI Negara",
+      "osm_name": "Gardu Induk Negara",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.36431,
+      "lon": 114.66042
+    },
     "NGJUK": {
       "name": "Nganjuk",
       "osm_name": "Gardu Induk Nganjuk",
@@ -1261,6 +1354,30 @@
       "lat": -6.22761,
       "lon": 106.7717
     },
+    "NUSA_DUA": {
+      "name": "GI Nusa Dua",
+      "osm_name": "Gardu Induk Nusa Dua",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.79743,
+      "lon": 115.2222
+    },
+    "PADANG_SAMBIAN": {
+      "name": "GI Padang Sambian",
+      "osm_name": "Gardu Induk Padang Sambian",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.66671,
+      "lon": 115.18672
+    },
+    "PAYANGAN": {
+      "name": "GI Payangan",
+      "osm_name": "Gardu Induk Payangan",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.44373,
+      "lon": 115.24187
+    },
     "PBLGA": {
       "name": "Purbalingga",
       "osm_name": "Gardu Induk Purbalingga",
@@ -1277,6 +1394,30 @@
       "lat": -6.24272,
       "lon": 106.95554
     },
+    "PECATU": {
+      "name": "GIS Pecatu",
+      "osm_name": "GIS Pecatu",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.8199,
+      "lon": 115.14176
+    },
+    "PEMARON": {
+      "name": "GI Pemaron",
+      "osm_name": "Pemaron",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.13621,
+      "lon": 115.05986
+    },
+    "PEMECUTAN_KELOD": {
+      "name": "GI Pemecutan Kelod",
+      "osm_name": "Gardu Induk Pemecutan Kelod",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.68999,
+      "lon": 115.18892
+    },
     "PENI": {
       "name": "Peni",
       "osm_name": "Gardu Induk PENI",
@@ -1284,6 +1425,17 @@
       "match_score": 1.0,
       "lat": -5.97999,
       "lon": 105.99609
+    },
+    "PESANGGARAN": {
+      "name": "GI Pesanggaran (AIS)",
+      "osm_name": "Gardu Induk Pesanggaran",
+      "confidence": "strong",
+      "match_score": 0.696,
+      "lat": -8.71847,
+      "lon": 115.211,
+      "shares_point_with": [
+        "GIS_PESANGGARAN"
+      ]
     },
     "PGDNGK": {
       "name": "Pegangsaan Konv",
@@ -1525,6 +1677,14 @@
       "lat": -7.53916,
       "lon": 109.16226
     },
+    "SANUR": {
+      "name": "GI Sanur",
+      "osm_name": "Gardu Induk Sanur",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -8.67484,
+      "lon": 115.25299
+    },
     "SBRAT5": {
       "name": "Surabaya Barat",
       "osm_name": "PLN UP3 Surabaya Barat",
@@ -1694,6 +1854,14 @@
       "lat": -6.38252,
       "lon": 106.73801
     },
+    "TANAH_LOT": {
+      "name": "GIS Tanah Lot",
+      "osm_name": "GIS Tanah Tinggi",
+      "confidence": "strong",
+      "match_score": 0.65,
+      "lat": -6.19169,
+      "lon": 106.86856
+    },
     "TARIK": {
       "name": "Tarik",
       "osm_name": "Gardu Induk Tarik",
@@ -1837,6 +2005,7 @@
     "BNPTH",
     "BUBRU",
     "CBDK4",
+    "CELUKAN_BAWANG",
     "CGRLG",
     "CKBRU",
     "CKMIA",
