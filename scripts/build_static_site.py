@@ -59,6 +59,10 @@ def build() -> None:
                      "ss_muarakarang_durikosambi_ingest.xlsx",
                      "ss_plbratu_ingest.xlsx", "ss_bksi_cbng_ingest.xlsx",
                      "ss_gndul24_ingest.xlsx",
+                     # UP2B Jawa Barat
+                     "ss_cirata_ingest.xlsx", "ss_cbatu12_dltms_ingest.xlsx",
+                     "ss_tasik_ingest.xlsx", "ss_ntmbn_ingest.xlsx",
+                     "ss_sktni_ingest.xlsx",
                      # UP2B Jawa Tengah & DIY
                      "ss_pmlng_ingest.xlsx", "ss_byoli_ingest.xlsx",
                      "ss_ksghn_ingest.xlsx",
