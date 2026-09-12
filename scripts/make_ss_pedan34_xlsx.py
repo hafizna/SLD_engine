@@ -43,7 +43,7 @@ ASSETS = [
     # -- cabang barat --
     dict(code="KNTUG", name="Kanetug", type="Busbar GI", tier=2, kerawanan="11"),
     dict(code="GDEAN", name="Godean", type="Busbar GI", tier=3,
-         status="Rencana", kerawanan="3;4"),
+         kerawanan="3;4"),
     dict(code="BANTL", name="Bantul", type="Busbar GI", tier=4, kerawanan="8"),
     dict(code="WBJAN", name="Wonosari Bejan", type="Busbar GI", tier=5,
          status="Rencana"),
@@ -85,10 +85,13 @@ LINES = [
     L("PEDAN", "KNTUG", "SUTT Pedan - Kanetug", 1, 2, kno="11"),
     L("KNTUG", "SGRAH", "SUTT Kanetug - Sugihrahayu (arah SS Tanjung Jati)", 2, 3),
     # Dashed on Gambar 4.6: not yet energised.
-    L("KNTUG", "GDEAN", "SUTT Kanetug - Godean (belum energize)", 2, 3,
-      kno="3", st="Rencana"),
+    # Gambar 4.6 draws ONE 2-sirkit trunk running down from Pedan and each bus
+    # tapping onto it: Pedan - Kanetug - Godean - Bantul. Feeding Bantul straight
+    # from Pedan skipped two tiers, which left Bantul and everything under it
+    # floating with no visible feed.
+    L("KNTUG", "GDEAN", "SUTT Kanetug - Godean", 2, 3, kno="3"),
+    L("GDEAN", "BANTL", "SUTT Godean - Bantul", 3, 4, kno="4"),
     L("KNTUG", "GJYAN", "SUTT Kanetug - Gajahan (arah SS Tanjung Jati)", 2, 3),
-    L("PEDAN", "BANTL", "SUTT Pedan - Bantul", 1, 4, kno="4"),
     L("BANTL", "WATES", "SUTT Bantul - Wates (arah SS Kesugihan)", 4, 5, kno="8"),
     L("BANTL", "SMANU", "SUTT Bantul - Semanu (arah SS Pedan 1,2)", 4, 5),
     L("BANTL", "WBJAN", "SUTT Bantul - Wonosari Bejan (belum energize)", 4, 5,
