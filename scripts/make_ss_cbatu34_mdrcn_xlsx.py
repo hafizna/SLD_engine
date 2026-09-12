@@ -193,6 +193,29 @@ def L(fr, to, nm, tf, tt, views, kv=150, kno=None, st="Beroperasi", sirkit=2):
                 kerawanan=kno, status=st, sirkit=sirkit, koridor=WIL, views=views)
 
 
+# Gambar 3.3 draws the SAME GI two ways: a stub in the panel that does not own
+# it, a full busbar in the panel that does. SKMDI is an arrow under PLTU IDMYU
+# on the upper panel and a Tier-2 bus on the lower one; KSBRU is the reverse.
+# So each stub is scoped to ONE view rather than the whole subsystem -- the
+# pattern SS_LBK already uses for DKSBI.
+BAYS = [
+    # -- upper panel (Cibatu 3,4): GIs owned by a neighbouring subsystem --
+    ("HNKOK", "Hankook (SS Cibatu 1,2)", "CBATU34", None, 1, "Beroperasi", CBT, "SUTT"),
+    ("SKMDI", "Sukamedi (SS Mandirancan 1,2)", "IDMYU5", None, 1, "Beroperasi", CBT, "SUTT"),
+    ("PDLRU", "Padalarang Baru (SS Cirata)", "TTJBR", None, 1, "Beroperasi", CBT, "SUTT"),
+    ("SKTNI", "Sukatani (SS Sukatani 1,2)", "DWUAN", None, 1, "Beroperasi", CBT, "SUTT"),
+    ("TGHRG", "Tegal Herang (SS Deltamas)", "PNYNG", None, 1, "Beroperasi", CBT, "SUTT"),
+    ("MGKYA", "Mega Kaya (SS Deltamas)", "PNYNG", None, 1, "Beroperasi", CBT, "SUTT"),
+    ("ILBTY", "Indolakto Beauty", "MLIGI", None, 1, "Beroperasi", CBT, "SUTT"),
+    ("IDBRT", "Indramayu Barat (SS Cirata)", "PNDLI", None, 1, "Beroperasi", CBT, "SUTT"),
+    ("PWKTA", "Purwakarta (SS Cirata)", "PNDLI", None, 1, "Beroperasi", CBT, "SUTT"),
+    ("CURUG", "Curug (SS Cirata)", "RDLOK", None, 1, "Beroperasi", CBT, "SUTT"),
+    # -- lower panel (Mandirancan): Kesambi Baru is drawn as an arrow here --
+    ("KSBRU", "Kesambi Baru (sisi Cibatu 3,4)", "IDMYU5", None, 1, "Beroperasi", MDR, "SUTT"),
+    ("PRKAN", "Parakan (SS New Ujungberung)", "KDPTN", None, 1, "Beroperasi", MDR, "SUTT"),
+]
+
+
 LINES = [
     # ================= sisi Cibatu 3,4 =================
     L("CBATU34", "JUSIN", "SUTT Cibatu 3,4 - Jababeka Usin", 1, 2, CBT),
@@ -276,6 +299,7 @@ SPEC = dict(
     views=VIEWS,
     assets=ASSETS,
     lines=LINES,
+    bays=BAYS,
     risks=as_risk_dicts(112, 118, expected=19),
 )
 
