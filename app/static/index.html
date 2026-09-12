@@ -17,6 +17,15 @@
     --risk-b: #b45309;
     --ds: #2563eb;
     --ok: #16a34a;
+    /* Severity ramp. One hue per severity, each with a soft partner for chip
+       backgrounds, so a category reads the same on a card, a chip and a pill
+       wherever it appears. N-1 is the single contingency and the most common,
+       so it takes the mid-warning tone rather than the alarm red. */
+    --sev-n1: #ea580c;        --sev-n1-soft: #ffedd5;
+    --sev-n2: #dc2626;        --sev-n2-soft: #fee2e2;
+    --sev-n12: #7c3aed;       --sev-n12-soft: #ede9fe;
+    --sev-other: #64748b;     --sev-other-soft: #eef2f7;
+    --sev-none: #2baf75;      --sev-none-soft: #dcfce7;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -62,6 +71,33 @@
   header .brand:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   #homebtn { display:none; }
   body.mode-viewer #homebtn { display:inline-block; }
+
+  /* ---- permanent top nav ----
+     Destinations stay on screen at every level, so Sistem 500 kV is reachable
+     without going back through the hub first. */
+  .topnav { display:flex; gap:4px; align-items:center; }
+  .topnav button {
+    font: inherit; font-size: 12.5px; color: #fff; background: transparent;
+    border: 0; padding: 7px 12px; border-radius: 7px; cursor: pointer;
+    white-space: nowrap; opacity: .85;
+  }
+  .topnav button:hover { background: rgba(255,255,255,.14); opacity: 1; }
+  .topnav button[aria-current="page"] {
+    background: rgba(255,255,255,.18); opacity: 1; font-weight: 700;
+    box-shadow: inset 0 -2px 0 #fff;
+  }
+  .topnav button[disabled] { opacity: .4; cursor: not-allowed; }
+  .topnav button[disabled]:hover { background: transparent; }
+
+  /* ---- breadcrumb: every segment is a real way back ---- */
+  .crumbs { display:flex; align-items:center; gap:2px; font-size:11px; flex-wrap:wrap; }
+  .crumbs button {
+    font: inherit; font-size: 11px; color:#fff; opacity:.8; background:none;
+    border:0; padding:3px 5px; border-radius:5px; cursor:pointer; white-space:nowrap;
+  }
+  .crumbs button:hover { background:rgba(255,255,255,.16); opacity:1; text-decoration:underline; }
+  .crumbs .sep { opacity:.45; padding:0 1px; }
+  .crumbs .here { opacity:1; font-weight:700; padding:3px 5px; white-space:nowrap; }
 
   #portal { flex:1; overflow:auto; padding:28px; }
   body.mode-viewer #portal { display:none; }
@@ -110,8 +146,20 @@
     background:rgba(255,255,255,.82); border-radius:5px; padding:2px 6px; z-index:4; }
   .linkish { border:0; background:none; padding:0; font:inherit; font-size:11.5px;
     color:var(--blue); cursor:pointer; text-decoration:underline; }
+  /* Severity chips sit in a fixed order with a fixed colour, present even at
+     zero, so the same column means the same thing on every card and the eye
+     can compare down a list instead of re-reading each one. */
   .risk-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
-  .risk-chip { font-size:10px; padding:3px 7px; border-radius:99px; background:#fff4dc; color:#9a5700; font-weight:700; }
+  .risk-chip { font-size:10px; padding:3px 7px; border-radius:99px; font-weight:700;
+    background:var(--sev-other-soft); color:var(--sev-other); white-space:nowrap;
+    display:inline-flex; align-items:center; gap:4px; }
+  .risk-chip::before { content:""; width:6px; height:6px; border-radius:50%;
+    background:currentColor; flex:none; }
+  .risk-chip.s-n1   { background:var(--sev-n1-soft);   color:#9a3412; }
+  .risk-chip.s-n2   { background:var(--sev-n2-soft);   color:#991b1b; }
+  .risk-chip.s-n12  { background:var(--sev-n12-soft);  color:#5b21b6; }
+  .risk-chip.s-none { background:var(--sev-none-soft); color:#15803d; }
+  .risk-chip.zero { opacity:.42; font-weight:600; }
   .system-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .system-tile { border:1px solid var(--line); border-radius:10px; padding:13px; cursor:pointer; background:#fff; text-align:left; }
   .system-tile:hover, .ss-card:hover { border-color:var(--blue); box-shadow:0 3px 12px rgba(11,92,171,.09); }
@@ -138,10 +186,19 @@
   body.mode-hub #hub-screen { display:block; }
   body.mode-up2b #up2b-screen { display:block; }
   body.mode-system500 #system500-screen { display:block; }
-  .hub-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  /* The hub leads with the map. Two entry cards on an empty page made the
+     landing screen mostly whitespace and hid the one thing people came to
+     look at; the cards now flank the map as a narrow rail instead. */
+  .hub-main { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(290px,.8fr);
+    gap:16px; align-items:stretch; }
+  /* The landing map should own the viewport, not sit in a letterbox with dead
+     space under it. */
+  .hub-main .jamali-map { height:clamp(300px, 52vh, 560px); }
+  .hub-rail { display:flex; flex-direction:column; gap:12px; }
+  .hub-grid { display:flex; flex-direction:column; gap:12px; }
   .hub-card {
-    background:#fff; border:1px solid var(--line); border-radius:16px; padding:26px;
-    cursor:pointer; text-align:left; display:flex; flex-direction:column; gap:10px;
+    background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px;
+    cursor:pointer; text-align:left; display:flex; flex-direction:column; gap:8px;
   }
   .hub-card:hover { border-color:var(--blue); box-shadow:0 4px 16px rgba(11,92,171,.12); }
   .hub-card .hub-icon {
@@ -149,12 +206,37 @@
     background:#eaf3ff; color:var(--blue-d); font-size:20px; font-weight:800;
   }
   .hub-card.hub-500 .hub-icon { background:#eef2ff; color:#3730a3; }
-  .hub-card h2 { margin:2px 0 0; font-size:19px; }
-  .hub-card .lead { color:var(--muted); font-size:12.5px; margin:0; line-height:1.5; }
+  .hub-card h2 { margin:2px 0 0; font-size:17px; }
+  .hub-card .lead { color:var(--muted); font-size:12px; margin:0; line-height:1.45; }
   .hub-card .hub-stats { display:flex; gap:16px; margin-top:auto; padding-top:6px; }
   .hub-card .hub-stat b { display:block; font-size:20px; }
   .hub-card .hub-stat span { display:block; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; }
-  @media(max-width:900px){ .hub-grid{grid-template-columns:1fr} }
+  /* Icon and heading share a row in the rail: the card is narrower now, and a
+     44px block above the title wasted the height the stats need. */
+  .hub-card .hub-head { display:flex; align-items:center; gap:10px; }
+  .hub-card .hub-icon { width:34px; height:34px; border-radius:9px; font-size:16px; flex:none; }
+
+  /* Legend pinned to the map rather than parked in a side card, so the colours
+     are read where they are used. */
+  .map-legend {
+    position:absolute; top:8px; right:8px; z-index:5; background:rgba(255,255,255,.93);
+    border:1px solid var(--line); border-radius:9px; padding:8px 10px;
+    font-size:10px; line-height:1.5; box-shadow:0 2px 8px rgba(15,39,74,.08);
+    -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+  }
+  .map-legend b { display:block; font-size:9.5px; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--muted); margin-bottom:4px; font-weight:700; }
+  .map-legend div { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .map-legend i { width:8px; height:8px; border-radius:50%; flex:none; }
+
+  /* The "what do I click next" line, given the weight of an instruction. */
+  .map-hint {
+    display:inline-flex; align-items:center; gap:7px; margin-top:10px;
+    background:#eaf3ff; border:1px solid #cfe2f7; color:var(--blue-d);
+    border-radius:99px; padding:6px 13px; font-size:11.5px;
+  }
+  .map-hint::before { content:"\25B8"; font-size:10px; }
+  @media(max-width:900px){ .hub-main{grid-template-columns:1fr} }
 
   .screen-back {
     display:inline-flex; align-items:center; gap:6px; margin-bottom:16px;
@@ -220,9 +302,32 @@
   #stage.panning { cursor: grabbing; }
   #stage svg { display: block; width: 100%; height: 100%; }
   #stage svg .sld-node, #stage svg .sld-bay,
-  #stage svg [data-circuit-id], #stage svg [data-audit-kind] { cursor: pointer; }
+  #stage svg [data-circuit-id], #stage svg [data-audit-kind],
+  #stage svg .risk-pin { cursor: pointer; }
+  /* Only the pin's own hit disc takes the pointer. Everything else in the
+     overlay stays click-through, so the enlarged target can never swallow a
+     click meant for a bay or conductor underneath it. */
+  #stage svg #overlay-risk { pointer-events: none; }
+  #stage svg .risk-pin { pointer-events: auto; }
+  #stage svg .risk-pin.active > circle:not(.pin-hit) { stroke: #7c2d12; stroke-width: 2.5; }
   #stage svg .hit-sel { outline: none; }
-  .sel-ring { fill: none; stroke: var(--blue); stroke-width: 2; stroke-dasharray: 4 3; }
+  /* Selection must not read as part of the diagram. Blue is 500 kV and red is
+     150 kV, so the marker uses none of the voltage colours: a soft drop
+     shadow plus a magenta hairline that appears nowhere else in the drawing. */
+  .sel-ring { fill: rgba(217,70,239,.07); stroke: #d946ef; stroke-width: 1.6;
+    filter: drop-shadow(0 3px 8px rgba(15,39,74,.28)); }
+  .sel-glow { fill: none; stroke: #fff; stroke-width: 5; opacity: .9; }
+  /* A selected penghantar is traced along its own route rather than boxed. */
+  .sel-trace { fill: none; stroke: #d946ef; stroke-width: 2.6; stroke-linecap: round;
+    filter: drop-shadow(0 2px 5px rgba(15,39,74,.3)); }
+  /* Objects a selected kerawanan puts at risk: same family, no fill, dashed. */
+  .exp-ring { fill: none; stroke: #d946ef; stroke-width: 1.4; stroke-dasharray: 5 4;
+    opacity: .75; }
+  .exp-trace { fill: none; stroke: #d946ef; stroke-width: 2; stroke-dasharray: 6 5;
+    opacity: .7; }
+  .sel-tag { font: 700 10px -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    fill: #fff; }
+  .sel-tag-bg { fill: #a21caf; filter: drop-shadow(0 2px 5px rgba(15,39,74,.35)); }
 
   .zoomctl {
     position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column;
@@ -324,6 +429,15 @@
   .sstree .pov:hover { background: #eef6ff; }
   .sstree .pov.active { background: #eaf3ff; border-color: var(--blue); font-weight: 700; }
   .sstree .pov small { display: block; color: var(--muted); font-weight: 400; }
+  .sstree .tree-up, .sstree .tree-all {
+    display: block; width: 100%; text-align: left; padding: 6px 8px;
+    border: 1px solid transparent; background: none; font: inherit;
+    font-size: 12px; color: var(--muted); cursor: pointer; border-radius: 6px;
+  }
+  .sstree .tree-up { margin: 0 0 6px; border-bottom: 1px solid var(--line);
+    border-radius: 6px 6px 0 0; padding-bottom: 8px; }
+  .sstree .tree-all { margin-top: 8px; }
+  .sstree .tree-up:hover, .sstree .tree-all:hover { background: #eef6ff; color: var(--blue); }
 </style>
 </head>
 <body class="mode-hub">
@@ -332,8 +446,13 @@
     <b>MANTAPS</b> &nbsp;<span class="sub">Peta Kerawanan</span>
     <div class="sub">Subsistem transmisi per UP2B &middot; Tier per sudut pandang &middot; overlay kerawanan</div>
   </button>
+  <nav class="topnav" id="topnav">
+    <button type="button" data-dest="hub">Peta Jamali</button>
+    <button type="button" data-dest="up2b">Wilayah UP2B</button>
+    <button type="button" data-dest="system500">Sistem 500 kV</button>
+  </nav>
   <div class="spacer"></div>
-  <span class="hint" id="crumb"></span>
+  <nav class="crumbs" id="crumb" aria-label="Jejak navigasi"></nav>
   <select id="scensel" title="Pola operasi"></select>
   <button class="navlink back" id="homebtn" type="button">Peta Jamali</button>
   <a class="navlink primary" href="/ingest" title="Tambah subsistem baru dari SLD">+ Tambah subsistem</a>
@@ -344,28 +463,46 @@
   <!-- HUB: two separate entry points, never on the same card/scroll -->
   <div id="hub-screen">
     <div class="hero">
-      <div><h1>Peta Kerawanan Sistem Jamali</h1><p>Snapshot topologi dan kerawanan sistem. Pilih Peta Wilayah UP2B untuk menelusuri subsistem, atau Sistem 500 kV untuk transmisi/IBT backbone.</p></div>
+      <div><h1>Peta Kerawanan Sistem Jamali</h1><p>Snapshot topologi dan kerawanan sistem transmisi Jawa&ndash;Madura&ndash;Bali.</p></div>
       <div class="metric"><b id="jamali-total">&ndash;</b><span>kerawanan tercatat</span></div>
     </div>
-    <div class="hub-grid">
-      <button class="hub-card hub-up2b" id="hub-up2b" type="button">
-        <span class="hub-icon">&#128506;</span>
-        <h2>Peta Wilayah UP2B</h2>
-        <p class="lead">Lima wilayah kerja UP2B dan subsistem transmisi di dalamnya. Populasi dihitung per risk record; multiview tidak menggandakan angka.</p>
-        <div class="hub-stats">
-          <div class="hub-stat"><b id="hub-up2b-ss">&ndash;</b><span>subsistem</span></div>
-          <div class="hub-stat"><b id="hub-up2b-risk">&ndash;</b><span>kerawanan</span></div>
+    <div class="hub-main">
+      <div class="portal-card">
+        <h2>Wilayah UP2B</h2>
+        <div class="lead">Klik sebuah pin wilayah untuk menelusuri subsistem di dalamnya.</div>
+        <div class="jamali-map" id="hub-map">
+          <svg id="hub-coast" aria-hidden="true" preserveAspectRatio="none"></svg>
+          <div class="map-legend">
+            <b>Tingkat kerawanan</b>
+            <div><i style="background:var(--sev-n1)"></i> N-1 &mdash; kontingensi tunggal</div>
+            <div><i style="background:var(--sev-n2)"></i> N-2 &mdash; kontingensi ganda</div>
+            <div><i style="background:var(--sev-n12)"></i> N-1-2 &mdash; kombinasi</div>
+            <div><i style="background:var(--sev-other)"></i> Lainnya / belum ditetapkan</div>
+          </div>
         </div>
-      </button>
-      <button class="hub-card hub-500" id="hub-system500" type="button">
-        <span class="hub-icon">&#9889;</span>
-        <h2>Sistem 500 kV</h2>
-        <p class="lead">Backbone transmisi dan IBT Jawa-Madura-Bali. Kerawanan sistem dan bayangan dampaknya tetap terpisah dari risiko lokal SS.</p>
-        <div class="hub-stats">
-          <div class="hub-stat"><b id="hub-500-views">&ndash;</b><span>proyeksi</span></div>
-          <div class="hub-stat"><b id="hub-500-risk">&ndash;</b><span>kerawanan</span></div>
+        <div class="map-hint" id="hub-hint">Pilih wilayah UP2B pada peta untuk melihat subsistemnya</div>
+        <div class="risk-chips" id="hub-cats"></div>
+      </div>
+      <div class="hub-rail">
+        <div class="hub-grid">
+          <button class="hub-card hub-up2b" id="hub-up2b" type="button">
+            <span class="hub-head"><span class="hub-icon">&#128506;</span><h2>Peta Wilayah UP2B</h2></span>
+            <p class="lead">Lima wilayah kerja UP2B dan subsistem transmisi di dalamnya.</p>
+            <div class="hub-stats">
+              <div class="hub-stat"><b id="hub-up2b-ss">&ndash;</b><span>subsistem</span></div>
+              <div class="hub-stat"><b id="hub-up2b-risk">&ndash;</b><span>kerawanan</span></div>
+            </div>
+          </button>
+          <button class="hub-card hub-500" id="hub-system500" type="button">
+            <span class="hub-head"><span class="hub-icon">&#9889;</span><h2>Sistem 500 kV</h2></span>
+            <p class="lead">Backbone transmisi dan IBT Jawa-Madura-Bali, terpisah dari risiko lokal SS.</p>
+            <div class="hub-stats">
+              <div class="hub-stat"><b id="hub-500-views">&ndash;</b><span>proyeksi</span></div>
+              <div class="hub-stat"><b id="hub-500-risk">&ndash;</b><span>kerawanan</span></div>
+            </div>
+          </button>
         </div>
-      </button>
+      </div>
     </div>
   </div>
 
@@ -532,20 +669,39 @@ async function txt(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw n
   $('#zin').onclick  = () => zoomBy(1/1.25);
   $('#zout').onclick = () => zoomBy(1.25);
   $('#zfit').onclick = () => { vb = {...vb0}; commitVB(); };
-  $('#homebtn').onclick = showHub;
-  $('#brandhome').onclick = showHub;
+  $('#homebtn').onclick = backToMap;          // viewer -> the map one step up
+  $('#brandhome').onclick = () => { NAV_REGION = ''; showHub(); };
   $('#hub-up2b').onclick = showUp2bScreen;
   $('#hub-system500').onclick = showSystem500Screen;
-  $('#back-up2b').onclick = showHub;
+  $('#back-up2b').onclick = () => { NAV_REGION = ''; showHub(); };
   $('#back-system500').onclick = showHub;
+  $$('#topnav button').forEach(b => b.onclick = () => {
+    const d = b.dataset.dest;
+    if (d === 'hub') { NAV_REGION = ''; showHub(); }
+    else if (d === 'up2b') { NAV_REGION = ''; showUp2bScreen(); }
+    else showSystem500Screen();
+  });
   wirePanel();
   wireStage();
+  // The maps project onto a pixel box measured at draw time, and the landing
+  // map is sized in vh, so a window resize would otherwise leave pins at
+  // stale coordinates.
+  let rt = null;
+  addEventListener('resize', () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => {
+      if (document.body.classList.contains('mode-viewer')) { applyLabelFloor($('#stage svg')); return; }
+      if (!SUMMARY) return;
+      if (MAP_REGION) drawSubsystemMap(MAP_REGION); else drawRegionMap();
+    }, 150);
+  });
 })().catch(e => {
   showHub();
   $('#jamali-total').textContent = '!';
   $('#hub-up2b-ss').textContent = '!'; $('#hub-up2b-risk').textContent = '!';
   $('#hub-500-views').textContent = '!'; $('#hub-500-risk').textContent = '!';
   $('#jamali-cats').innerHTML = '<span class="risk-chip">data tidak tersedia</span>';
+  $('#hub-cats').innerHTML = '<span class="risk-chip">data tidak tersedia</span>';
   $('#system500').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Gagal memuat data dashboard.</div>';
   $('#portal-ss').innerHTML = '<div class="empty-state">Jalankan aplikasi melalui FastAPI atau layani hasil build statis lewat HTTP. Detail: '+esc(e.message)+'</div>';
 });
@@ -558,26 +714,89 @@ function setPortalMode(mode){
   document.body.classList.remove('mode-viewer', 'mode-hub', 'mode-up2b', 'mode-system500');
   document.body.classList.add('mode-' + mode);
   $('#scensel').style.display = 'none';
+  markTopnav(mode);
 }
+
+// ---- breadcrumb -------------------------------------------------------
+// Every segment except the last is a button that actually goes there, so the
+// trail is a way back rather than a label describing where you are.
+function setCrumb(parts){
+  const box = $('#crumb'); if (!box) return;
+  box.innerHTML = '';
+  parts.forEach((p, i) => {
+    if (i) { const s = document.createElement('span'); s.className = 'sep';
+             s.textContent = '›'; box.appendChild(s); }
+    if (p.go && i < parts.length - 1) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = p.label; b.onclick = p.go;
+      box.appendChild(b);
+    } else {
+      const s = document.createElement('span');
+      s.className = 'here'; s.textContent = p.label; box.appendChild(s);
+    }
+  });
+}
+function markTopnav(mode){
+  const dest = mode === 'viewer'
+    ? (VIEW && isSystemView(VIEW) ? 'system500' : 'up2b') : mode;
+  $$('#topnav button').forEach(b =>
+    b.toggleAttribute('aria-current', b.dataset.dest === dest));
+}
+
 function showHub(){
   setPortalMode('hub');
-  $('#crumb').textContent = 'JAMALI';
+  setCrumb([{label: 'Jamali'}]);
   if(SUMMARY) renderHub();
 }
 function showUp2bScreen(){
   setPortalMode('up2b');
-  $('#crumb').textContent = 'JAMALI » Peta Wilayah UP2B';
+  setCrumb([{label: 'Jamali', go: showHub}, {label: 'Wilayah UP2B'}]);
   if(SUMMARY) renderUp2bScreen();
 }
 function showSystem500Screen(){
   setPortalMode('system500');
-  $('#crumb').textContent = 'JAMALI » Sistem 500 kV';
+  setCrumb([{label: 'Jamali', go: showHub}, {label: 'Sistem 500 kV'}]);
   if(SUMMARY) renderSystem500Screen();
 }
+
+// Open one UP2B: zoom the map to it and scope the list, from wherever the user
+// clicked its pin.
+function openRegion(r){
+  setPortalMode('up2b');
+  MAP_REGION = r; NAV_REGION = r.key;
+  MAP_HOST = {map: '#jamali-map', coast: '#jamali-coast'};
+  setCrumb([{label: 'Jamali', go: showHub},
+            {label: 'Wilayah UP2B', go: showUp2bScreen},
+            {label: r.name}]);
+  $('#jamali-cats').innerHTML = riskChips(SUMMARY.local_risk);
+  loadCoast().then(() => drawSubsystemMap(r));
+  renderSubsystems(r);
+}
+
+// Back from a viewer goes one step up, to the map the user actually came
+// from, with that UP2B still selected - not all the way home to the hub.
+function backToMap(){
+  if(VIEW && isSystemView(VIEW)) return showSystem500Screen();
+  const region = NAV_REGION ? regionOfKey(NAV_REGION) : null;
+  if(!region) return showUp2bScreen();
+  openRegion(region);
+}
+
+// ---- severity chips ---------------------------------------------------
+// A fixed row in a fixed order. Categories the engine has not seen still get
+// their slot (dimmed at zero) so cards line up as columns; anything outside
+// the known ramp is folded into one "lainnya" chip rather than inventing a
+// colour for it.
+const SEV = [['N-1','s-n1'], ['N-2','s-n2'], ['N-1-2','s-n12']];
 function riskChips(risk){
-  const cats = risk?.categories || {};
-  return Object.entries(cats).sort().map(([k,v]) => `<span class="risk-chip">${esc(k)} &middot; ${v}</span>`).join('')
-    || '<span class="muted" style="font-size:11px">Belum ada risiko</span>';
+  const cats = {...(risk?.categories || {})};
+  let h = SEV.map(([key, cls]) => {
+    const n = cats[key] || 0; delete cats[key];
+    return `<span class="risk-chip ${cls}${n ? '' : ' zero'}">${esc(key)} &middot; ${n}</span>`;
+  }).join('');
+  const rest = Object.values(cats).reduce((a, b) => a + b, 0);
+  if (rest) h += `<span class="risk-chip">lainnya &middot; ${rest}</span>`;
+  return h;
 }
 function renderHub(){
   $('#jamali-total').textContent = SUMMARY.risk.total;
@@ -590,6 +809,12 @@ function renderHub(){
   const hub500 = $('#hub-system500');
   hub500.disabled = viewTotal === 0;
   hub500.title = viewTotal === 0 ? 'Belum ada snapshot Sistem 500 kV' : '';
+  $$('#topnav button[data-dest="system500"]').forEach(b => b.disabled = viewTotal === 0);
+  // the landing map: same five pins, drawn into the hub's own surface
+  $('#hub-cats').innerHTML = riskChips(SUMMARY.local_risk);
+  MAP_REGION = null;
+  MAP_HOST = {map: '#hub-map', coast: '#hub-coast'};
+  loadCoast().then(drawRegionMap);
 }
 // Which UP2B the map is currently zoomed into (null = all five pins).
 let MAP_REGION = null;
@@ -637,8 +862,14 @@ function fitView(lons, lats, W, H, marginDeg, minSpan){
           lat0: cLat - spanLat/2, lat1: cLat + spanLat/2};
 }
 
+// Which map surface the region renderer is drawing into. The hub and the UP2B
+// screen show the same five pins, so they share one renderer rather than two
+// copies that can drift apart.
+let MAP_HOST = {map: '#jamali-map', coast: '#jamali-coast'};
+
 function drawCoast(proj, W, H){
-  const svg = $('#jamali-coast');
+  const svg = $(MAP_HOST.coast);
+  if (!svg) return;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.innerHTML = (COAST || []).map(ring => {
     const d = ring.map(([lon, lat], i) =>
@@ -648,18 +879,21 @@ function drawCoast(proj, W, H){
 }
 
 function mapBox(){
-  const map = $('#jamali-map');
+  const map = $(MAP_HOST.map);
+  if (!map) return {map: null, W: 700, H: 245};
   const rect = map.getBoundingClientRect();
   return {map, W: Math.round(rect.width) || 700, H: Math.round(rect.height) || 245};
 }
 
 function clearMap(map){
+  if (!map) return;
   map.querySelectorAll('.region-pin,.ss-pin,.ss-leader,.map-note').forEach(x => x.remove());
 }
 
 function renderUp2bScreen(){
   $('#jamali-cats').innerHTML = riskChips(SUMMARY.local_risk);
   MAP_REGION = null;
+  MAP_HOST = {map: '#jamali-map', coast: '#jamali-coast'};
   loadCoast().then(drawRegionMap);
   renderSubsystems(null);
 }
@@ -667,6 +901,7 @@ function renderUp2bScreen(){
 // ---------- UP2B overview: the five region pins over the whole of Jamali ----
 function drawRegionMap(){
   const {map, W, H} = mapBox();
+  if (!map) return;
   clearMap(map);
   const proj = makeProjection(JAMALI_VIEW, W, H, {l:8, r:8, t:8, b:8});
   drawCoast(proj, W, H);
@@ -688,7 +923,9 @@ function drawRegionMap(){
     b.style.left=proj.x(at[1])+'px'; b.style.top=proj.y(at[0])+'px';
     b.innerHTML=`<i>${r.risk.total}</i><span>${esc(r.name)}</span>`;
     b.title=`${r.name}: ${r.subsystems.length} SS, ${r.risk.total} kerawanan`;
-    b.onclick=()=>{ MAP_REGION = r; drawSubsystemMap(r); renderSubsystems(r); };
+    // From the hub the same pin means "take me into this region"; on the UP2B
+    // screen it means "zoom this region", which is where the user already is.
+    b.onclick=()=>{ openRegion(r); };
     map.appendChild(b);
   });
 }
@@ -788,7 +1025,11 @@ function renderSubsystems(region){
     c.onmouseleave=()=>{const p=$(`.ss-pin[data-sid="${c.dataset.sid}"]`); if(p) p.classList.remove('active');};
   });
   const back = $('#ss-allregions');
-  if(back) back.onclick = () => { MAP_REGION = null; drawRegionMap(); renderSubsystems(null); };
+  if(back) back.onclick = () => {
+    MAP_REGION = null; NAV_REGION = '';
+    setCrumb([{label: 'Jamali', go: showHub}, {label: 'Wilayah UP2B'}]);
+    drawRegionMap(); renderSubsystems(null);
+  };
 }
 
 // ---------- UP2B -> SS -> point-of-view tree ----------
@@ -796,11 +1037,34 @@ function ssOf(id){ return SUBS.find(s => s.id === id) || null; }
 function ssName(id){ const s = ssOf(id); return s ? s.name : 'Lain-lain'; }
 function apbOf(id){ const s = ssOf(id); return (s && s.apb) || 'UP2B lain'; }
 
+// Same bucketing as the dashboard's region_key() in app/api/routes.py, so a
+// subsystem's raw `apb` string and a map region resolve to the same region.
+function regionKeyOf(apb){
+  const v = (apb || '').toUpperCase();
+  if(v.includes('JAKARTA') || v.includes('BANTEN') || v === 'JBB') return 'JAKARTA_BANTEN';
+  if(v.includes('BARAT') || v.includes('JABAR')) return 'JAWA_BARAT';
+  if(v.includes('TENGAH') || v.includes('DIY') || v.includes('JATENG')) return 'JAWA_TENGAH_DIY';
+  if(v.includes('TIMUR') || v.includes('JATIM')) return 'JAWA_TIMUR';
+  if(v.includes('BALI')) return 'BALI';
+  return 'BELUM_DIPETAKAN';
+}
+function regionOfKey(key){
+  return (SUMMARY?.regions || []).find(r => r.key === key) || null;
+}
+
 function isSystemView(v){ return ['BACKBONE_500','IBT_500_150'].includes(v?.rule_profile); }
+
+// The sidebar follows the drill-down the user already made: having picked a
+// UP2B on the map, they are inside that region, so listing all 32 subsystems
+// of Jamali is noise. NAV_REGION holds that region's key ('' = show every
+// UP2B, which the user can still ask for explicitly).
+let NAV_REGION = '';
+function navRegionName(){ return regionOfKey(NAV_REGION)?.name || ''; }
 function buildTree(scope='subsystem'){
   const box = $('#sstree');
   box.innerHTML = '';
-  $('#nav-heading').textContent = scope === 'system' ? 'Sistem 500 kV' : 'UP2B & subsistem';
+  $('#nav-heading').textContent = scope === 'system' ? 'Sistem 500 kV'
+    : (NAV_REGION ? `UP2B ${navRegionName()}` : 'UP2B & subsistem');
   if(scope === 'system'){
     [['Transmisi','BACKBONE_500'],['IBT','IBT_500_150']].forEach(([label,profile])=>{
       const matches=VIEWS.filter(v=>v.rule_profile===profile);
@@ -812,7 +1076,9 @@ function buildTree(scope='subsystem'){
   }
   // UP2B -> SS -> views
   const apbs = [];
-  VIEWS.filter(v => !isSystemView(v)).forEach(v => {
+  VIEWS.filter(v => !isSystemView(v))
+       .filter(v => !NAV_REGION || regionKeyOf(apbOf(v.subsystem_id)) === NAV_REGION)
+       .forEach(v => {
     const apb = apbOf(v.subsystem_id);
     let a = apbs.find(x => x.apb === apb);
     if (!a) { a = { apb, ss: [] }; apbs.push(a); }
@@ -820,6 +1086,17 @@ function buildTree(scope='subsystem'){
     if (!g) { g = { sid: v.subsystem_id, views: [] }; a.ss.push(g); }
     g.views.push(v);
   });
+
+  // Going up a level belongs next to the list it scopes, not only in the
+  // header: from here the map is one step back, not a jump home.
+  const up = document.createElement('button');
+  up.className = 'tree-up';
+  up.type = 'button';
+  up.innerHTML = NAV_REGION
+    ? `&larr; Peta UP2B ${esc(navRegionName())}`
+    : '&larr; Peta Wilayah UP2B';
+  up.onclick = () => backToMap();
+  box.appendChild(up);
 
   apbs.forEach(a => {
     if (apbs.length > 1) {
@@ -850,13 +1127,39 @@ function buildTree(scope='subsystem'){
       box.appendChild(kids);
     });
   });
+
+  // Scoping to one UP2B is a default, not a cage - crossing to a neighbouring
+  // region stays one click away rather than a trip back through the hub.
+  if(NAV_REGION){
+    const all = document.createElement('button');
+    all.className = 'tree-all';
+    all.type = 'button';
+    all.textContent = 'Tampilkan semua UP2B';
+    all.onclick = () => { NAV_REGION = ''; buildTree('subsystem'); if(VIEW) markTree(VIEW.id); };
+    box.appendChild(all);
+  }
 }
 function markTree(id){
   $$('#sstree .pov').forEach(b => b.classList.toggle('active', +b.dataset.viewId === id));
   const v = VIEWS.find(v => v.id === id);
-  $('#crumb').textContent = v ? (isSystemView(v)
-    ? `JAMALI » Sistem 500 kV » ${v.rule_profile === 'BACKBONE_500' ? 'Transmisi' : 'IBT'} » ${v.name}`
-    : `${apbOf(v.subsystem_id)} » SS ${ssName(v.subsystem_id)} » ${v.name}`) : '';
+  if (v && isSystemView(v)) {
+    setCrumb([{label: 'Jamali', go: showHub},
+              {label: 'Sistem 500 kV', go: showSystem500Screen},
+              {label: v.rule_profile === 'BACKBONE_500' ? 'Transmisi' : 'IBT'},
+              {label: v.name}]);
+  } else if (v) {
+    const reg = regionOfKey(NAV_REGION);
+    setCrumb([{label: 'Jamali', go: showHub},
+              {label: 'Wilayah UP2B', go: () => { NAV_REGION = ''; showUp2bScreen(); }},
+              ...(reg ? [{label: reg.name, go: () => openRegion(reg)}] : []),
+              {label: 'SS ' + ssName(v.subsystem_id)},
+              {label: v.name}]);
+  }
+  markTopnav('viewer');
+  // The header button names the step it takes, so "back" is never a surprise
+  // jump past the map the user was just on.
+  $('#homebtn').textContent = v && !isSystemView(v) && NAV_REGION
+    ? `← Peta UP2B ${navRegionName()}` : '← Peta Jamali';
 }
 
 // ---------- view load ----------
@@ -865,6 +1168,9 @@ async function selectView(id){
   document.body.classList.add('mode-viewer');
   $('#scensel').style.display = '';
   VIEW = VIEWS.find(v => v.id === id);
+  // Opening a subsystem scopes the sidebar to its UP2B, whether it was reached
+  // from the region map or from a neighbouring SS in the tree.
+  if(!isSystemView(VIEW)) NAV_REGION = regionKeyOf(apbOf(VIEW.subsystem_id));
   buildTree(isSystemView(VIEW) ? 'system' : 'subsystem');
   const [svg, graph] = await Promise.all([
     txt(`/api/views/${id}/sld.svg`),
@@ -992,6 +1298,13 @@ function zoomBy(f, cx, cy){
   commitVB();
 }
 
+// Smallest on-screen size a GI label may shrink to before it stops following
+// the zoom. Measured against the built fixtures: at fit zoom the 12.5-unit
+// labels land between 5.1px and 9.1px, so without a floor most views open
+// unreadable. Boosting them back to 9px introduces no label collisions on any
+// fixture - the renderer's own left/right/centre placement leaves the room.
+const MIN_LABEL_PX = 9;
+
 function applySemanticZoom(z){
   const svg = $('#stage svg'); if (!svg) return;
   const tier = svg.querySelector('#overlay-tier');
@@ -1000,6 +1313,31 @@ function applySemanticZoom(z){
   // fade small stub/audit text when zoomed far out so the shape reads first
   svg.querySelectorAll('#bays text, #mapping-audit text').forEach(t => {
     t.style.opacity = z < 0.62 ? 0 : (z < 0.8 ? 0.5 : 1);
+  });
+  applyLabelFloor(svg);
+}
+
+// px on screen for one diagram unit at the current viewBox
+function unitPx(svg){
+  const r = svg.getBoundingClientRect();
+  return (r.width && vb && vb.w) ? r.width / vb.w : 1;
+}
+
+// Hold GI labels and risk pins at a legible size as the diagram scales down.
+// Only the glyph size is touched - x/y stay exactly as the renderer placed
+// them, so nothing moves relative to the drawing it annotates.
+function applyLabelFloor(svg){
+  if (!svg) return;
+  const k = unitPx(svg); if (!k) return;
+  svg.querySelectorAll('#busbars text, #overlay-risk text').forEach(t => {
+    let base = +t.dataset.baseSize;
+    if (!base) {
+      base = parseFloat(t.getAttribute('font-size')) || 0;
+      if (!base) return;
+      t.dataset.baseSize = base;            // remember the rendered size once
+    }
+    const boost = Math.max(1, MIN_LABEL_PX / (base * k));
+    t.setAttribute('font-size', (base * boost).toFixed(2));
   });
 }
 
@@ -1036,28 +1374,111 @@ function wireStage(){
 function wireHits(){
   const svg = $('#stage svg'); if (!svg) return;
   svg.addEventListener('click', e => {
+    // The pin is checked first: it sits on top of the object it annotates, so
+    // a click on the pin means "this kerawanan", not "the bus behind it".
+    const pin  = e.target.closest('.risk-pin');
     const node = e.target.closest('.sld-node, .sld-bay');
     const circ = e.target.closest('[data-circuit-id]');
     const aud  = e.target.closest('[data-audit-kind]');
-    if (node)      showNode(node);
+    if (pin)       showPinRisks(pin);
+    else if (node) showNode(node);
     else if (circ) showCircuit(circ);
     else if (aud)  showAudit(aud);
   });
 }
 
-function selRing(target){
-  const svg = $('#stage svg');
-  svg.querySelectorAll('.sel-ring').forEach(n => n.remove());
+const SVGNS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs){
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+// The selection marker sits above the drawing in its own layer, so the white
+// under-stroke can lift it off whatever it is covering.
+function selLayer(svg){
+  let g = svg.querySelector('#sel-layer');
+  if (g) { g.innerHTML = ''; return g; }
+  g = svgEl('g', {id: 'sel-layer'});
+  g.style.pointerEvents = 'none';
+  svg.appendChild(g);
+  return g;
+}
+
+function selRing(target, opts){
+  const svg = $('#stage svg'); if (!svg) return;
+  const g = selLayer(svg);
   if (!target) return;
+  const label = opts && opts.label;
   try {
     const b = target.getBBox();
-    const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    r.setAttribute('class', 'sel-ring');
-    r.setAttribute('x', b.x - 5); r.setAttribute('y', b.y - 5);
-    r.setAttribute('width', b.width + 10); r.setAttribute('height', b.height + 10);
-    r.setAttribute('rx', 5);
-    svg.appendChild(r);
+    const pad = 6;
+    let box = {x: b.x - pad, y: b.y - pad, w: b.width + pad*2, h: b.height + pad*2};
+    // A penghantar's bbox spans its whole route, so a rectangle round it would
+    // enclose unrelated GIs and read as "all of this is selected". Trace the
+    // conductor itself instead; only compact objects get a box.
+    const paths = target.tagName === 'path' ? [target]
+                : [...target.querySelectorAll('path,line')];
+    // A circuit is always traced, whatever its extent: a rectangle around a
+    // route says "this area", when the thing selected is the line itself.
+    if (paths.length && target.hasAttribute('data-circuit-id')) {
+      paths.forEach(p => {
+        const d = p.getAttribute('d');
+        const mk = a => d ? svgEl('path', {...a, d})
+                          : svgEl('line', {...a, x1:p.getAttribute('x1'), y1:p.getAttribute('y1'),
+                                                 x2:p.getAttribute('x2'), y2:p.getAttribute('y2')});
+        g.appendChild(mk({class:'sel-glow'}));
+        g.appendChild(mk({class:'sel-trace'}));
+      });
+      if (label) tagAt(g, svg, box.x, b.y - pad, label);
+      return;
+    }
+    // white halo first, then the coloured ring on top of it
+    g.appendChild(svgEl('rect', {class:'sel-glow', x:box.x, y:box.y,
+      width:box.w, height:box.h, rx:6}));
+    g.appendChild(svgEl('rect', {class:'sel-ring', x:box.x, y:box.y,
+      width:box.w, height:box.h, rx:6}));
+    if (label) tagAt(g, svg, box.x, box.y, label);
   } catch(_){}
+}
+
+// A caption naming what is selected, sized in screen terms so it stays legible
+// at any zoom - same reasoning as the label floor.
+function tagAt(g, svg, x, y, label){
+  const k = unitPx(svg) || 1;
+  const fs = 10 / k, padx = 5 / k, h = fs * 1.8;
+  const w = label.length * fs * 0.58 + padx * 2;
+  const ly = y - h - 3 / k;
+  g.appendChild(svgEl('rect', {class:'sel-tag-bg', x, y:ly, width:w, height:h, rx:h/2}));
+  const t = svgEl('text', {class:'sel-tag', x: x + padx,
+    y: ly + h*0.7, 'font-size': fs.toFixed(2)});
+  t.textContent = label;
+  g.appendChild(t);
+}
+
+// Outline the objects a selected kerawanan exposes, so the drawing answers
+// "what else is at risk here" without reading the panel.
+function markExposed(ids){
+  const svg = $('#stage svg'); if (!svg) return;
+  const g = svg.querySelector('#sel-layer'); if (!g) return;
+  ids.forEach(el => {
+    if (!el) return;
+    try {
+      const b = el.getBBox();
+      // same rule as the selection: trace a conductor, box a compact object
+      if (el.hasAttribute('data-circuit-id')) {
+        [...el.querySelectorAll('path,line')].forEach(p => {
+          const d = p.getAttribute('d');
+          g.appendChild(d ? svgEl('path', {class:'exp-trace', d})
+            : svgEl('line', {class:'exp-trace', x1:p.getAttribute('x1'), y1:p.getAttribute('y1'),
+                             x2:p.getAttribute('x2'), y2:p.getAttribute('y2')}));
+        });
+        return;
+      }
+      g.appendChild(svgEl('rect', {class:'exp-ring', x:b.x - 4, y:b.y - 4,
+        width:b.width + 8, height:b.height + 8, rx:5}));
+    } catch(_){}
+  });
 }
 
 function nodeByKindId(kind, id){
@@ -1182,8 +1603,9 @@ function clearDetail(){
 // ---------- risk / DS panels ----------
 function catPill(c){
   if (!c) return '';
-  const warn = c === 'N-2' || c === 'N-1-1';
-  return `<span class="pill ${warn ? 'warn' : ''}">${esc(c)}</span>`;
+  // same ramp as the cards' chips, so a category keeps one colour everywhere
+  const cls = {'N-1':'s-n1', 'N-2':'s-n2', 'N-1-2':'s-n12'}[c] || '';
+  return `<span class="risk-chip ${cls}">${esc(c)}</span>`;
 }
 function riskBlock(list, heading){
   let h = `<div class="k">${esc(heading)}</div>`;
@@ -1307,6 +1729,118 @@ function renderRiskList(){
     $('#risk-q').value = '';
     buildRiskChips(); renderRiskList();
   };
+}
+
+// Clicking a pin on the drawing reveals the kerawanan it stands for. A pin can
+// carry several seq numbers (that is what its label shows), so all of them are
+// highlighted rather than only the first.
+function showPinRisks(pin){
+  const seqs = (pin.dataset.riskSeqs || '').split(',').map(s => +s).filter(Boolean);
+  if (!seqs.length) return;
+  const svg = $('#stage svg');
+  svg.querySelectorAll('.risk-pin.active').forEach(p => p.classList.remove('active'));
+  pin.classList.add('active');
+  // A filter left over from an earlier search would hide the very rows the
+  // user just clicked towards, which reads as the pin doing nothing.
+  const hidden = seqs.some(q => !$(`#risklist .risk[data-seq="${q}"]`));
+  if (hidden) { riskFilter.q = ''; riskFilter.cats.clear();
+                const q = $('#risk-q'); if (q) q.value = '';
+                buildRiskChips(); renderRiskList(); }
+  showTab('risk');
+  const rows = seqs.map(q => $(`#risklist .risk[data-seq="${q}"]`)).filter(Boolean);
+  $$('#risklist .risk.active').forEach(el => el.classList.remove('active'));
+  rows.forEach(el => el.classList.add('active'));
+  rows[0]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  highlightRiskScope(seqs);
+}
+
+// Ring the object a kerawanan is attached to, and dash-outline what it exposes.
+function highlightRiskScope(seqs){
+  const svg = $('#stage svg'); if (!svg) return;
+  const risks = (GRAPH.overlays.risk || []).filter(r => seqs.includes(r.seq_no));
+  if (!risks.length) return;
+  const r0 = risks[0];
+  const main = riskTarget(svg, r0);
+  selRing(main, {label: `#${seqs.join(', #')} · ${r0.attach_label || 'kerawanan'}`});
+  // everything else these seqs touch, plus the substations a faulted circuit
+  // would strand, is drawn as exposure rather than as the selection itself
+  const extra = new Set();
+  risks.slice(1).forEach(r => { const t = riskTarget(svg, r); if (t) extra.add(t); });
+  risks.forEach(r => exposedBy(svg, r).forEach(t => extra.add(t)));
+  extra.delete(main);
+  markExposed([...extra]);
+}
+
+function riskTarget(svg, r){
+  if (!r || !r.attach_kind || !r.attach_id) return null;
+  if (r.attach_kind === 'CIRCUIT')
+    return svg.querySelector(`[data-circuit-id="${r.attach_id}"]`);
+  // A transformer/IBT is drawn inside its GI, and the graph exposes no
+  // TRANSFORMER node, so the GI carries the marker. Its IBT_LINK edges are
+  // shown as exposure below, which is what actually de-energises.
+  if (r.attach_kind === 'TRANSFORMER') {
+    const link = (GRAPH.edges || []).find(e =>
+      e.circuit_type === 'IBT_LINK' && (e.code || '').includes(r.attach_label || ' '));
+    if (link) return svg.querySelector(`[data-circuit-id="${link.id}"]`);
+    return svgNode(svg, 'SUBSTATION', r.attach_id);
+  }
+  return svgNode(svg, 'SUBSTATION', r.attach_id);
+}
+
+// Which GIs a circuit still reaches if this one is lost. Used to decide whether
+// an outage actually strands a GI or merely reduces redundancy.
+function otherPathsTo(subId, exceptEdgeId){
+  return (GRAPH.edges || []).filter(e =>
+    e.id !== exceptEdgeId && e.status === 'ENERGIZED' &&
+    (e.from_substation_id === subId || e.to_substation_id === subId)).length;
+}
+
+// What a kerawanan actually puts at risk, on N-1 terms rather than "everything
+// touching it":
+//  - a double-circuit penghantar (circuit_count >= 2) losing one circuit still
+//    feeds both ends, so its GIs are NOT marked exposed;
+//  - a single-circuit or single-phi penghantar has no such backup, so a GI left
+//    with no other energised route is stranded and gets marked;
+//  - for an IBT/trafo, the 500/150 coupling it provides is what is lost.
+// This mirrors the book's own framing: kerawanan is about losing supply, not
+// about physical adjacency.
+function exposedBy(svg, r){
+  const out = [];
+  if (!r || !r.attach_id) return out;
+  const push = el => { if (el) out.push(el); };
+
+  if (r.attach_kind === 'CIRCUIT') {
+    const e = edgeById(r.attach_id);
+    if (!e) return out;
+    const redundant = (e.circuit_count || 1) >= 2 && !e.single_phi;
+    if (redundant) return out;          // N-1 still holds; nothing is stranded
+    [e.from_substation_id, e.to_substation_id].forEach(id => {
+      if (id == null) return;
+      if (otherPathsTo(id, e.id) === 0) push(svgNode(svg, 'SUBSTATION', id));
+    });
+    return out;
+  }
+
+  if (r.attach_kind === 'TRANSFORMER') {
+    // the GI whose 500/150 transformation this IBT provides
+    (GRAPH.edges || []).forEach(e => {
+      if (e.circuit_type !== 'IBT_LINK') return;
+      if (!(e.code || '').includes(r.attach_label || ' ')) return;
+      [e.from_substation_id, e.to_substation_id].forEach(id => {
+        if (id != null) push(svgNode(svg, 'SUBSTATION', id));
+      });
+    });
+    return out;
+  }
+
+  // Sited at a GI: the radial circuits it feeds lose supply; meshed ones do not.
+  (GRAPH.edges || []).forEach(e => {
+    if (e.from_substation_id !== r.attach_id && e.to_substation_id !== r.attach_id) return;
+    const far = e.from_substation_id === r.attach_id ? e.to_substation_id : e.from_substation_id;
+    if (far != null && otherPathsTo(far, e.id) === 0)
+      push(svg.querySelector(`[data-circuit-id="${e.id}"]`));
+  });
+  return out;
 }
 
 function focusRisk(seq){
