@@ -27,7 +27,7 @@ ASSETS = [
     dict(code="NGORO7", name="GITET Ngoro (Kediri)", type="Busbar GITET",
          tier=1, kv="500 kV"),
     dict(code="IBT 1 NGORO7", name="IBT 1,2 Kediri 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus_hv="NGORO7", bus_lv="NGORO", trafo=2,
+         tier=2, kv="500/150 kV", ibt="1,2", bus_hv="NGORO7", bus_lv="NGORO", trafo=2,
          simbol="2 IBT (unit 1,2)", kerawanan="1"),
     # -- 150 kV --
     dict(code="NGORO", name="Ngoro (bus 150 kV)", type="Busbar GI", tier=1,

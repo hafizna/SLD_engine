@@ -66,7 +66,7 @@ _NODE_DEFAULTS = {
     "has_transformer": False, "has_capacitor": False,
     "transformer_count": None, "capacitor_count": None, "symbol_note": None,
     "view_keys": [], "outlet_key": None, "bay_circuit_count": None,
-    "role_hint": None, "bay_view_keys": [], "latitude": None, "longitude": None,
+    "role_hint": None, "bay_view_keys": [], "bay_appearances": [], "latitude": None, "longitude": None,
 }
 _CONN_DEFAULTS = {
     "relation_type": "CONNECTED_TO", "circuit_type_hint": "SUTT",
@@ -374,7 +374,8 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             continue
         unit = str(_get(row, "No IBT", "Unit", "No Unit") or "1").strip()
         raw = str(_get(row, "Kode Singkatan", "Kode", "Code") or "")
-        tok = raw.split()[-1].strip().upper() if raw else None
+        explicit_hv = _get(row, "Bus HV", "Bus Primer", "GITET Induk")
+        tok = str(explicit_hv).strip() if explicit_hv else (raw.split()[-1].strip().upper() if raw else None)
         if not tok:
             continue
         # the GITET node key
@@ -382,14 +383,14 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
         # the 150 kV bus it feeds
         lv = _get(row, "Bus 150 kV", "Bus 150kV", "Bus LV", "Ke Bus", "Bus")
         lv = str(lv).strip().upper() if lv else None
-        if not lv or lv not in _all_ext:
+        if not lv:
             lv = tok if tok in _all_ext else gk
         raw_status = _get(row, "Status Operasi", "Status")
         gitet_status = next((o["status_hint"] for o in objects if o["external_key"] == gk), "ENERGIZED")
         link_status = (_STATUS_MAP.get(_norm(raw_status), "ENERGIZED")
                        if raw_status not in (None, "") else gitet_status)
-        ibt_units.setdefault(gk, {"lv": lv, "units": []})["units"].append(
-            {"unit": unit, "status": link_status,
+        ibt_units.setdefault(gk, {"units": []})["units"].append(
+            {"unit": unit, "lv": lv, "status": link_status,
              "view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key"))})
         for nk in _risk_numbers(_get(row, "No Kerawanan", "No. Kerawanan")):
             ibt_pins[nk] = (gk, unit)
@@ -421,6 +422,9 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             if code in existing:
                 for o in objects:
                     if o["external_key"] == code:
+                        o.setdefault("bay_appearances", []).append({
+                            "feeder_key": feeder, "view_keys": row_obj["bay_view_keys"],
+                            "circuit_count": row_obj["bay_circuit_count"], "status": row_obj["status_hint"]})
                         # Existing full-bus assets may be rendered as a bay in
                         # only one view. Keep the physical node full and scope
                         # the Bay appearance separately.
@@ -428,6 +432,9 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                                   "bay_circuit_count": row_obj["bay_circuit_count"],
                                   "bay_view_keys": row_obj["bay_view_keys"]})
             else:
+                row_obj["bay_appearances"] = [{"feeder_key": feeder,
+                    "view_keys": row_obj["bay_view_keys"], "circuit_count": row_obj["bay_circuit_count"],
+                    "status": row_obj["status_hint"]}]
                 objects.append(row_obj)
                 existing.add(code)
 
@@ -464,11 +471,11 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
 
     # ---- IBT-link connections (GITET -> its 150 kV bus), one per unit ----
     for gk, info in ibt_units.items():
-        lv = info["lv"]
-        if gk not in obj_keys or lv not in obj_keys:
-            continue
         for unit_info in info["units"]:
+            lv = unit_info["lv"]
             u = unit_info["unit"]
+            if gk not in obj_keys or lv not in obj_keys:
+                raise IngestParseError(f"IBT {u}: endpoint tak dikenal {gk} -> {lv}; isi Bus HV dan Bus LV sesuai kode aset")
             connections.append({
                 "from_external_key": gk, "to_external_key": lv,
                 "relation_type": "IBT_LINK", "circuit_type_hint": "IBT_LINK",
@@ -500,7 +507,7 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             risks.append({
                 "seq_no": seq,
                 "uit": str(_get(row, "UIT") or "JBB").strip(),
-                "category": "N-1",
+                "category": str(_get(row, "Kategori Kontingensi", "Kategori", "Category") or "N-1").strip(),
                 "priority": "High",
                 "title": _first_line(_get(row, "Kondisi / Permasalahan", "Kondisi")),
                 "condition": str(_get(row, "Kondisi / Permasalahan", "Kondisi") or "").strip(),

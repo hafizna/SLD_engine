@@ -31,8 +31,13 @@ WIL = "Jawa Tengah"
 ASSETS = [
     dict(code="PEDAN7", name="GITET Pedan", type="Busbar GITET",
          tier=1, kv="500 kV"),
+    # The subsystem is named after these two units, so `No IBT` carries the pair
+    # "3,4" rather than just the first unit -- that column is what the renderer
+    # prints beside the transformer symbol, and "IBT 3" alone misnames the bank.
+    # The asset CODE must keep a single trailing token, since the parser reads
+    # the HV side from it.
     dict(code="IBT 3 PEDAN7", name="IBT 3,4 Pedan 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="3",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="3,4",
          bus_hv="PEDAN7", bus_lv="PEDAN", trafo=2,
          simbol="2 IBT (unit 3,4)", kerawanan="1;2"),
     dict(code="PEDAN", name="Pedan (bus 150 kV)", type="Busbar GI", tier=1),

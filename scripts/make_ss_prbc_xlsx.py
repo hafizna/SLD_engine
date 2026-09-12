@@ -3,16 +3,14 @@
 Source: Buku Kerawanan SJB 2026 Sec 2.10 -- Gambar 2.9 (Peta Kerawanan, TWO SLD
 pages, PDF p98) + Tabel 2.8 (7 titik kerawanan, PDF p99-101).
 
-Drawn on two SLD pages -> two analytical views:
+Three panels on PDF p98 -> three analytical views:
     BEKASI  -- sisi Bekasi & Muaratawar (GITET Bekasi IBT 2,4 -> BKASI;
                GITET Muaratawar IBT 1,2 -> MTWAR)  -- book p98 atas
-    PRIOK   -- sisi Priok & Cawang Baru (PLTGU Priok Blok 1,2,3; PLTGU
-               Muarakarang ST 3.0; GITET Cawang Baru IBT 1 -> CWBRU) -- book p98 bawah
+    PRIOK   -- Priok, Muarakarang, Angke and Ancol
+    CAWANG  -- GITET Cawang Baru IBT 1 -> CWBRU and descendants
 
 Assets/relations are shared; `Sudut Pandang` says which view(s) draw each row.
-NOTE: the multi-view ingest materialise path is mid-fix in the engine
-(view_membership CIRCUIT regression); this workbook validates on parse, and
-publishes once that fix lands.
+Cross-panel connections have explicit reciprocal continuation bays.
 
 Run: python scripts/make_ss_prbc_xlsx.py
 """
@@ -37,9 +35,9 @@ ASSETS = [
     dict(code="BKASI", name="GITET Bekasi",     type="Busbar GITET", tier=1, kv="500 kV", views=BKS),
     dict(code="MTWAR", name="GITET Muaratawar", type="Busbar GITET", tier=1, kv="500 kV", views=BKS),
     dict(code="IBT 2 BKASI", name="IBT 2,4 Bekasi", type="IBT 3-Winding", tier=2, kv="500/150 kV",
-         ibt="2", bus150="BKASI", trafo=2, simbol="2 IBT (unit 2,4)", views=BKS),
+         ibt="2,4", bus150="BKASI", trafo=2, simbol="2 IBT (unit 2,4)", views=BKS),
     dict(code="IBT 1 MTWAR", name="IBT 1,2 Muaratawar", type="IBT 3-Winding", tier=2, kv="500/150 kV",
-         ibt="1", bus150="MTWAR", trafo=2, simbol="2 IBT (unit 1,2)", views=BKS),
+         ibt="1,2", bus150="MTWAR", trafo=2, simbol="2 IBT (unit 1,2)", views=BKS),
     dict(code="BKASI", name="Bekasi (bus 150 kV)",     type="Busbar GI", tier=1, views=BKS),
     dict(code="MTWAR", name="Muaratawar (bus 150 kV)", type="Busbar GI", tier=1, views=BKS),
     # Bekasi Tier-2
@@ -265,12 +263,51 @@ RISKS = [
                 "sirkit ke-2 SKTT 150 kV Manggarai-Gedung Pola, rencana COD Tahun 2027)."),
 ]
 
+# Each panel is a projection of the same physical network. Cross-panel edges
+# remain explicit and acquire reciprocal continuation bays, never duplicate GI.
+VIEWS = [
+    ('BEKASI', 'Sisi Bekasi & Muaratawar', 'BKASI;MTWAR', 82),
+    ('PRIOK', 'Sisi Priok', 'PRTRU;PRTMR;PRBRT;MKLMA', 82),
+    ('CAWANG', 'Sisi Cawang Baru', 'CWBRU', 82),
+]
+CAWANG_CODES = {'CWBRU', 'CNANG', 'PLMAS', 'CMPTH', 'TMTGI', 'MGRAI',
+                'GMLMA', 'DKTAS', 'KBSRH', 'STBDI', 'CWANG'}
+BEKASI_CODES = {a['code'] for a in ASSETS if 'BEKASI' in a.get('views', [])}
+def panel(code):
+    base = code.split()[-1] if code.startswith('IBT ') else code
+    return 'CAWANG' if base in CAWANG_CODES else ('BEKASI' if base in BEKASI_CODES else 'PRIOK')
+
+# Restore individually identified units; Jumlah Trafo is not an IBT unit list.
+for base, unit in [('BKASI', '4'), ('MTWAR', '2')]:
+    original = next(a for a in ASSETS if a['code'].startswith('IBT ') and a['code'].endswith(base))
+    original['trafo'] = 1
+    ASSETS.append({**original, 'code': f'IBT {unit} {base}', 'ibt': unit,
+                   'name': f'IBT {unit} {base}', 'simbol': ''})
+for a in ASSETS:
+    a['views'] = [panel(a['code'])]
+
+LINES += [
+    L('ANGKE', 'ANCOL', 'SUTT Angke - Ancol', 2, 2, PRK),
+    L('MRNDA', 'KLBRU', 'SKTT Marunda - Kelapa Baru (lanjutan antar panel)', 2, 3, BOTH),
+    {**L('HNDAH', 'PLPNG40', 'SUTT Harapan Indah - Plumpang 40 KA (lanjutan)', 2, 2, BOTH), 'sirkit': 1},
+    {**L('KDSPI', 'PLPNG40', 'SUTT Kandang Sapi - Plumpang 40 KA (lanjutan)', 2, 2, BOTH), 'sirkit': 1},
+]
+BAYS = [(*b[:4], 1, 'Beroperasi', [panel(b[2])]) for b in BAYS]
+for line in LINES:
+    left, right = panel(line['fr']), panel(line['to'])
+    line['views'] = list(dict.fromkeys([left, right]))
+    if left != right:
+        for endpoint, feeder, view in [(line['fr'], line['to'], right), (line['to'], line['fr'], left)]:
+            BAYS.append((endpoint, endpoint + ' (lanjutan panel ' + panel(endpoint) + ')', feeder,
+                         None, line.get('sirkit', 2), line.get('status', 'Beroperasi'), [view]))
+BAYS.append(('CWANG', 'Cawang (lanjutan)', 'STBDI', None, 2, 'Beroperasi', ['CAWANG']))
+
 SPEC = dict(
     code="SS_PRBC",
     name="Priok - Bekasi 2,4 - Cawang 1",
     apb="UP2B Jakarta & Banten",
     wilayah=WIL,
-    source_ref="Buku Kerawanan SJB 2026 Sec 2.10 (Gambar 2.9 -- 2 halaman SLD -- + Tabel 2.8)",
+    source_ref="Buku Kerawanan SJB 2026 Sec 2.10 (Gambar 2.9 PDF98, tiga panel; Tabel 2.8); koreksi Angke-Ancol pengguna 2026-09-12",
     views=VIEWS,
     assets=ASSETS,
     lines=LINES,

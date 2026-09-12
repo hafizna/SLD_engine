@@ -22,7 +22,7 @@ ASSETS = [
     dict(code="CLBRU", name="GITET Cilegon Baru",  type="Busbar GITET", tier=1, kv="500 kV"),
     # IBT 1,2,3 collapsed to one row (2 IBT+ on one bus -> multi-IBT ingest path mid-fix)
     dict(code="IBT 1 CLBRU", name="IBT 1,2,3 Cilegon Baru", type="IBT 3-Winding", tier=2,
-         kv="500/150 kV", ibt="1", bus150="CLBRU", trafo=3, simbol="3 IBT (unit 1,2,3)", kerawanan="1"),
+         kv="500/150 kV", ibt="1,2,3", bus150="CLBRU", trafo=3, simbol="3 IBT (unit 1,2,3)", kerawanan="1"),
     # ---- generation ----
     dict(code="KIT_PLTGU_CLG", name="PLTGU Cilegon", type="Pembangkit", tier=1, kv="150 kV"),
     dict(code="KIT_PLTU_LBN",  name="PLTU Labuan",   type="Pembangkit", tier=1, kv="150 kV"),

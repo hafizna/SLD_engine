@@ -380,6 +380,28 @@ Jangka panjang, adapter NMM/CIM dapat menghasilkan kontrak ingest yang sama tanp
 
 ## Handoff Codex dan Claude Code
 
+### Backlog near-continuation — laporan Claude Code, 12 September 2026
+
+Ditindaklanjuti Codex pada 12 September 2026. Empat temuan direproduksi dan
+diselesaikan dengan pemeriksaan geometri konduktor lengkap setelah offset pasangan,
+lalu reroute sebelum lintasan direservasi. Invariant audit tidak dilonggarkan.
+
+| View/sistem | Jumlah temuan | Status |
+|---|---:|---|
+| GUCL | 2 | PASS — diuji ulang |
+| Pelabuhan Ratu | 1 | PASS — diuji ulang |
+| Backbone 500 | 1 | PASS — diuji ulang |
+
+Verifikasi: `python -m pytest -q` menghasilkan **77 passed**;
+`python scripts/audit_sample_workbooks.py` menghasilkan **36 input PASS**
+setelah draft Sistem 500 kV–IBT dimasukkan ke audit rutin.
+Draft `system_ibt_500_ingest.xlsx` diuji terpisah: tiga near-continuation juga
+terselesaikan, geometry PASS. Empat fixture dikunci dengan regression test.
+Crop GUCL, Salak/Pelabuhan Ratu, dan Backbone diperiksa secara visual; jump
+persilangan tetap tampil. Perbaikan ini tidak mengubah isi workbook.
+Laporan lengkap: `.render_tmp/sample-audit/WORKBOOK_AUDIT.md`.
+Kandidat publish gabungan: 42 view SVG PASS, termasuk proyeksi Transmisi dan IBT.
+
 Gunakan satu sprint dan satu acceptance criterion per branch/PR. Jangan menjalankan dua agen pada `sld_renderer.py`, `ingest.py`, atau satu file UI yang sama secara bersamaan.
 
 | Workstream | File dominan | Catatan |

@@ -9,6 +9,27 @@ from app.services.sld_layout import offset_path, layered_positions
 from app.services.sld_renderer import _circuit_style, _sym_solar
 
 
+@pytest.mark.parametrize('filename', [
+    'ss_gucl_ingest.xlsx', 'ss_plbratu_ingest.xlsx',
+    'backbone_500_ingest.xlsx', 'system_ibt_500_ingest.xlsx',
+])
+def test_reviewed_near_continuation_fixtures_pass_full_geometry(filename):
+    from pathlib import Path
+    from scripts.audit_sample_workbooks import audit_one
+    result = audit_one(Path(__file__).resolve().parents[1] / 'samples' / filename)
+    assert result['ok'], result
+
+
+def test_four_conductors_are_two_separated_pairs_regardless_of_row_packaging():
+    from app.services.sld_renderer import _conductor_offsets
+    four = _conductor_offsets([4])[0]
+    two_rows = [x for pair in _conductor_offsets([2, 2]) for x in pair]
+    assert four == two_rows
+    assert len(four) == 4
+    assert four[2] - four[1] >= 2 * (four[1] - four[0])
+    assert four[3] - four[2] == four[1] - four[0]
+
+
 @pytest.mark.parametrize(('kv', 'kind', 'expected'), [
     (500, 'SUTET', ('#0047AB', 'none')),
     (500, 'SKTT', ('#0047AB', '7 5')),

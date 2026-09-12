@@ -89,6 +89,7 @@ def build_draft(db: Session, payload: dict) -> dict:
             "bay_circuit_count": o.get("bay_circuit_count"),
             "role_hint": o.get("role_hint"),
             "bay_view_keys": list(o.get("bay_view_keys") or []),
+            "bay_appearances": list(o.get("bay_appearances") or []),
             "latitude": o.get("latitude"),
             "longitude": o.get("longitude"),
             "resolution": "NEW",
@@ -210,7 +211,7 @@ _ALLOWED_NODE = {"external_key", "object_type", "raw_label", "site_name",
                  "status_hint", "confidence", "is_bay", "bay_feeder_key",
                  "has_transformer", "has_capacitor", "resolution",
                  "transformer_count", "capacitor_count", "symbol_note",
-                 "view_keys", "outlet_key", "bay_circuit_count", "role_hint", "bay_view_keys",
+                 "view_keys", "outlet_key", "bay_circuit_count", "role_hint", "bay_view_keys", "bay_appearances",
                  "latitude", "longitude",
                  "confirmed_code", "confirmed_name", "canonical_id"}
 _ALLOWED_EDGE = {"from_key", "to_key", "relation_type", "circuit_type_hint",
@@ -294,6 +295,11 @@ def validate(db: Session, draft: dict) -> dict:
             continue
         av, bv = a.get("voltage_hv_kv"), b.get("voltage_hv_kv")
         ct = (e.get("circuit_type_hint") or e.get("circuit_type") or "SUTT").upper()
+        if ct == "IBT_LINK" or e.get("relation_type") == "IBT_LINK":
+            if e["from_key"] == e["to_key"] or (av and bv and float(av) == float(bv)):
+                problems.append(
+                    f"IBT {e['from_key']}-{e['to_key']}: Bus HV dan Bus LV harus berbeda "
+                    "dan memiliki level tegangan yang berbeda")
         if av and bv and abs(float(av) - float(bv)) > 0.1 and ct != "IBT_LINK":
             avf, bvf = float(av), float(bv)
             problems.append(
@@ -524,8 +530,11 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         c = db.query(Circuit).filter(Circuit.code == ccode).first()
         if c is not None:
             circuits[ccode] = c
-            circuits[f"{fk}-{tk}"] = c
-            circuits[f"{tk}-{fk}"] = c
+            circuits.setdefault(f"{fk}-{tk}", c)
+            circuits.setdefault(f"{tk}-{fk}", c)
+            if e.get("unit_no"):
+                circuits[f"{fk}-{tk}:{e['unit_no']}"] = c
+                circuits[f"{tk}-{fk}:{e['unit_no']}"] = c
             continue
 
         if is_ibt:
@@ -570,21 +579,26 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
             circuits[f"{tk}-{fk}:{e['unit_no']}"] = c
 
     for n in nodes:
-        if not (n.get("is_bay") or n.get("bay_feeder_key")):
-            continue
-        feeder = subs.get(n.get("bay_feeder_key"))
-        if feeder is None or kinds.get(n.get("bay_feeder_key")) != "SUBSTATION":
-            continue
-        sides = n.get("bay_view_keys") or [None]
-        for drawing_side in sides:
-            db.add(Bay(
-                substation_id=subs[n["external_key"]].id,
-                feeder_substation_id=feeder.id, subsystem_id=ss.id,
-                name=f"Bay {subs[n['external_key']].name} @ {feeder.name}",
-                bay_type="LINE", drawing_side=drawing_side,
-                status=n.get("status_hint") or "ENERGIZED",
-                note=(f"Bootstrap via /ingest.; circuit_count={max(1, int(n.get('bay_circuit_count') or 1))}"),
-            ))
+        appearances = n.get("bay_appearances") or ([{
+            "feeder_key": n.get("bay_feeder_key"), "view_keys": n.get("bay_view_keys"),
+            "circuit_count": n.get("bay_circuit_count"), "status": n.get("status_hint")
+        }] if n.get("bay_feeder_key") else [])
+        if len(appearances) == 1 and n.get("bay_circuit_count") is not None:
+            # Preserve the existing draft editor's single-bay count control.
+            appearances = [{**appearances[0], "circuit_count": n["bay_circuit_count"]}]
+        for appearance in appearances:
+            feeder = subs.get(appearance.get("feeder_key"))
+            if feeder is None or kinds.get(appearance.get("feeder_key")) != "SUBSTATION":
+                continue
+            for drawing_side in appearance.get("view_keys") or [None]:
+                db.add(Bay(
+                    substation_id=subs[n["external_key"]].id,
+                    feeder_substation_id=feeder.id, subsystem_id=ss.id,
+                    name=f"Bay {subs[n['external_key']].name} @ {feeder.name}",
+                    bay_type="LINE", drawing_side=drawing_side,
+                    status=appearance.get("status") or "ENERGIZED",
+                    note=(f"Bootstrap via /ingest.; circuit_count={max(1, int(appearance.get('circuit_count') or 1))}"),
+                ))
 
     manifests = draft["subsystem"].get("views") or [{
         "view_key": "FULL", "name": "SLD lengkap", "description": "", "source_keys": []}]

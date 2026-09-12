@@ -7,10 +7,10 @@ block is the olive-green area at the top-left, so its membership is read off the
 drawing rather than inferred.
 
 Injection is GITET Pemalang 500 kV -> IBT 1,2 -> the 150 kV bus at NBTNG, with
-the 500 kV side going out to Tanjungjati and Mandirancan (drawn as bays -- those
-GITETs belong to other subsistem sheets, which is why they are not assets here).
+the 500 kV transmission side intentionally omitted from this SS projection,
+matching the risk-map reference supplied by the user on 2026-09-12.
 The 150 kV network is two chains off that injection:
-  NBTNG - BNPTH - WLERI ... (eastward, toward Ungaran)
+  NBTNG - BNPTH - WLERI plus NBTNG - WLERI (single circuits eastward)
   NBTNG - BTANG - PKLON - COMAL - PMLNG - TARUB - KBSEN (westward, toward Tegal)
 KBSEN (Kebasen) is the boundary toward Subsistem Mandirancan / UP2B Jabar and is
 marked SOURCE_BOUNDARY; risks 1, 2 and 4 are all about supplying "sampai GI
@@ -28,9 +28,9 @@ WIL = "Jawa Tengah"
 ASSETS = [
     # -- 500 kV GITET (shares its code with the 150 kV bus -> parser auto-splits) --
     dict(code="PMLNG7", name="GITET Pemalang", type="Busbar GITET", tier=1, kv="500 kV"),
-    dict(code="IBT 1 PMLNG7", name="IBT 1,2 Pemalang 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus_hv="PMLNG7", bus_lv="NBTNG", trafo=2,
-         simbol="2 IBT (unit 1,2)", kerawanan="1"),
+    *[dict(code=f"IBT {unit} PMLNG7", name=f"IBT {unit} Pemalang 500/150 kV", type="IBT 3-Winding",
+         tier=2, kv="500/150 kV", ibt=str(unit), bus_hv="PMLNG7", bus_lv="NBTNG", trafo=1,
+         kerawanan="1" if unit == 1 else None) for unit in (1, 2)],
     # -- 150 kV injection bus fed by the IBT --
     dict(code="NBTNG", name="New Batang (bus 150 kV)", type="Busbar GI", tier=1,
          simbol="2x60 MVA"),
@@ -51,11 +51,8 @@ ASSETS = [
          simbol="batas ke Subsistem Mandirancan (UP2B Jabar)"),
 ]
 
-# 500 kV outgoing bays at GITET Pemalang -- the far ends sit on other sheets.
-BAYS = [
-    ("TJATI7", "GITET Tanjungjati (500 kV)", "PMLNG7", None, 2),
-    ("MDCAN7", "GITET Mandirancan (500 kV)", "PMLNG7", None, 4),
-]
+# 500 kV outgoing bays are outside the supplied SS risk-map projection.
+BAYS = []  # SS projection starts at IBT; 500 kV outgoing circuits belong to backbone.
 
 L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict(
     fr=fr, to=to, name=nm, kv=kv, tier_fr=tf, tier_to=tt, kerawanan=kno,
@@ -63,8 +60,9 @@ L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict
 
 LINES = [
     # eastward
-    L("NBTNG", "BNPTH", "SUTT New Batang - Bumi Putih", 1, 2),
-    L("BNPTH", "WLERI", "SUTT Bumi Putih - Weleri", 2, 3),
+    L("NBTNG", "BNPTH", "SUTT New Batang - Bumi Putih", 1, 2, sirkit=1),
+    L("NBTNG", "WLERI", "SUTT New Batang - Weleri Bus 1", 1, 3, sirkit=1),
+    L("BNPTH", "WLERI", "SUTT Bumi Putih - Weleri", 2, 3, sirkit=1),
     # westward -- Batang-Pekalongan is kerawanan #2 (>60%, N-1 tidak terpenuhi)
     L("NBTNG", "BTANG", "SUTT New Batang - Batang", 1, 2),
     L("BTANG", "PKLON", "SUTT Batang - Pekalongan", 2, 3, kno="2"),

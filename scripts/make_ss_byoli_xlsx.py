@@ -28,7 +28,7 @@ ASSETS = [
     # -- 500 kV GITET --
     dict(code="BYOLI7", name="GITET Boyolali", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="IBT 1 BYOLI7", name="IBT 1,2 Boyolali 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus_hv="BYOLI7", bus_lv="BYOLI", trafo=2,
+         tier=2, kv="500/150 kV", ibt="1,2", bus_hv="BYOLI7", bus_lv="BYOLI", trafo=2,
          simbol="2 IBT x 500 MVA (unit 1,2)", kerawanan="1"),
     # -- 150 kV injection bus: 4 seksi (A/B/C/D) + Kopel A / Kopel B --
     dict(code="BYOLI", name="Boyolali (bus 150 kV)", type="Busbar GI", tier=1,

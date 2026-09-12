@@ -29,7 +29,7 @@ ASSETS = [
     # -- 500 kV GITET --
     dict(code="KRIAN7", name="GITET Krian", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="IBT 3 KRIAN7", name="IBT 3,4,5 Krian 500/150/66 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="3", bus_hv="KRIAN7", bus_lv="KRIAN", trafo=3,
+         tier=2, kv="500/150 kV", ibt="3,4,5", bus_hv="KRIAN7", bus_lv="KRIAN", trafo=3,
          simbol="3 IBT x 500 MVA (unit 3,4,5) 500/150/66 kV"),
     dict(code="IBT 6 KRIAN7", name="IBT 6 Krian 500/150/66 kV (sementara)",
          type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="6", bus_hv="KRIAN7", bus_lv="KRIAN",

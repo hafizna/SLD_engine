@@ -32,7 +32,7 @@ ASSETS = [
     dict(code="NBANG7", name="GITET Ngimbang", type="Busbar GITET",
          tier=1, kv="500 kV"),
     dict(code="IBT 1 NBANG7", name="IBT 1,2 Ngimbang 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2",
          bus_hv="NBANG7", bus_lv="NBANG5", trafo=2,
          simbol="2 IBT (unit 1,2)", kerawanan="1"),
     dict(code="NBANG5", name="Ngimbang (bus 150 kV)", type="Busbar GI", tier=1),

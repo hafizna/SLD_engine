@@ -32,13 +32,13 @@ ASSETS = [
     # ================= 500 kV injections =================
     dict(code="CBATU7", name="GITET Cibatu", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="IBT 1 CBATU7", name="IBT 1,2 Cibatu 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus_hv="CBATU7", bus_lv="CBATU",
+         tier=2, kv="500/150 kV", ibt="1,2", bus_hv="CBATU7", bus_lv="CBATU",
          trafo=2, simbol="2 IBT (unit 1,2)", kerawanan="1"),
     dict(code="DLTMS7", name="GITET Deltamas", type="Busbar GITET", tier=1, kv="500 kV"),
     # Risk 4 is the bank as drawn; risk 7 is specifically IBT 1 & 2 of it
     # ("berpotensi naik diatas 50%"), so the row carries both numbers.
     dict(code="IBT 1 DLTMS7", name="IBT 1,2,3,4 Deltamas 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2,3,4",
          bus_hv="DLTMS7", bus_lv="DLTMS", trafo=4,
          simbol="4 IBT (unit 1,2,3,4)", kerawanan="4;7"),
     # ================= Tier-1 150 kV =================

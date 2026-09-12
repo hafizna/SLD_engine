@@ -190,6 +190,7 @@ class OrthogonalRouter:
                       for n, (x, y) in pos.items()] + list(extra_obstacles)
         self.used = []
         self.soft_bands = []
+        self.forbidden_runs = []
         xs = {round(x, 3) for x, y in endpoints}
         ys = {round(y, 3) for x, y in endpoints}
         for l, t, r, b in self.rects:
@@ -233,6 +234,10 @@ class OrthogonalRouter:
 
     def _cost(self, a, b):
         vertical = a[0] == b[0]
+        if not vertical and any(bottom <= a[1] <= top and
+                max(min(a[0], b[0]), left) < min(max(a[0], b[0]), right)
+                for left, right, bottom, top in self.forbidden_runs):
+            return None
         axis = 0 if vertical else 1
         span = 1 - axis
         low, high = sorted((a[span], b[span]))
@@ -333,7 +338,30 @@ class OrthogonalRouter:
         self.used.extend(zip(points, points[1:]))
 
 
-def route_bundles(pos, half, specs, extra_obstacles=(), min_route_y=None):
+def _near_continuations(points, offsets, other_points, other_offsets):
+    """Indices of complete horizontal runs ambiguous after wire offsets.
+
+    Check the emitted one-decimal geometry, not visibility-grid fragments.
+    Shared-bus connections are excluded by the caller.
+    """
+    bad = set()
+    for offset in offsets:
+        wire = [(round(x, 1), round(y, 1)) for x, y in offset_path(points, offset)]
+        for other_offset in other_offsets:
+            other = [(round(x, 1), round(y, 1)) for x, y in offset_path(other_points, other_offset)]
+            for i, (a, b) in enumerate(zip(wire, wire[1:])):
+                if a[1] != b[1] or abs(a[0] - b[0]) <= 120:
+                    continue
+                for c, d in zip(other, other[1:]):
+                    if c[1] != d[1] or abs(c[0] - d[0]) <= 120:
+                        continue
+                    gap = max(min(a[0], b[0]), min(c[0], d[0])) - min(max(a[0], b[0]), max(c[0], d[0]))
+                    if 0 <= gap < NEAR_CONT_GAP and abs(a[1] - c[1]) < NEAR_CONT_GAP:
+                        bad.add(i)
+    return bad
+
+
+def route_bundles(pos, half, specs, extra_obstacles=(), min_route_y=None, wire_offsets=None):
     """Negotiate scarce channels: retry a blocked bundle before earlier routes.
 
     Greedy shortest-first routing alone can seal a later port, particularly
@@ -341,6 +369,8 @@ def route_bundles(pos, half, specs, extra_obstacles=(), min_route_y=None):
     it never relaxes the no-overlap or bus-obstacle constraints.
     """
     endpoints = [pt for _, _, start, end, _ in specs for pt in (start, end)]
+    wire_offsets = wire_offsets or {c.id: [0] for c, *_ in specs}
+    incident = {c.id: {c.from_substation_id, c.to_substation_id} for c, *_ in specs}
     order = list(specs)
     tried = set()
     last_error = None
@@ -356,6 +386,7 @@ def route_bundles(pos, half, specs, extra_obstacles=(), min_route_y=None):
             c, first, start, end, last = spec
             committed = list(router.used)
             router.soft_bands = []
+            router.forbidden_runs = []
             for other, ofirst, ostart, oend, olast in specs:
                 if other.id == c.id:
                     continue
@@ -374,8 +405,25 @@ def route_bundles(pos, half, specs, extra_obstacles=(), min_route_y=None):
                     router.soft_bands.append(((left - NEAR_CONT_GAP, middle),
                                               (right + NEAR_CONT_GAP, middle)))
             try:
-                points = simplify([tuple(round(v, 3) for v in pt)
-                                   for pt in [first] + router.route(start, end) + [last]])
+                for attempt in range(16):
+                    points = simplify([tuple(round(v, 3) for v in pt)
+                                       for pt in [first] + router.route(start, end) + [last]])
+                    bad = set()
+                    for other_id, other_points in results.items():
+                        if incident[c.id] & incident[other_id]:
+                            continue
+                        bad.update(_near_continuations(points, wire_offsets[c.id],
+                                                      other_points, wire_offsets[other_id]))
+                    if not bad:
+                        break
+                    for i in bad:
+                        a, b = points[i:i + 2]
+                        # Ban only the ambiguous horizontal corridor for this
+                        # route. Reserve nothing until its full wires pass.
+                        router.forbidden_runs.append((min(a[0], b[0]), max(a[0], b[0]),
+                                                      a[1] - CHANNEL_PITCH, a[1] + CHANNEL_PITCH))
+                else:
+                    raise ValueError('No unambiguous horizontal SLD channel')
             except ValueError as exc:
                 last_error = ValueError(f'{c.code}: {exc}')
                 order = [spec] + [s for s in order if s[0].id != c.id]

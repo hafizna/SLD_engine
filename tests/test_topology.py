@@ -21,6 +21,24 @@ def test_profiles_exist():
     assert {"BACKBONE_500", "IBT_500_150", "SUBSYSTEM_150"}.issubset(RULE_PROFILES)
 
 
+def test_explicit_circuit_membership_overrides_owner_without_leaking_other_edges(db):
+    from app.models import Subsystem, ViewMembership
+    view = _view(db, 'SS_LBK_KEMBANGAN')
+    edges = get_view_graph(db, view)[1]
+    chosen, excluded = edges[:2]
+    owner = Subsystem(code='OTHER_OWNER', name='Other source workbook')
+    db.add(owner)
+    db.flush()
+    chosen.subsystem_id = owner.id
+    chosen.drawing_side = 'OTHER'
+    db.query(ViewMembership).filter_by(view_id=view.id, node_kind='CIRCUIT').delete()
+    db.add(ViewMembership(view_id=view.id, node_kind='CIRCUIT', node_id=chosen.id, role='CORE'))
+    db.flush()
+    actual = {c.id for c in get_view_graph(db, view)[1]}
+    assert actual == {chosen.id}
+    assert excluded.id not in actual
+
+
 def test_two_views_only_no_merged(db):
     from app.models import AnalyticalView
     keys = {v.view_key for v in db.query(AnalyticalView).all()}

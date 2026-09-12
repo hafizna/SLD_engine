@@ -29,7 +29,7 @@ ASSETS = [
     dict(code="SKTNI7", name="GITET Sukatani", type="Busbar GITET",
          tier=1, kv="500 kV"),
     dict(code="IBT 1 SKTNI7", name="IBT 1,2 Sukatani 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2",
          bus_hv="SKTNI7", bus_lv="NSKTN", trafo=2, simbol="2 IBT (unit 1,2)"),
     dict(code="NSKTN", name="New Sukatani (bus 150 kV)", type="Busbar GI", tier=1),
     dict(code="SKTNI", name="Sukatani (bus 150 kV)", type="Busbar GI", tier=2,

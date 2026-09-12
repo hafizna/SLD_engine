@@ -59,7 +59,7 @@ ASSETS = [
     dict(code="CIBNG7", name="GITET Cibinong", type="Busbar GITET", tier=1,
          kv="500 kV", views=CBN),
     dict(code="IBT 1 CIBNG7", name="IBT 1,2 Cibinong 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus_hv="CIBNG7", bus_lv="CIBNG", trafo=2,
+         tier=2, kv="500/150 kV", ibt="1,2", bus_hv="CIBNG7", bus_lv="CIBNG", trafo=2,
          simbol="2 IBT (unit 1,2)", views=CBN),
     dict(code="DEPOK7", name="GITET Depok", type="Busbar GITET", tier=1,
          kv="500 kV", views=CBN),

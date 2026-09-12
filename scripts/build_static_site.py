@@ -77,6 +77,10 @@ def build() -> None:
                      # UP2B Bali
                      "ss_bali_ingest.json"):
             seed_xlsx_fixture(db, ROOT / "samples" / name)
+        # Keep the IBT risk projection as its own Sistem 500 kV view. Load it
+        # after the SS fixtures so shared physical circuits keep the reviewed
+        # SS attributes; view membership still isolates the IBT projection.
+        seed_xlsx_fixture(db, ROOT / "samples" / "system_ibt_500_ingest.xlsx")
 
     from app.main import app  # imports after DB is ready
 

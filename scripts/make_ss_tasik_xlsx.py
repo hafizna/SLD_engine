@@ -30,7 +30,7 @@ ASSETS = [
     dict(code="TSBRU7", name="GITET Tasikmalaya Baru", type="Busbar GITET",
          tier=1, kv="500 kV"),
     dict(code="IBT 1 TSBRU7", name="IBT 1,2 Tasikmalaya Baru 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2",
          bus_hv="TSBRU7", bus_lv="TSBRU", trafo=2,
          simbol="2 IBT (unit 1,2)", kerawanan="1"),
     dict(code="TSBRU", name="Tasikmalaya Baru (bus 150 kV)", type="Busbar GI",

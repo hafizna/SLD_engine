@@ -18,6 +18,98 @@ LBK_XLSX = Path(__file__).resolve().parent.parent / "samples" / "ss_lbk_ingest.x
 BALI_JSON = Path(__file__).resolve().parent.parent / "samples" / "ss_bali_ingest.json"
 
 
+def test_system_ibt_workbook_keeps_table_12_separate_from_transmission_risks():
+    from app.services.ingest_parser import parse_upload
+    path = SAMPLE_XLSX.parent / 'system_ibt_500_ingest.xlsx'
+    payload = parse_upload(path.read_bytes(), path.name)
+    assert payload['meta']['analytical_hint'] == 'IBT_500_150'
+    assert not payload['meta']['dropped_edges']
+    assert [r['seq_no'] for r in payload['risks']] == list(range(1,39))
+    assert all(r['pin_kind'] == 'SUBSTATION' and r['pin_key'] for r in payload['risks'])
+    assert payload['risks'][18]['category'] == 'N-1-1'
+    assert payload['risks'][1]['category'] == 'BELUM_DITETAPKAN'
+
+
+def test_muarakarang_reviewed_ibt_and_cross_view_bays():
+    from app.services.ingest_parser import parse_upload
+    path = SAMPLE_XLSX.parent / 'ss_muarakarang_durikosambi_ingest.xlsx'
+    payload = parse_upload(path.read_bytes(), path.name)
+    nodes = {n['external_key']: n for n in payload['objects']}
+    assert {k for k, n in nodes.items() if n['object_type'] == 'GITET'} == {'GITET_MKBRU', 'GITET_DKSBI'}
+    links = {(e['from_external_key'], e['to_external_key'], e['unit_no'])
+             for e in payload['connections'] if e['relation_type'] == 'IBT_LINK'}
+    assert links == {('GITET_MKBRU', 'GIS MKBRU', '1'),
+                     ('GITET_MKBRU', 'GIS MKBRU', '2'), ('GITET_DKSBI', 'DKSBI', '1')}
+    assert nodes['DMGOT']['object_type'] == 'GIS'
+    assert nodes['DMGOT']['bay_feeder_key'] == 'PINKA'
+    assert nodes['DMGOT']['bay_view_keys'] == ['MUARAKARANG']
+    assert nodes['PINKA']['bay_feeder_key'] == 'DMGOT'
+    assert nodes['PINKA']['bay_view_keys'] == ['DURIKOSAMBI']
+    pairs = {frozenset((e['from_external_key'], e['to_external_key'])) for e in payload['connections']}
+    assert frozenset(('DMGOT', 'PINKA')) in pairs
+    assert frozenset(('GIS MKBRU', 'MKBRU')) in pairs
+    assert frozenset(('KBJRK', 'PINKA')) not in pairs
+
+
+def test_muarakarang_both_views_render_without_geometry_errors():
+    from scripts.audit_sample_workbooks import audit_one
+    result = audit_one(SAMPLE_XLSX.parent / 'ss_muarakarang_durikosambi_ingest.xlsx')
+    assert result['ok'], result
+    assert len(result['views']) == 2
+
+
+def test_prbc_three_views_preserve_multiple_continuations():
+    from app.services.ingest_parser import parse_upload
+    path = SAMPLE_XLSX.parent / 'ss_prbc_ingest.xlsx'
+    data = parse_upload(path.read_bytes(), path.name)
+    assert {v['view_key'] for v in data['subsystem']['views']} == {'BEKASI', 'PRIOK', 'CAWANG'}
+    ancol = next(e for e in data['connections'] if {e['from_external_key'],e['to_external_key']} == {'ANGKE','ANCOL'})
+    assert ancol['view_keys'] == ['PRIOK']
+    plumpang = next(n for n in data['objects'] if n['external_key'] == 'PLPNG40')
+    appearances = plumpang['bay_appearances']
+    assert {(a['feeder_key'], tuple(a['view_keys'])) for a in appearances} >= {
+        ('HNDAH', ('BEKASI',)), ('KDSPI', ('BEKASI',))}
+    from scripts.audit_sample_workbooks import audit_one
+    result = audit_one(path)
+    assert result['ok'], result
+    assert len(result['views']) == 3
+
+
+def test_ibt_keeps_each_units_explicit_endpoints(monkeypatch):
+    import openpyxl
+    from app.services.ingest_parser import parse_xlsx
+
+    class Sheet:
+        def __init__(self, rows): self.rows = rows
+        def iter_rows(self, values_only=True): return iter(self.rows)
+
+    class Book(dict):
+        @property
+        def sheetnames(self): return list(self)
+
+    book = Book({
+        'Gardu_Induk_dan_Aset': Sheet([
+            ('Kode', 'Tipe', 'Tegangan', 'Bus HV', 'Bus LV', 'No IBT', 'Sudut Pandang'),
+            ('HV WITH SPACE', 'Busbar GITET', 500, None, None, None, 'A;B;C'),
+            ('LV1', 'Busbar GI', 150, None, None, None, 'A'),
+            ('LV2', 'Busbar GI', 70, None, None, None, 'B'),
+            ('IBT 1', 'IBT n-Winding', None, 'HV WITH SPACE', 'LV1', 1, 'A'),
+            ('IBT 2', 'IBT n-Winding', None, 'HV WITH SPACE', 'LV2', 2, 'B'),
+            ('IBT 3', 'IBT n-Winding', None, 'HV WITH SPACE', 'MISSING', 3, 'C')]),
+        'Jalur_Transmisi': Sheet([('Dari GI', 'Ke GI')]),
+    })
+    monkeypatch.setattr(openpyxl, 'load_workbook', lambda *a, **kw: book)
+    with pytest.raises(ValueError, match='endpoint tak dikenal'):
+        parse_xlsx(b'', 'ibt.xlsx')
+    book['Gardu_Induk_dan_Aset'].rows.pop()
+    parsed = parse_xlsx(b'', 'ibt.xlsx')
+    links = parsed['connections']
+    assert [(e['from_external_key'], e['to_external_key'], e['unit_no'], e['view_keys'])
+            for e in links] == [
+                ('HV WITH SPACE', 'LV1', '1', ['A']),
+                ('HV WITH SPACE', 'LV2', '2', ['B'])]
+
+
 @pytest.fixture()
 def client():
     fd, path = tempfile.mkstemp(suffix=".db")
@@ -391,23 +483,26 @@ def test_multiview_500kv_and_multi_risk_tags_publish(client, monkeypatch):
     book = Book({
         'Info': Sheet([('Kode Subsistem', 'SS_500_MULTI'), ('Nama Subsistem', '500 kV multiview')]),
         'Views': Sheet([('Kode View', 'Nama View', 'Sumber Tier-1 (kode GI, pisah ;)'),
-                        ('V1', 'View one', 'A'), ('V2', 'View two', 'B')]),
+                        ('V1', 'View one', 'A'), ('V2', 'View two', 'B'),
+                        ('V3', 'Shared source, separate branch', 'A')]),
         'Gardu_Induk_dan_Aset': Sheet([
             ('Kode', 'Tipe', 'Tier', 'Tegangan', 'No Kerawanan', 'Sudut Pandang', 'Bus Terhubung'),
             ('A', 'Busbar GITET', 1, '500 kV', None, 'V1', None),
             ('X', 'Busbar GITET', 2, '500 kV', '5;7', 'V1', None),
             ('GEN', 'Pembangkit', 1, '500 kV', None, 'V1', 'A'),
             ('B', 'Busbar GITET', 1, '500 kV', None, 'V2', None),
-            ('Y', 'Busbar GITET', 2, '500 kV', None, 'V2', None)]),
+            ('Y', 'Busbar GITET', 2, '500 kV', None, 'V2', None),
+            ('Z', 'Busbar GITET', 2, '500 kV', None, 'V3', None)]),
         'Jalur_Transmisi': Sheet([
             ('Dari GI', 'Ke GI', 'Jumlah Sirkit', 'No Kerawanan', 'Sudut Pandang'),
-            ('A', 'X', 2, 7, 'V1'), ('B', 'Y', 2, None, 'V2')]),
+            ('A', 'X', 2, 7, 'V1'), ('B', 'Y', 2, None, 'V2'),
+            ('A', 'Z', 2, None, 'V3')]),
         'Data_Kerawanan_Detail': Sheet([
             ('No', 'Kondisi / Permasalahan'), (5, 'Risk at X'), (7, 'Risk on A-X')]),
     })
     monkeypatch.setattr(openpyxl, 'load_workbook', lambda *a, **kw: book)
     payload = parse_xlsx(b'', 'multi.xlsx')
-    assert [v['view_key'] for v in payload['subsystem']['views']] == ['V1', 'V2']
+    assert [v['view_key'] for v in payload['subsystem']['views']] == ['V1', 'V2', 'V3']
     assert next(o for o in payload['objects'] if o['external_key'] == 'GEN')['object_type'] == 'GENERATING_UNIT'
     assert [(r['seq_no'], r['pin_kind'], r['pin_key']) for r in payload['risks']] == [
         (5, 'SUBSTATION', 'X'), (7, 'CIRCUIT', 'A-X')]
@@ -416,10 +511,14 @@ def test_multiview_500kv_and_multi_risk_tags_publish(client, monkeypatch):
     published = client.post('/api/ingest/publish', json={
         'draft': draft, 'subsystem_code': 'SS_500_MULTI', 'subsystem_name': '500 kV multiview'})
     assert published.status_code == 200, published.text
-    assert {v['view_key'] for v in published.json()['views']} == {'SS_500_MULTI_V1', 'SS_500_MULTI_V2'}
+    assert {v['view_key'] for v in published.json()['views']} == {'SS_500_MULTI_V1', 'SS_500_MULTI_V2', 'SS_500_MULTI_V3'}
     views = {v['view_key']: v for v in client.get('/api/views').json()}
     g1 = client.get(f"/api/views/{views['SS_500_MULTI_V1']['id']}/graph").json()
     g2 = client.get(f"/api/views/{views['SS_500_MULTI_V2']['id']}/graph").json()
     assert {n['code'] for n in g1['nodes']} >= {'A', 'X', 'GEN'}
     assert {n['code'] for n in g2['nodes']} >= {'B', 'Y'}
     assert all(n['code'] not in {'B', 'Y'} for n in g1['nodes'])
+    g3 = client.get(f"/api/views/{views['SS_500_MULTI_V3']['id']}/graph").json()
+    assert {n['code'] for n in g3['nodes']} == {'A', 'Z'}
+    assert next(n['id'] for n in g1['nodes'] if n['code'] == 'A') == next(
+        n['id'] for n in g3['nodes'] if n['code'] == 'A')

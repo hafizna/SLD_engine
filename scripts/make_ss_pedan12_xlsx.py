@@ -30,7 +30,7 @@ ASSETS = [
     dict(code="PEDAN7", name="GITET Pedan", type="Busbar GITET",
          tier=1, kv="500 kV"),
     dict(code="IBT 1 PEDAN7", name="IBT 1,2 Pedan 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2",
          bus_hv="PEDAN7", bus_lv="PEDAN", trafo=2,
          simbol="2 IBT (unit 1,2)", kerawanan="1"),
     dict(code="PEDAN", name="Pedan (bus 150 kV)", type="Busbar GI", tier=1,

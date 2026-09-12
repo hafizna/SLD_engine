@@ -146,9 +146,9 @@ def get_view_graph(db: Session, view: AnalyticalView):
         for c in q.all():
             if c.scenario_id not in ("NORMAL", view.scenario_id):
                 continue
-            if view.drawing_side and c.drawing_side and c.drawing_side != view.drawing_side:
+            if not circuit_ids and view.drawing_side and c.drawing_side and c.drawing_side != view.drawing_side:
                 continue
-            if (c.subsystem_id is not None and view.subsystem_id is not None
+            if (not circuit_ids and c.subsystem_id is not None and view.subsystem_id is not None
                     and c.subsystem_id != view.subsystem_id):
                 continue
             edges.append(c)

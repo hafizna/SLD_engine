@@ -32,7 +32,7 @@ ASSETS = [
     dict(code="CRATA7", name="GITET Cirata 1,2", type="Busbar GITET",
          tier=1, kv="500 kV"),
     dict(code="IBT 1 CRATA7", name="IBT 1,2 Cirata 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus_hv="CRATA7", bus_lv="CRATA5",
+         tier=2, kv="500/150 kV", ibt="1,2", bus_hv="CRATA7", bus_lv="CRATA5",
          trafo=2, simbol="2 IBT (unit 1,2)", kerawanan="1"),
     dict(code="CRAT37", name="GITET Cirata 3", type="Busbar GITET",
          tier=1, kv="500 kV"),

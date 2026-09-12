@@ -35,7 +35,7 @@ ASSETS = [
     # -- 500 kV GITET --
     dict(code="KSGHN7", name="GITET Kesugihan", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="IBT 1 KSGHN7", name="IBT 1,2 Kesugihan 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1", bus_hv="KSGHN7", bus_lv="KSGHN", trafo=2,
+         tier=2, kv="500/150 kV", ibt="1,2", bus_hv="KSGHN7", bus_lv="KSGHN", trafo=2,
          simbol="2 IBT x 500 MVA (unit 1,2)", kerawanan="1"),
     # -- 150 kV injection --
     dict(code="KSGHN", name="Kesugihan (bus 150 kV)", type="Busbar GI", tier=1,

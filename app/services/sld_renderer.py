@@ -188,6 +188,21 @@ def _sym_solar(x, y, color):
     )
 
 
+def _conductor_offsets(counts):
+    """Keep pairs legible even when four circuits occupy one input record."""
+    groups, cursor = [], 0.0
+    for count in counts:
+        offsets = []
+        for i in range(count):
+            if i:
+                cursor += WIRE_PITCH * (2 if i % 2 == 0 else 1)
+            offsets.append(cursor)
+        groups.append(offsets)
+        cursor += WIRE_PITCH * 2
+    midpoint = (cursor - WIRE_PITCH * 2) / 2
+    return [[x - midpoint for x in group] for group in groups]
+
+
 def render_view_svg(db: Session, view: AnalyticalView) -> str:
     nodes, edges, roles, seeds, _ = get_view_graph(db, view)
     tier = calculate_tier(db, view)
@@ -428,7 +443,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             else:
                 merged.append((left, right))
         gap = next(((a[1], b[0]) for a, b in zip(merged, merged[1:])
-                    if b[0] - a[1] > target_strip), None)
+                    if b[0] - a[1] > target_strip + 1e-6), None)
         if not gap:
             break
         cut_left, cut_right = gap
@@ -765,24 +780,20 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # Inter-GI routes must enter the channel below Tier-1, even when a cheaper
     # same-row detour exists above the busbars.
     route_floor = (tier_y.get(1, 210.0) + BUS_BOTTOM) if not saved else None
+    offsets_by_bundle = {c.id: _conductor_offsets([
+        1 if m.single_phi else max(1, m.circuit_count or 1) for m in bundle_members[c.id]])
+        for c, *_ in specs}
     centres = (route_bundles(pos, bus_half, specs, symbol_obstacles,
-                             min_route_y=route_floor) if specs else {})
+                             min_route_y=route_floor,
+                             wire_offsets={cid: [off for group in groups for off in group]
+                                           for cid, groups in offsets_by_bundle.items()}) if specs else {})
     for c, first, start, end, last in specs:
         centre = centres[c.id]
         members = bundle_members[c.id]
-        member_counts = [1 if m.single_phi else max(1, m.circuit_count or 1) for m in members]
         # Separate distinct parallel line groups more clearly than the
         # conductors inside one group.  Example: SKLT 1-2 | 3-4 must read as
         # two pairs, not four equally spaced, ambiguous strokes.
-        lane_offsets = []
-        cursor = 0.0
-        for mi, n in enumerate(member_counts):
-            lane_offsets.append([cursor + i * WIRE_PITCH for i in range(n)])
-            cursor += max(0, n - 1) * WIRE_PITCH
-            if mi < len(member_counts) - 1:
-                cursor += WIRE_PITCH * 2
-        extent_mid = cursor / 2
-        lane_offsets = [[x - extent_mid for x in group] for group in lane_offsets]
+        lane_offsets = offsets_by_bundle[c.id]
         for member, offsets in zip(members, lane_offsets):
             paths = [offset_path(centre, off) for off in offsets]
             stroke, dash = _circuit_style(member)
@@ -1119,16 +1130,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                  f'data-code="{esc(gi.code)}" data-circuit-count="{circuit_count}"{_bc_attr}>'
                  f'<title>{esc(gi.name)} [{esc(gi.code)}] - bay di bus {esc(subs[feeder_id].name)} '
                  f'({esc(status)}){" - " + esc(meta) if meta else ""}</title>')
-        if len(group_counts) > 1:
-            raw, cursor = [], 0.0
-            for idx, count in enumerate(group_counts):
-                raw.extend(cursor + i * WIRE_PITCH for i in range(count))
-                cursor += max(0, count - 1) * WIRE_PITCH
-                if idx < len(group_counts) - 1:
-                    cursor += WIRE_PITCH * 2
-            offsets = [x - cursor / 2 for x in raw]
-        else:
-            offsets = [(i - (circuit_count - 1) / 2) * WIRE_PITCH for i in range(circuit_count)]
+        offsets = [x for group in _conductor_offsets(group_counts or [circuit_count]) for x in group]
         for off in offsets:
             px = sx + off
             p.append(f'<path d="M{px:.1f},{fy:.1f} V{sy:.1f}" fill="none" '
