@@ -33,18 +33,20 @@ ASSETS = [
     dict(code="PNDAH", name="Pondok Indah", type="Busbar GI", tier=2),
     dict(code="KMANG", name="Kemang", type="Busbar GI", tier=2,
          simbol="bus coupler", kerawanan="1"),
-    dict(code="ASARI", name="Asari", type="Busbar GI", tier=3),
     # Aset milik KTT (customer-owned), drawn inside its own box on Gambar 2.12.
     dict(code="SAMBAS", name="Sambas (aset milik KTT)", type="Busbar GI", tier=3,
          simbol="aset milik KTT"),
-    dict(code="CSW", name="CSW (aset milik KTT)", type="Busbar GI", tier=4,
-         simbol="aset milik KTT"),
 ]
 
-# Bay stubs hanging off Tier-1 GNDUL on Gambar 2.12.
+# Bay stubs on Gambar 2.12. ASARI and CSW are drawn as dashed arrows hanging off
+# a busbar, exactly like SWGAN and CRNDE -- they are bays, not busbars of their
+# own. Modelling them as Tier-3/Tier-4 busbars invented two tiers that the
+# figure does not have.
 BAYS = [
     ("SWGAN", "Sawangan", "GNDUL", None),
     ("CRNDE", "Cirande", "GNDUL", None),
+    ("ASARI", "Asari", "KMANG", None),
+    ("CSW", "CSW (aset milik KTT)", "SAMBAS", None, 1),
 ]
 
 L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict(
@@ -52,12 +54,13 @@ L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict
     status=st, sirkit=sirkit, koridor=WIL)
 
 LINES = [
-    L("GNDUL", "PNDAH", "SUTT Gandul - Pondok Indah", 1, 2),
+    # Gandul - Pondok Indah is a cable, not an overhead line. The parser reads
+    # the circuit type from the penghantar name, so "SKTT" has to be written
+    # there; calling it SUTT drew it as an overhead span.
+    L("GNDUL", "PNDAH", "SKTT 150 kV Gandul - Pondok Indah", 1, 2),
     # kerawanan #1: SKTT 150 kV Gandul-Kemang, I nominal 634 A derating ke 500 A
     L("GNDUL", "KMANG", "SKTT 150 kV Gandul - Kemang", 1, 2, kno="1"),
-    L("KMANG", "ASARI", "SUTT Kemang - Asari", 2, 3),
     L("PNDAH", "SAMBAS", "SUTT Pondok Indah - Sambas (aset milik KTT)", 2, 3),
-    L("SAMBAS", "CSW", "SUTT Sambas - CSW (aset milik KTT)", 3, 4, sirkit=1),
 ]
 
 SPEC = dict(
