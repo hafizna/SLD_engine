@@ -64,6 +64,44 @@ which IBT unit each risk points at, not confirmed content.
 because it was generated before the unit-list fix. Those values are stale:
 43 IBT banks now carry their full list (`1,2`, `3,4`, `3,4,5`, `1,7`).
 
+## Answer: both causes, and they are layered
+
+The question "is it the registration in the Excel, or are columns missing?" has
+a measured answer: **both**, and fixing only the columns produces broken IBTs.
+
+**Cause 1 -- the schema (mechanical blocker).** The sheet has 11 columns and is
+missing ten, including `Bus HV` and `Bus LV`. Adding just those two and one
+`IBT 3-Winding` row is enough to make the parser emit an `IBT_LINK`:
+
+```
+IBT_LINK setelah kolom ditambah: 1
+    SRLYA -> SRLYA unit 1,2
+```
+
+**Cause 2 -- the registration (why it would still be wrong).** Note the result
+above is `SRLYA -> SRLYA`, a self-link. Every busbar in the file is 500 kV:
+
+```
+Kelas tegangan busbar yang ada: {'500 kV'}
+```
+
+There is no 150 kV bus for any IBT to land on, so the LV endpoint falls back to
+the HV bus. An IBT 500/150 needs **two** buses registered per GITET, the 500 kV
+side and the 150 kV side, exactly as the SS sheets do it (`PEDAN7` + `PEDAN`,
+`BKASI7` + `BKASI`). Register the second bus and the link resolves properly:
+
+```
+IBT_LINK: 1
+    SRLYA -> SRLYA5 unit 1,2
+```
+
+So the fix is: add the columns **and** register the 150 kV bus per GITET. The
+columns alone give a transformer wired to itself.
+
+This is also the concrete form of the "same GI name" problem: one physical
+GITET legitimately needs two bus rows at two voltages, and today the file has
+only one.
+
 ## Open questions
 
 1. **What should the IBT view draw?** Section 1.5 of the book, "Kerawanan

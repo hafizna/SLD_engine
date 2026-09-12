@@ -86,15 +86,28 @@ def _strip_chrome(text: str) -> str:
 
 
 def risk_rows(page_from: int, page_to: int) -> list[list[str]]:
-    """Rows of [no, uit, kondisi, dampak, mitigasi, usulan] for a 1-based page range."""
+    """Rows of [no, uit, kondisi, dampak, mitigasi, usulan] for a 1-based page range.
+
+    Most subsystem tables have six columns. The Sistem 500 kV tables in Sec 1.4
+    and 1.5 add a `Subsistem` column between `UIT` and `Kondisi`, giving seven.
+    Reading those with a fixed six-column shape silently shifts every field left
+    by one, so the subsystem name lands in `kondisi` and `usulan` is lost. The
+    extra column is detected per row and dropped, which keeps the return shape
+    the same for every caller; use `subsystem_rows` when that name is wanted.
+    """
     records: list[list[str]] = []
     current: list[str] | None = None
     with pdfplumber.open(PDF) as pdf:
         for pno in range(page_from, page_to + 1):
             for table in pdf.pages[pno - 1].extract_tables():
+                seven = len(table[0]) >= 7 if table else False
                 for raw in table:
-                    row = list(raw) + [None] * (6 - len(raw))
-                    first, second = clean(row[0]), clean(row[1])
+                    row = list(raw)
+                    first = clean(row[0]) if row else ""
+                    second = clean(row[1]) if len(row) > 1 else ""
+                    if seven and len(row) >= 7:
+                        row = row[:2] + row[3:7]      # drop `Subsistem`
+                    row = row + [None] * (6 - len(row))
                     if first.isdigit() and second in UIT_CODES:
                         if current:
                             records.append(current)
@@ -110,6 +123,28 @@ def risk_rows(page_from: int, page_to: int) -> list[list[str]]:
         for idx in range(2, 6):
             rec[idx] = _strip_chrome(rec[idx])
     return records
+
+
+def subsystem_rows(page_from: int, page_to: int) -> list[tuple[int, str]]:
+    """(risk no, subsystem name) for a seven-column Sistem 500 kV table.
+
+    Sec 1.5 organises the IBT risks by subsystem rather than by fault, so this
+    is what says which GITET bank each row belongs to.
+    """
+    out: list[tuple[int, str]] = []
+    with pdfplumber.open(PDF) as pdf:
+        for pno in range(page_from, page_to + 1):
+            for table in pdf.pages[pno - 1].extract_tables():
+                if not table or len(table[0]) < 7:
+                    continue
+                for raw in table:
+                    row = list(raw)
+                    if len(row) < 7:
+                        continue
+                    first, second = clean(row[0]), clean(row[1])
+                    if first.isdigit() and second in UIT_CODES:
+                        out.append((int(first), clean(row[2])))
+    return out
 
 
 def as_risk_dicts(page_from: int, page_to: int, expected: int | None = None) -> list[dict]:
