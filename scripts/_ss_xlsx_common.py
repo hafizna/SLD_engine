@@ -59,6 +59,9 @@ def _rawan(no_kerawanan, status):
 def build_workbook(spec: dict) -> Path:
     """spec keys:
         code, name, apb, wilayah, source_ref
+        rule_profile: optional analytical profile (e.g. "IBT_500_150"). Leave
+            unset for an ordinary subsystem; set it on a system-scope fixture
+            so the dashboard groups it under Sistem 500 kV rather than a UP2B.
         views:   [ (view_key, view_name, "GI;GI;..", page) ]   (optional; omit -> single SLD)
         assets:  [ dict(code, name, type, tier, kv=150, ibt=None,
                         bus_hv=None, bus_lv=None, bus150=None,
@@ -91,6 +94,11 @@ def build_workbook(spec: dict) -> Path:
                  ("Nama Subsistem", spec["name"]),
                  ("APB", spec.get("apb", "UP2B Jakarta & Banten"))]:
         ws.append([k, v])
+    # Omitted for an ordinary subsystem, which the parser defaults to
+    # SUBSYSTEM_500_150. A system-scope fixture must state its profile, or the
+    # dashboard files it under a UP2B region instead of Sistem 500 kV.
+    if spec.get("rule_profile"):
+        ws.append(["Rule Profile", spec["rule_profile"]])
     if spec.get("source_ref"):
         ws.append(["Sumber", spec["source_ref"]])
 

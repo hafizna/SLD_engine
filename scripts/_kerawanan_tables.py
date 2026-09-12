@@ -170,6 +170,37 @@ def as_risk_dicts(page_from: int, page_to: int, expected: int | None = None) -> 
         )
     return [
         dict(no=int(no), uit=uit, kondisi=kondisi, dampak=dampak,
-             mitigasi=mitigasi, usulan=usulan)
+             mitigasi=mitigasi, usulan=usulan, category=contingency_of(kondisi))
         for no, uit, kondisi, dampak, mitigasi, usulan in rows
     ]
+
+
+# The book's risk tables carry no contingency column -- the order is stated in
+# the prose ("apabila terjadi kontingensi N-1-1 pada IBT Tanjungjati 1,2").
+# Without this every row fell to build_workbook's "N-1" default, so genuine
+# N-1-1 and N-2 findings were filed as ordinary N-1.
+_CONTINGENCY = re.compile(r"N\s*[-‐-―]\s*1\s*[-‐-―]\s*1"
+                          r"|N\s*[-‐-―]\s*2"
+                          r"|N\s*[-‐-―]\s*1(?![\s‐-―-]*\d)", re.I)
+
+
+def contingency_of(text: str) -> str:
+    """Strongest contingency order named in a risk's condition text.
+
+    N-1-1 and N-2 both describe a deeper outage than N-1, so when a row names
+    more than one -- "tidak memenuhi N-1 apabila terjadi N-1-1" is the usual
+    phrasing -- the deeper one is what the finding is about.
+
+    A row that names none gets BELUM_DITETAPKAN rather than N-1: plenty of
+    findings are not contingency-driven at all (risk #2 of Sec 1.5 is a
+    capacity mismatch between two IBTs), and calling those N-1 would invent a
+    classification the book never made.
+    """
+    found = set()
+    for m in _CONTINGENCY.finditer(text or ""):
+        digits = re.findall(r"\d", m.group(0))
+        found.add("N-" + "-".join(digits))
+    for level in ("N-1-1", "N-2", "N-1"):
+        if level in found:
+            return level
+    return "BELUM_DITETAPKAN"

@@ -211,6 +211,9 @@ def main() -> None:
         code="SYSTEM_IBT_500",
         name="Sistem Jamali 500 kV - Kerawanan IBT 500/150 kV",
         apb="UIP2B Jamali",
+        # System scope, not a UP2B subsystem: this is what puts the view on the
+        # Sistem 500 kV page (IBT tile) instead of a region's map.
+        rule_profile="IBT_500_150",
         wilayah="Jawa-Madura-Bali",
         source_ref="Buku Kerawanan SJB 2026 Sec 1.5, Gambar 1.5 (PDF p.40-64); "
                    "jaringan 500 kV sama dengan view Transmisi, stub IBT "
