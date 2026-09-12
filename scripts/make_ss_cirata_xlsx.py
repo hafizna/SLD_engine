@@ -115,6 +115,16 @@ L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict
     fr=fr, to=to, name=nm, kv=kv, tier_fr=tf, tier_to=tt, kerawanan=kno,
     status=st, sirkit=sirkit, koridor=WIL)
 
+# Aset milik SS/UP2B lain: digambar sebagai stub pada busnya,
+# bukan busbar tersendiri -- mengikuti pola UP2B Jakban.
+BAYS = [
+    ("CGRLG", "Cigereleng", "LGDAR", None, 1, "Beroperasi", "", "SUTT"),
+    ("PNDLI", "Pondok Ali", "KSBRU", None, 1, "Beroperasi", "", "SUTT"),
+    ("RDSLK", "Rendeh Salak (SS Cibatu 3,4)", "KSBRU", None, 1, "Beroperasi", "", "SUTT"),
+    ("TTJBR", "Tegal Tanjung Baru", "JTLHR", None, 1, "Beroperasi", "", "SUTT"),
+    ("UBRNG", "Ujung Berung", "DGPKR", None, 1, "Beroperasi", "", "SUTT"),
+]
+
 LINES = [
     # -- outlet pembangkit --
     L("KIT_PTUHA", "PTUHA", "Outlet PLTA Cirata", 1, 1, sirkit=1),
@@ -167,6 +177,7 @@ SPEC = dict(
                "topologi dari Gambar 3.5 Peta Kerawanan (PDF p.118)",
     assets=ASSETS,
     lines=LINES,
+    bays=BAYS,
     risks=as_risk_dicts(119, 122, expected=10),
 )
 

@@ -190,6 +190,23 @@ def L(fr, to, nm, tf, tt, views, kv=150, kno=None, st="Beroperasi", sirkit=2):
                 kerawanan=kno, status=st, sirkit=sirkit, koridor=WIL, views=views)
 
 
+# Aset milik SS/UP2B lain: digambar sebagai stub pada busnya,
+# bukan busbar tersendiri -- mengikuti pola UP2B Jakban.
+BAYS = [
+    ("ARJWN", "Arjawinangun (SS Mandirancan)", "KDPTN", None, 1, "Beroperasi", NUB, "SUTT"),
+    ("BGBRU", "Bogor Baru (UP2B Jakban)", "CNJUR", None, 1, "Beroperasi", BDG, "SUTT"),
+    ("DGPKR", "Degung Pakar (SS Cirata)", "UBRNG", None, 1, "Beroperasi", BOTH, "SUTT"),
+    ("GARUT", "Garut (SS Tasikmalaya)", "DRJAT", None, 1, "Beroperasi", NUB, "SUTT"),
+    ("GDBGE", "Gedebage (SS Bandung Selatan)", "UBRNG", None, 1, "Beroperasi", BOTH, "SUTT"),
+    ("LBSTU", "Lembur Situ (UP2B Jakban)", "CNJUR", None, 1, "Beroperasi", BDG, "SUTT"),
+    ("LGDAR", "Lengkong Dar (SS Cirata)", "SKLYU", None, 1, "Beroperasi", BDG, "SUTT"),
+    ("NKDPT", "New Kadipaten (SS Mandirancan)", "JTDGE", None, 1, "Beroperasi", NUB, "SUTT"),
+    ("SRAGI", "Seragi (SS Mandirancan)", "JTDGE", None, 1, "Beroperasi", NUB, "SUTT"),
+    ("TAJUR", "Tajur (UP2B Jakban)", "CNJUR", None, 1, "Beroperasi", BDG, "SUTT"),
+    ("TRAKSI", "Traksi Tagolar", "UBRNG", None, 1, "Beroperasi", BOTH, "SUTT"),
+    ("WYNDU", "Wayang Windu (SS Bandung Selatan)", "KMJNG", None, 1, "Beroperasi", NUB, "SUTT"),
+]
+
 LINES = [
     # ================= sisi Bandung Selatan =================
     L("KIT_RJMDL", "RJMDL", "Outlet PLTA Rajamandala", 1, 1, BDG, sirkit=1),
@@ -260,6 +277,7 @@ SPEC = dict(
     views=VIEWS,
     assets=ASSETS,
     lines=LINES,
+    bays=BAYS,
     risks=as_risk_dicts(128, 132, expected=12),
 )
 

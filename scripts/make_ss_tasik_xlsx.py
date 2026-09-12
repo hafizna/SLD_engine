@@ -72,6 +72,13 @@ L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict
     fr=fr, to=to, name=nm, kv=kv, tier_fr=tf, tier_to=tt, kerawanan=kno,
     status=st, sirkit=sirkit, koridor=WIL)
 
+# Aset milik SS/UP2B lain: digambar sebagai stub pada busnya,
+# bukan busbar tersendiri -- mengikuti pola UP2B Jakban.
+BAYS = [
+    ("KMJNG", "Kamojang", "TSBRU", None, 1, "Beroperasi", "", "SUTT"),
+    ("MNANG", "Majenang", "BNJAR", None, 1, "Beroperasi", "", "SUTT"),
+]
+
 LINES = [
     # -- outlet pembangkit --
     L("KIT_DRJAT", "TSBRU", "Outlet PLTP Darajat", 1, 1, sirkit=1),
@@ -100,6 +107,7 @@ SPEC = dict(
                "topologi dari Gambar 3.9 Peta Kerawanan (PDF p.132)",
     assets=ASSETS,
     lines=LINES,
+    bays=BAYS,
     risks=as_risk_dicts(133, 135, expected=5),
 )
 

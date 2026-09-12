@@ -60,6 +60,15 @@ L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict
     fr=fr, to=to, name=nm, kv=kv, tier_fr=tf, tier_to=tt, kerawanan=kno,
     status=st, sirkit=sirkit, koridor=WIL)
 
+# Aset milik SS/UP2B lain: digambar sebagai stub pada busnya,
+# bukan busbar tersendiri -- mengikuti pola UP2B Jakban.
+BAYS = [
+    ("BKASI", "Bekasi (bus 150 kV)", "NSKTN", None, 1, "Beroperasi", "", "SUTT"),
+    ("IDBRU", "Indramayu Baru (SS Cibatu 3,4)", "MTSDA", None, 1, "Beroperasi", "", "SUTT"),
+    ("MLIGI", "Maligi", "MTSDA", None, 1, "Beroperasi", "", "SUTT"),
+    ("TTJBR", "Tegal Tanjung Baru", "MTSDA", None, 1, "Beroperasi", "", "SUTT"),
+]
+
 LINES = [
     # kerawanan #1: bottleneck MTU GI Tambun / T-L bay incomer New Sukatani
     L("NSKTN", "SKTNI", "SUTT New Sukatani - Sukatani", 1, 2, kno="1"),
@@ -81,6 +90,7 @@ SPEC = dict(
                "topologi dari Gambar 3.12 Peta Kerawanan (PDF p.137)",
     assets=ASSETS,
     lines=LINES,
+    bays=BAYS,
     risks=as_risk_dicts(138, 140, expected=2),
 )
 
