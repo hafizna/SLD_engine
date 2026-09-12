@@ -178,7 +178,10 @@ def main() -> None:
         risk_on.setdefault(code, [])
     for code, units in sorted(merged.items()):
         label = ",".join(sorted(units, key=lambda s: (len(s), s)))
-        bays.append((f"IBT_{code}", f"IBT {label} {code} 500/150 kV", code, None, 1))
+        # Every stub in this view is a 500/150 kV transformer bank, not a
+        # feeder, so say so rather than leaving it to the SUTT default.
+        bays.append((f"IBT_{code}", f"IBT {label} {code} 500/150 kV", code, None,
+                     1, "Beroperasi", "", "IBT"))
 
     risks = as_risk_dicts(RISK_FROM, RISK_TO, expected=RISK_COUNT)
     ss_of = dict(subsystem_rows(RISK_FROM, RISK_TO))
@@ -192,7 +195,9 @@ def main() -> None:
         else:
             unmatched.append(f"#{r['no']} -> {gitet} ({ss_of.get(r['no'])})")
 
-    bays = [(b[0], b[1], b[2], ";".join(risk_on.get(b[2], [])) or None, b[4])
+    # Attach each bank's risk numbers, keeping the rest of the tuple (circuit
+    # count, status, views, Jenis) rather than truncating it.
+    bays = [(b[0], b[1], b[2], ";".join(risk_on.get(b[2], [])) or None, *b[4:])
             for b in bays]
     for a in assets:
         if a["code"] in risk_on and risk_on[a["code"]]:
