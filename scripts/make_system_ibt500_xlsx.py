@@ -47,23 +47,23 @@ BACKBONE = ROOT / "samples" / "backbone_500_ingest.xlsx"
 # the subsystem sheets, so an IBT bank cannot be matched to its 500 kV busbar by
 # code alone. This is the concrete form of the "same GI registered twice"
 # problem. Mapping is SS code -> backbone code; anything not listed matches
-# after dropping a `GITET_` prefix and a trailing `7`.
+# after dropping a `GITET_` prefix and ensuring the 500 kV trailing `7`.
 SS_TO_BACKBONE = {
-    "GITET_KMBGN": "KMBNG",     # Kembangan
-    "GITET_NBRJA": "BLRJA",     # New Balaraja -> Balaraja
-    "GITET_CLBRU": "CLGON",     # Cilegon Baru -> Cilegon
-    "GITET_CWBRU": "CWANG",     # Cawang Baru -> Cawang
-    "GITET_LKBRU": "LNGKG",     # Lengkong Baru -> Lengkong
-    "GITET_MKBRU": "MKRNG",     # Muarakarang Baru -> Muarakarang
-    "MDRCN7": "MDCAN",          # Mandirancan
-    "UNGAR7": "UNGRN",          # Ungaran
-    "NGORO7": "KDIRI",          # GITET Ngoro feeds the Kediri subsystem
-    "TSBRU7": "TSMYA",          # Tasikmalaya Baru -> Tasikmalaya
-    "NTMBN7": "TMBUN",          # New Tambun -> Tambun
-    "NUBRG7": "UBRNG",          # New Ujungberung -> Ujungberung
-    "CBATU347": "CBATU",        # Cibatu 3,4 shares the Cibatu busbar
-    "CRAT37": "CRATA",          # Cirata 3 shares the Cirata busbar
-    "SRLYABR": "SRLYA",         # Suralaya Baru -> Suralaya
+    "GITET_KMBGN": "KMBNG7",     # Kembangan
+    "GITET_NBRJA": "BLRJA7",     # New Balaraja -> Balaraja
+    "GITET_CLBRU": "CLGON7",     # Cilegon Baru -> Cilegon
+    "GITET_CWBRU": "CWANG7",     # Cawang Baru -> Cawang
+    "GITET_LKBRU": "LNGKG7",     # Lengkong Baru -> Lengkong
+    "GITET_MKBRU": "MKRNG7",     # Muarakarang Baru -> Muarakarang
+    "MDRCN7": "MDCAN7",          # Mandirancan
+    "UNGAR7": "UNGRN7",          # Ungaran
+    "NGORO7": "KDIRI7",          # GITET Ngoro feeds the Kediri subsystem
+    "TSBRU7": "TSMYA7",          # Tasikmalaya Baru -> Tasikmalaya
+    "NTMBN7": "TMBUN7",          # New Tambun -> Tambun
+    "NUBRG7": "UBRNG7",          # New Ujungberung -> Ujungberung
+    "CBATU347": "CBATU7",        # Cibatu 3,4 shares the Cibatu busbar
+    "CRAT37": "CRATA7",          # Cirata 3 shares the Cirata busbar
+    "SRLYABR": "SRLYA7",         # Suralaya Baru -> Suralaya
     # NCKUPA (New Cikupa) is a planned GITET that the backbone sheet does not
     # carry yet, so its bank has no 500 kV busbar to hang from in this view.
 }
@@ -72,14 +72,14 @@ SS_TO_BACKBONE = {
 # ("Kesuguhan", "Boyoli", "Tambun1,2"). Map each to the GITET code used by the
 # backbone workbook, which is what this view draws.
 RISK_GITET = {
-    1: "SRLYA", 2: "SRLYA", 3: "CLGON", 4: "KMBNG", 5: "CWANG", 6: "BKASI",
-    7: "MDCAN", 8: "MDCAN", 9: "CRATA", 10: "CBATU", 11: "CBATU", 12: "DLTMS",
-    13: "BDSLN", 14: "UBRNG", 15: "TSMYA", 16: "TMBUN",
-    17: "TJATI", 18: "TJATI", 19: "TJATI", 20: "TJATI",
-    21: "UNGRN", 22: "UNGRN", 23: "PEDAN", 24: "PEDAN", 25: "PEDAN",
-    26: "KSGHN", 27: "PMLNG", 28: "BYOLI", 29: "BYOLI",
-    30: "GRSIK", 31: "GRSIK", 32: "KRIAN", 33: "NBANG",
-    34: "KDIRI", 35: "KDIRI", 36: "GRATI", 37: "PITON", 38: "PITON",
+    1: "SRLYA7", 2: "SRLYA7", 3: "CLGON7", 4: "KMBNG7", 5: "CWANG7", 6: "BKASI7",
+    7: "MDCAN7", 8: "MDCAN7", 9: "CRATA7", 10: "CBATU7", 11: "CBATU7", 12: "DLTMS7",
+    13: "BDSLN7", 14: "UBRNG7", 15: "TSMYA7", 16: "TMBUN7",
+    17: "TJATI7", 18: "TJATI7", 19: "TJATI7", 20: "TJATI7",
+    21: "UNGRN7", 22: "UNGRN7", 23: "PEDAN7", 24: "PEDAN7", 25: "PEDAN7",
+    26: "KSGHN7", 27: "PMLNG7", 28: "BYOLI7", 29: "BYOLI7",
+    30: "GRSIK7", 31: "GRSIK7", 32: "KRIAN7", 33: "NBANG7",
+    34: "KDIRI7", 35: "KDIRI7", 36: "GRATI7", 37: "PITON7", 38: "PITON7",
 }
 
 
@@ -147,10 +147,14 @@ def main() -> None:
     banks, owner = ibt_bays()
 
     def backbone_code(ss_code: str) -> str:
+        # The backbone now marks the 500 kV side with a trailing 7, so a
+        # subsystem's `GITET_XXX` or bare `XXX` resolves to `XXX7`.
         if ss_code in SS_TO_BACKBONE:
             return SS_TO_BACKBONE[ss_code]
         plain = ss_code.removeprefix("GITET_")
-        return plain[:-1] if plain.endswith("7") and plain[:-1] in have else plain
+        if plain in have:
+            return plain
+        return plain if plain.endswith("7") else plain + "7"
 
     bays: list[tuple] = []
     risk_on: dict[str, list[str]] = {}

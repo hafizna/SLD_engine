@@ -264,13 +264,18 @@ def test_backbone_500_compacts_layout_and_keeps_routes_below_generators(db):
 
     result = seed_backbone_500(db)
     view = db.get(AnalyticalView, result['view_id'])
-    # Short book labels overlap with 150 kV GI codes in subsystem fixtures.
-    # The 500 kV projection must own distinct canonical GITET objects, or SS
+    # Short book labels overlap with 150 kV GI codes in subsystem fixtures, so
+    # the 500 kV side carries a trailing 7 (CWANG7 is the GITET, CWANG the
+    # 150 kV bus). The projection must own those distinct objects, or SS
     # capacitor/transformer attributes leak into the backbone.
     for code in ('BLRJA', 'CWANG', 'DEPOK', 'DKSBI'):
-        s = db.query(Substation).filter(Substation.code == f'GITET_{code}').one()
+        s = db.query(Substation).filter(Substation.code == f'{code}7').one()
         assert s.voltage_kv == 500
         assert not s.has_transformer and not s.has_shunt_capacitor
+        # The bare code may also exist as that site's 150 kV bus; what matters
+        # is that it is a different row and did not donate its voltage.
+        bus = db.query(Substation).filter(Substation.code == code).first()
+        assert bus is None or (bus.id != s.id and bus.voltage_kv != 500)
     svg = render_view_svg(db, view)
     root = ET.fromstring(svg)
     ns = {'s': 'http://www.w3.org/2000/svg'}

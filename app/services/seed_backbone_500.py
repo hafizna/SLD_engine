@@ -36,17 +36,14 @@ def seed_backbone_500(db: Session) -> dict:
 
     payload = ingest_parser.parse_upload(_XLSX.read_bytes(), _XLSX.name)
     draft = ingest.build_draft(db, payload)
-    # A 500 kV GITET and its 150 kV GI may share the short label used in the
-    # book (for example CWANG).  They are different canonical substations.
-    # Prefix the canonical GITET code so a previously seeded 150 kV GI cannot
-    # donate its voltage, transformer, or capacitor attributes to this view.
+    # A 500 kV GITET and its 150 kV GI used to share the short label used in the
+    # book (for example CWANG), so this seeder prefixed the canonical code to
+    # keep them apart. The workbook now marks the 500 kV side with a trailing 7
+    # (CWANG7), which is the same guarantee made at the source instead, so the
+    # codes are taken as they come.
     for n in draft["nodes"]:
         n["resolution"] = "NEW"
-        n["confirmed_code"] = (
-            f"GITET_{n['external_key']}"
-            if n.get("object_type") in ("GITET", "GISTET")
-            else n["external_key"]
-        )
+        n["confirmed_code"] = n["external_key"]
     return ingest.publish(
         db, draft,
         code="BACKBONE_500_JB",

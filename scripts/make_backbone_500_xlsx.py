@@ -30,56 +30,56 @@ VIEW = "BACKBONE500"
 GITETS = [
     # ---- Tier 1 ----
     ("JAWA7",  "GITET Jawa 7",              1, True,  "Banten"),
-    ("LBE",    "GITET Lontar Baru (LBE)",   1, True,  "Banten"),
-    ("NSRLA",  "GITET Suralaya Baru",       1, True,  "Banten"),
-    ("SRLYA",  "GITET Suralaya",            1, True,  "Banten"),
-    ("JAWA910","GITET Jawa 9,10",           1, True,  "Banten"),
-    ("PRIDK",  "GITET Priok",               1, True,  "DKI Jakarta"),
-    ("MTWAR",  "GITET Muara Tawar",         1, True,  "Jawa Barat"),
-    ("CLMYA",  "GITET Cilamaya",            1, True,  "Jawa Barat"),
-    ("CRATA",  "GITET Cirata",              1, True,  "Jawa Barat"),
-    ("SGLNG",  "GITET Saguling",            1, True,  "Jawa Barat"),
-    ("ADPLA",  "GITET Adipala",             1, True,  "Jawa Tengah"),
-    ("CLCAP",  "GITET Cilacap",             1, True,  "Jawa Tengah"),
-    ("BTANG",  "GITET Batang",              1, True,  "Jawa Tengah"),
-    ("NTJTI",  "GITET New Tanjung Jati",    1, True,  "Jawa Tengah"),
-    ("TJATI",  "GITET Tanjung Jati B",      1, True,  "Jawa Tengah"),
-    ("GRSIK",  "GITET Gresik",              1, True,  "Jawa Timur"),
-    ("GRATI",  "GITET Grati",               1, True,  "Jawa Timur"),
-    ("PITON",  "GITET Paiton",              1, True,  "Jawa Timur"),
+    ("LBE7",    "GITET Lontar Baru (LBE)",   1, True,  "Banten"),
+    ("NSRLA7",  "GITET Suralaya Baru",       1, True,  "Banten"),
+    ("SRLYA7",  "GITET Suralaya",            1, True,  "Banten"),
+    ("JAWA9107","GITET Jawa 9,10",           1, True,  "Banten"),
+    ("PRIDK7",  "GITET Priok",               1, True,  "DKI Jakarta"),
+    ("MTWAR7",  "GITET Muara Tawar",         1, True,  "Jawa Barat"),
+    ("CLMYA7",  "GITET Cilamaya",            1, True,  "Jawa Barat"),
+    ("CRATA7",  "GITET Cirata",              1, True,  "Jawa Barat"),
+    ("SGLNG7",  "GITET Saguling",            1, True,  "Jawa Barat"),
+    ("ADPLA7",  "GITET Adipala",             1, True,  "Jawa Tengah"),
+    ("CLCAP7",  "GITET Cilacap",             1, True,  "Jawa Tengah"),
+    ("BTANG7",  "GITET Batang",              1, True,  "Jawa Tengah"),
+    ("NTJTI7",  "GITET New Tanjung Jati",    1, True,  "Jawa Tengah"),
+    ("TJATI7",  "GITET Tanjung Jati B",      1, True,  "Jawa Tengah"),
+    ("GRSIK7",  "GITET Gresik",              1, True,  "Jawa Timur"),
+    ("GRATI7",  "GITET Grati",               1, True,  "Jawa Timur"),
+    ("PITON7",  "GITET Paiton",              1, True,  "Jawa Timur"),
     # ---- Tier 2 ----
-    ("BLRJA",  "GITET Balaraja",            2, False, "Banten"),
-    ("CLGON",  "GITET Cilegon",             2, False, "Banten"),
-    ("TMBUN",  "GITET Tambun",              2, False, "Jawa Barat"),
-    ("CWANG",  "GITET Cawang",              2, False, "DKI Jakarta"),
-    ("SKTNI",  "GITET Sukatani",            2, False, "Jawa Barat"),
-    ("DLTMS",  "GITET Deltamas",            2, False, "Jawa Barat"),
-    ("CIBNG",  "GITET Cibinong",            2, False, "Jawa Barat"),
-    ("BDSLN",  "GITET Bandung Selatan",     2, False, "Jawa Barat"),
-    ("KSGHN",  "GITET Kesugihan",           2, False, "Jawa Tengah"),
-    ("PMLNG",  "GITET Pemalang",            2, False, "Jawa Tengah"),
-    ("UNGRN",  "GITET Ungaran",             2, False, "Jawa Tengah"),
-    ("KRIAN",  "GITET Krian",               2, False, "Jawa Timur"),
-    ("KDIRI",  "GITET Kediri",              2, False, "Jawa Timur"),
+    ("BLRJA7",  "GITET Balaraja",            2, False, "Banten"),
+    ("CLGON7",  "GITET Cilegon",             2, False, "Banten"),
+    ("TMBUN7",  "GITET Tambun",              2, False, "Jawa Barat"),
+    ("CWANG7",  "GITET Cawang",              2, False, "DKI Jakarta"),
+    ("SKTNI7",  "GITET Sukatani",            2, False, "Jawa Barat"),
+    ("DLTMS7",  "GITET Deltamas",            2, False, "Jawa Barat"),
+    ("CIBNG7",  "GITET Cibinong",            2, False, "Jawa Barat"),
+    ("BDSLN7",  "GITET Bandung Selatan",     2, False, "Jawa Barat"),
+    ("KSGHN7",  "GITET Kesugihan",           2, False, "Jawa Tengah"),
+    ("PMLNG7",  "GITET Pemalang",            2, False, "Jawa Tengah"),
+    ("UNGRN7",  "GITET Ungaran",             2, False, "Jawa Tengah"),
+    ("KRIAN7",  "GITET Krian",               2, False, "Jawa Timur"),
+    ("KDIRI7",  "GITET Kediri",              2, False, "Jawa Timur"),
     # ---- Tier 3 ----
-    ("LNGKG",  "GITET Lengkong",            3, False, "Banten"),
-    ("KMBNG",  "GITET Kembangan",           3, False, "DKI Jakarta"),
-    ("BKASI",  "GITET Bekasi",              3, False, "Jawa Barat"),
-    ("CBATU",  "GITET Cibatu",              3, False, "Jawa Barat"),
-    ("UBRNG",  "GITET Ujungberung",         3, False, "Jawa Barat"),
-    ("IDMYU",  "GITET Indramayu",           3, False, "Jawa Barat"),
-    ("MDCAN",  "GITET Mandirancan",         3, False, "Jawa Barat"),
-    ("TSMYA",  "GITET Tasikmalaya",         3, False, "Jawa Barat"),
-    ("BYOLI",  "GITET Boyolali",            3, False, "Jawa Tengah"),
-    ("PEDAN",  "GITET Pedan",               3, False, "Jawa Tengah"),
-    ("NBANG",  "GITET Ngimbang",            3, False, "Jawa Timur"),
+    ("LNGKG7",  "GITET Lengkong",            3, False, "Banten"),
+    ("KMBNG7",  "GITET Kembangan",           3, False, "DKI Jakarta"),
+    ("BKASI7",  "GITET Bekasi",              3, False, "Jawa Barat"),
+    ("CBATU7",  "GITET Cibatu",              3, False, "Jawa Barat"),
+    ("UBRNG7",  "GITET Ujungberung",         3, False, "Jawa Barat"),
+    ("IDMYU7",  "GITET Indramayu",           3, False, "Jawa Barat"),
+    ("MDCAN7",  "GITET Mandirancan",         3, False, "Jawa Barat"),
+    ("TSMYA7",  "GITET Tasikmalaya",         3, False, "Jawa Barat"),
+    ("BYOLI7",  "GITET Boyolali",            3, False, "Jawa Tengah"),
+    ("PEDAN7",  "GITET Pedan",               3, False, "Jawa Tengah"),
+    ("NBANG7",  "GITET Ngimbang",            3, False, "Jawa Timur"),
     # ---- Tier 4 ----
-    ("DEPOK",  "GITET Depok",               4, False, "Jawa Barat"),
-    ("GNDUL",  "GITET Gandul",              4, False, "Jawa Barat"),
+    ("DEPOK7",  "GITET Depok",               4, False, "Jawa Barat"),
+    ("GNDUL7",  "GITET Gandul",              4, False, "Jawa Barat"),
     # ---- Tier 5 ----
-    ("DKSBI",  "GITET Durikosambi",         5, False, "DKI Jakarta"),
+    ("DKSBI7",  "GITET Durikosambi",         5, False, "DKI Jakarta"),
     # ---- Tier 6 ----
-    ("MKRNG",  "GITET Muara Karang",        6, False, "DKI Jakarta"),
+    ("MKRNG7",  "GITET Muara Karang",        6, False, "DKI Jakarta"),
 ]
 TIER = {code: t for code, _, t, *_ in GITETS}
 
@@ -91,68 +91,68 @@ TIER = {code: t for code, _, t, *_ in GITETS}
 # ---------------------------------------------------------------------------
 SUTET = [
     # -- Banten generation -> Balaraja / Cilegon / LBE / Lengkong --
-    ("JAWA7",  "BLRJA", 2, "Beroperasi", 14, "Banten"),          # #14
-    ("JAWA7",  "LBE",   2, "Beroperasi", 15, "Banten"),          # #15 (Jawa7-LBE)
-    ("SRLYA",  "NSRLA", 2, "Beroperasi", 13, "Banten"),          # #13 Suralaya-Suralaya Baru
-    ("NSRLA",  "LBE",   2, "Beroperasi", 12, "Banten"),          # #12 Suralaya Baru-LBE
-    ("SRLYA",  "BLRJA", 2, "Beroperasi", 16, "Banten"),          # #16 Suralaya-Balaraja
-    ("SRLYA",  "CLGON", 2, "Beroperasi", 11, "Banten"),          # #11 Suralaya 9,10-Cilegon
-    ("JAWA910","CLGON", 2, "Beroperasi", None, "Banten"),
-    ("BLRJA",  "LNGKG", 2, "Beroperasi", 17, "Banten"),          # #17 Balaraja-Lengkong >60%
-    ("LBE",    "BLRJA", 2, "Beroperasi", None, "Banten"),
+    ("JAWA7",  "BLRJA7", 2, "Beroperasi", 14, "Banten"),          # #14
+    ("JAWA7",  "LBE7",   2, "Beroperasi", 15, "Banten"),          # #15 (Jawa7-LBE)
+    ("SRLYA7",  "NSRLA7", 2, "Beroperasi", 13, "Banten"),          # #13 Suralaya-Suralaya Baru
+    ("NSRLA7",  "LBE7",   2, "Beroperasi", 12, "Banten"),          # #12 Suralaya Baru-LBE
+    ("SRLYA7",  "BLRJA7", 2, "Beroperasi", 16, "Banten"),          # #16 Suralaya-Balaraja
+    ("SRLYA7",  "CLGON7", 2, "Beroperasi", 11, "Banten"),          # #11 Suralaya 9,10-Cilegon
+    ("JAWA9107","CLGON7", 2, "Beroperasi", None, "Banten"),
+    ("BLRJA7",  "LNGKG7", 2, "Beroperasi", 17, "Banten"),          # #17 Balaraja-Lengkong >60%
+    ("LBE7",    "BLRJA7", 2, "Beroperasi", None, "Banten"),
     # -- Banten/Jakarta core: Cilegon-Cibinong, Gandul-Depok, Depok-Cibinong --
-    ("CLGON",  "CIBNG", 1, "Beroperasi", 1,  "Banten-Jawa Barat"),   # #1 N-2, 1 sirkit
-    ("GNDUL",  "DEPOK", 2, "Beroperasi", 2,  "DKI Jakarta"),         # #2 Gandul-Depok (also #9 rotor stability)
-    ("DEPOK",  "CIBNG", 2, "Beroperasi", 3,  "Jawa Barat"),          # #3 Depok-Cibinong (also #6 IBT overload)
-    ("LNGKG",  "GNDUL", 2, "Beroperasi", None, "Banten-Jakarta"),
-    ("KMBNG",  "GNDUL", 2, "Beroperasi", None, "DKI Jakarta"),
+    ("CLGON7",  "CIBNG7", 1, "Beroperasi", 1,  "Banten-Jawa Barat"),   # #1 N-2, 1 sirkit
+    ("GNDUL7",  "DEPOK7", 2, "Beroperasi", 2,  "DKI Jakarta"),         # #2 Gandul-Depok (also #9 rotor stability)
+    ("DEPOK7",  "CIBNG7", 2, "Beroperasi", 3,  "Jawa Barat"),          # #3 Depok-Cibinong (also #6 IBT overload)
+    ("LNGKG7",  "GNDUL7", 2, "Beroperasi", None, "Banten-Jakarta"),
+    ("KMBNG7",  "GNDUL7", 2, "Beroperasi", None, "DKI Jakarta"),
     # -- Gandul/Kembangan -> Durikosambi -> Muara Karang (radial ke IBT) --
-    ("GNDUL",  "DKSBI", 2, "Beroperasi", 7,  "DKI Jakarta"),         # #7 Gandul-Durkos 55%
-    ("KMBNG",  "DKSBI", 2, "Beroperasi", None, "DKI Jakarta"),       # #7 Kembangan-Durkos 43% (pinned to #7 via Gandul ruas)
-    ("DKSBI",  "MKRNG", 2, "Beroperasi", 8,  "DKI Jakarta"),         # #8 N-2 Durkos-Muarakarang
+    ("GNDUL7",  "DKSBI7", 2, "Beroperasi", 7,  "DKI Jakarta"),         # #7 Gandul-Durkos 55%
+    ("KMBNG7",  "DKSBI7", 2, "Beroperasi", None, "DKI Jakarta"),       # #7 Kembangan-Durkos 43% (pinned to #7 via Gandul ruas)
+    ("DKSBI7",  "MKRNG7", 2, "Beroperasi", 8,  "DKI Jakarta"),         # #8 N-2 Durkos-Muarakarang
     # -- segiempat Jakarta timur: Muaratawar-Cawang / Tambun-Bekasi --
-    ("MTWAR",  "CWANG", 2, "Beroperasi", 5,  "Jawa Barat-Jakarta"),  # #5 Muaratawar-Cawang 55% (also #10)
-    ("MTWAR",  "TMBUN", 2, "Beroperasi", None, "Jawa Barat"),
-    ("TMBUN",  "BKASI", 2, "Beroperasi", 4,  "Jawa Barat"),          # #4 Tambun-Bekasi 70% (also #10)
-    ("BKASI",  "MTWAR", 2, "Rencana",    None, "Jawa Barat"),        # usulan 2 sirkit baru Bekasi-Muaratawar (#4)
-    ("MTWAR",  "PRIDK", 2, "Rencana",    None, "Jawa Barat-Jakarta"),# usulan SUTET Muaratawar-Priok
-    ("PRIDK",  "MKRNG", 2, "Rencana",    None, "DKI Jakarta"),       # usulan SUTET Priok-Muarakarang
-    ("CWANG",  "GNDUL", 2, "Rencana",    None, "DKI Jakarta"),       # usulan SUTET Cawang-Gandul
+    ("MTWAR7",  "CWANG7", 2, "Beroperasi", 5,  "Jawa Barat-Jakarta"),  # #5 Muaratawar-Cawang 55% (also #10)
+    ("MTWAR7",  "TMBUN7", 2, "Beroperasi", None, "Jawa Barat"),
+    ("TMBUN7",  "BKASI7", 2, "Beroperasi", 4,  "Jawa Barat"),          # #4 Tambun-Bekasi 70% (also #10)
+    ("BKASI7",  "MTWAR7", 2, "Rencana",    None, "Jawa Barat"),        # usulan 2 sirkit baru Bekasi-Muaratawar (#4)
+    ("MTWAR7",  "PRIDK7", 2, "Rencana",    None, "Jawa Barat-Jakarta"),# usulan SUTET Muaratawar-Priok
+    ("PRIDK7",  "MKRNG7", 2, "Rencana",    None, "DKI Jakarta"),       # usulan SUTET Priok-Muarakarang
+    ("CWANG7",  "GNDUL7", 2, "Rencana",    None, "DKI Jakarta"),       # usulan SUTET Cawang-Gandul
     # -- Jawa Barat selatan / tengah --
-    ("SKTNI",  "CLMYA", 2, "Beroperasi", 18, "Jawa Barat"),          # #18 N-2 Sukatani-Cilamaya (PLTGU 2x880)
-    ("SKTNI",  "CBATU", 2, "Beroperasi", None, "Jawa Barat"),
-    ("DLTMS",  "CBATU", 2, "Beroperasi", None, "Jawa Barat"),
-    ("CRATA",  "SKTNI", 2, "Beroperasi", None, "Jawa Barat"),
-    ("SGLNG",  "BDSLN", 2, "Beroperasi", None, "Jawa Barat"),
-    ("BDSLN",  "UBRNG", 2, "Beroperasi", None, "Jawa Barat"),
-    ("MDCAN",  "UBRNG", 2, "Beroperasi", 26, "Jawa Barat"),          # #26 Mandirancan-Ujungberung
-    ("MDCAN",  "BDSLN", 2, "Beroperasi", 26, "Jawa Barat"),          # #26 Mandirancan-Bandung Selatan
-    ("CIBNG",  "IDMYU", 2, "Beroperasi", None, "Jawa Barat"),
-    ("IDMYU",  "MDCAN", 2, "Beroperasi", None, "Jawa Barat"),
-    ("TSMYA",  "BDSLN", 2, "Beroperasi", 26, "Jawa Barat"),          # #26 Tasikmalaya-Bandung Selatan
-    ("TSMYA",  "DEPOK", 2, "Beroperasi", 26, "Jawa Barat-Jakarta"),  # #26 Tasikmalaya-Depok
-    ("KSGHN",  "TSMYA", 2, "Beroperasi", 26, "Jawa Tengah-Barat"),   # #26 Kesugihan-Tasikmalaya
+    ("SKTNI7",  "CLMYA7", 2, "Beroperasi", 18, "Jawa Barat"),          # #18 N-2 Sukatani-Cilamaya (PLTGU 2x880)
+    ("SKTNI7",  "CBATU7", 2, "Beroperasi", None, "Jawa Barat"),
+    ("DLTMS7",  "CBATU7", 2, "Beroperasi", None, "Jawa Barat"),
+    ("CRATA7",  "SKTNI7", 2, "Beroperasi", None, "Jawa Barat"),
+    ("SGLNG7",  "BDSLN7", 2, "Beroperasi", None, "Jawa Barat"),
+    ("BDSLN7",  "UBRNG7", 2, "Beroperasi", None, "Jawa Barat"),
+    ("MDCAN7",  "UBRNG7", 2, "Beroperasi", 26, "Jawa Barat"),          # #26 Mandirancan-Ujungberung
+    ("MDCAN7",  "BDSLN7", 2, "Beroperasi", 26, "Jawa Barat"),          # #26 Mandirancan-Bandung Selatan
+    ("CIBNG7",  "IDMYU7", 2, "Beroperasi", None, "Jawa Barat"),
+    ("IDMYU7",  "MDCAN7", 2, "Beroperasi", None, "Jawa Barat"),
+    ("TSMYA7",  "BDSLN7", 2, "Beroperasi", 26, "Jawa Barat"),          # #26 Tasikmalaya-Bandung Selatan
+    ("TSMYA7",  "DEPOK7", 2, "Beroperasi", 26, "Jawa Barat-Jakarta"),  # #26 Tasikmalaya-Depok
+    ("KSGHN7",  "TSMYA7", 2, "Beroperasi", 26, "Jawa Tengah-Barat"),   # #26 Kesugihan-Tasikmalaya
     # -- Jawa Tengah: Cilacap/Adipala, Batang/Pemalang, Tanjung Jati, Ungaran --
-    ("KSGHN",  "ADPLA", 2, "Beroperasi", 23, "Jawa Tengah"),         # #23 N-2 Kesugihan-Adipala-Cilacap
-    ("ADPLA",  "CLCAP", 2, "Beroperasi", 23, "Jawa Tengah"),         # #23
-    ("PMLNG",  "BTANG", 2, "Beroperasi", 24, "Jawa Tengah"),         # #24 N-2 Pemalang-Batang (PLTU 2x1000)
-    ("PMLNG",  "NTJTI", 2, "Beroperasi", 22, "Jawa Tengah"),         # #22/#27 New Tanjung Jati-Pemalang
-    ("NTJTI",  "UNGRN", 2, "Beroperasi", 27, "Jawa Tengah"),         # #27 Pemalang-Tanjungjati-Ungaran
-    ("TJATI",  "UNGRN", 2, "Beroperasi", 20, "Jawa Tengah"),         # #20 N-1 Tanjung Jati-Ungaran (also #21 N-2 rotor)
-    ("KSGHN",  "MDCAN", 2, "Beroperasi", None, "Jawa Tengah-Barat"),
-    ("KSGHN",  "PMLNG", 2, "Beroperasi", None, "Jawa Tengah"),
+    ("KSGHN7",  "ADPLA7", 2, "Beroperasi", 23, "Jawa Tengah"),         # #23 N-2 Kesugihan-Adipala-Cilacap
+    ("ADPLA7",  "CLCAP7", 2, "Beroperasi", 23, "Jawa Tengah"),         # #23
+    ("PMLNG7",  "BTANG7", 2, "Beroperasi", 24, "Jawa Tengah"),         # #24 N-2 Pemalang-Batang (PLTU 2x1000)
+    ("PMLNG7",  "NTJTI7", 2, "Beroperasi", 22, "Jawa Tengah"),         # #22/#27 New Tanjung Jati-Pemalang
+    ("NTJTI7",  "UNGRN7", 2, "Beroperasi", 27, "Jawa Tengah"),         # #27 Pemalang-Tanjungjati-Ungaran
+    ("TJATI7",  "UNGRN7", 2, "Beroperasi", 20, "Jawa Tengah"),         # #20 N-1 Tanjung Jati-Ungaran (also #21 N-2 rotor)
+    ("KSGHN7",  "MDCAN7", 2, "Beroperasi", None, "Jawa Tengah-Barat"),
+    ("KSGHN7",  "PMLNG7", 2, "Beroperasi", None, "Jawa Tengah"),
     # -- Ungaran-Boyolali-Pedan (Selatan<->Utara), transfer Timur-Barat --
-    ("UNGRN",  "BYOLI", 1, "Beroperasi", 19, "Jawa Tengah"),         # #19 N-1 Ungaran-Boyolali >90% (1 sirkit)
-    ("BYOLI",  "PEDAN", 1, "Beroperasi", 25, "Jawa Tengah"),         # #25/#26 Boyolali-Pedan (1 sirkit)
-    ("UNGRN",  "KRIAN", 2, "Beroperasi", None, "Jawa Tengah-Timur"), # usulan/Purwodadi outlet
-    ("UNGRN",  "NBANG", 2, "Beroperasi", None, "Jawa Tengah-Timur"),
+    ("UNGRN7",  "BYOLI7", 1, "Beroperasi", 19, "Jawa Tengah"),         # #19 N-1 Ungaran-Boyolali >90% (1 sirkit)
+    ("BYOLI7",  "PEDAN7", 1, "Beroperasi", 25, "Jawa Tengah"),         # #25/#26 Boyolali-Pedan (1 sirkit)
+    ("UNGRN7",  "KRIAN7", 2, "Beroperasi", None, "Jawa Tengah-Timur"), # usulan/Purwodadi outlet
+    ("UNGRN7",  "NBANG7", 2, "Beroperasi", None, "Jawa Tengah-Timur"),
     # -- Jawa Timur / Madura: Paiton-Grati-Krian-Kediri-Gresik --
-    ("PITON",  "GRATI", 2, "Beroperasi", 28, "Jawa Timur"),          # #28 N-1 Paiton-Grati 79% (also #29 N-2)
-    ("GRATI",  "KRIAN", 2, "Beroperasi", 30, "Jawa Timur"),          # #30 N-2 Grati-Krian
-    ("PITON",  "KDIRI", 2, "Beroperasi", None, "Jawa Timur"),
-    ("KDIRI",  "PEDAN", 2, "Beroperasi", None, "Jawa Timur-Tengah"),
-    ("KRIAN",  "GRSIK", 2, "Beroperasi", 31, "Jawa Timur"),          # #31 N-2 Krian-Gresik (Madura)
-    ("KRIAN",  "NBANG", 2, "Beroperasi", None, "Jawa Timur"),
+    ("PITON7",  "GRATI7", 2, "Beroperasi", 28, "Jawa Timur"),          # #28 N-1 Paiton-Grati 79% (also #29 N-2)
+    ("GRATI7",  "KRIAN7", 2, "Beroperasi", 30, "Jawa Timur"),          # #30 N-2 Grati-Krian
+    ("PITON7",  "KDIRI7", 2, "Beroperasi", None, "Jawa Timur"),
+    ("KDIRI7",  "PEDAN7", 2, "Beroperasi", None, "Jawa Timur-Tengah"),
+    ("KRIAN7",  "GRSIK7", 2, "Beroperasi", 31, "Jawa Timur"),          # #31 N-2 Krian-Gresik (Madura)
+    ("KRIAN7",  "NBANG7", 2, "Beroperasi", None, "Jawa Timur"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -414,7 +414,7 @@ def build():
     # a kerawanan whose ruas already carries another No is pinned to a GITET
     # endpoint instead (rotor-stability / IBT-overload points that "also affect"
     # the same ruas).
-    GI_PIN = {"DEPOK": 6, "GNDUL": 9, "CWANG": 10, "TJATI": 21, "PITON": 29}
+    GI_PIN = {"DEPOK7": 6, "GNDUL7": 9, "CWANG7": 10, "TJATI7": 21, "PITON7": 29}
 
     # ---- Gardu_Induk_dan_Aset ----
     ws = wb.create_sheet("Gardu_Induk_dan_Aset")
