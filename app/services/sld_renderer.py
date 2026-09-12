@@ -1110,7 +1110,14 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         source_boundary = meta == "SOURCE_BOUNDARY"
         direction = -1 if source_boundary else 1
         sy = fy + direction * STUB_LEN
-        stroke, dash = bay_feed_style.get(gi.id, ("#C00000", "7 5"))
+        # A bay with a real circuit is drawn in that circuit's style. Otherwise
+        # the workbook's `Jenis` decides: SKTT is a cable and draws dashed,
+        # everything else is an overhead feeder and draws solid. Before that
+        # column existed every styleless stub defaulted to dashed, which
+        # asserted a cable for 41 bays that had never said so.
+        _kind = "SKTT" if "kind=SKTT" in (meta or "") else "SUTT"
+        _fallback = (_vcol(gi.voltage_kv), "7 5" if _kind == "SKTT" else "none")
+        stroke, dash = bay_feed_style.get(gi.id, _fallback)
         if status in ("NEW_NOT_ENERGIZED", "PLANNED"):
             stroke, dash = "#111111", "3 6"
         elif status == "DE_ENERGIZED":

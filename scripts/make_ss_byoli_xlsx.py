@@ -60,8 +60,11 @@ ASSETS = [
 # 500 kV SUTET bays -- the remote GITETs live on other subsistem sheets.
 # Risks 2 and 4 are about looping through these, so they carry the kerawanan no.
 BAYS = [
-    ("UNGA7", "GITET Ungaran (500 kV)", "BYOLI7", "2", 1),
-    ("PDAN7", "GITET Pedan (500 kV)", "BYOLI7", "4", 2),
+    # Canonical GITET codes: UNGA7/PDAN7 were non-canonical spellings that
+    # published as two extra 150 kV ghosts instead of referencing the real
+    # 500 kV rows. `Jenis` states these are 500 kV SUTET stubs, not cables.
+    ("UNGRN7", "GITET Ungaran (500 kV)", "BYOLI7", "2", 1, "Beroperasi", "", "SUTT", "500 kV"),
+    ("PEDAN7", "GITET Pedan (500 kV)", "BYOLI7", "4", 2, "Beroperasi", "", "SUTT", "500 kV"),
 ]
 
 L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict(

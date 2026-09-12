@@ -413,6 +413,11 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                 "tier_hint": None,
                 "status_hint": _STATUS_MAP.get(_norm(_get(row, "Status Operasi", "Status")), "ENERGIZED"),
                 "confidence": 0.7, "is_bay": True, "bay_feeder_key": feeder,
+                # SUTT / SKTT for a feeder bay, Trafo / IBT for a transformer
+                # stub. Absent reads as SUTT: an overhead 150 kV feeder is the
+                # ordinary case, and the book only marks a cable explicitly.
+                "bay_kind": (str(_get(row, "Jenis", "Jenis Bay", "Tipe") or "SUTT")
+                             .strip().upper() or "SUTT"),
                 "has_transformer": False,
                 "bay_circuit_count": _int_or_none(_get(row, "Jumlah Sirkit", "Sirkit", "Circuit Count")),
                 "bay_view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key")),

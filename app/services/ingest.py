@@ -87,6 +87,7 @@ def build_draft(db: Session, payload: dict) -> dict:
             "view_keys": list(o.get("view_keys") or []),
             "outlet_key": o.get("outlet_key"),
             "bay_circuit_count": o.get("bay_circuit_count"),
+            "bay_kind": o.get("bay_kind"),
             "role_hint": o.get("role_hint"),
             "bay_view_keys": list(o.get("bay_view_keys") or []),
             "bay_appearances": list(o.get("bay_appearances") or []),
@@ -211,7 +212,8 @@ _ALLOWED_NODE = {"external_key", "object_type", "raw_label", "site_name",
                  "status_hint", "confidence", "is_bay", "bay_feeder_key",
                  "has_transformer", "has_capacitor", "resolution",
                  "transformer_count", "capacitor_count", "symbol_note",
-                 "view_keys", "outlet_key", "bay_circuit_count", "role_hint", "bay_view_keys", "bay_appearances",
+                 "view_keys", "outlet_key", "bay_circuit_count", "bay_kind",
+                 "role_hint", "bay_view_keys", "bay_appearances",
                  "latitude", "longitude",
                  "confirmed_code", "confirmed_name", "canonical_id"}
 _ALLOWED_EDGE = {"from_key", "to_key", "relation_type", "circuit_type_hint",
@@ -590,14 +592,21 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
             feeder = subs.get(appearance.get("feeder_key"))
             if feeder is None or kinds.get(appearance.get("feeder_key")) != "SUBSTATION":
                 continue
+            # The workbook's `Jenis` says what hangs off the bus. TRAFO/IBT map
+            # onto the model's own bay_type; SUTT/SKTT are both LINE bays and
+            # differ only in conductor, which the note carries so the renderer
+            # can draw a cable dashed without inventing a new bay_type.
+            kind = (n.get("bay_kind") or "SUTT").upper()
+            bay_type = {"TRAFO": "TRAFO", "IBT": "TRAFO"}.get(kind, "LINE")
             for drawing_side in appearance.get("view_keys") or [None]:
                 db.add(Bay(
                     substation_id=subs[n["external_key"]].id,
                     feeder_substation_id=feeder.id, subsystem_id=ss.id,
                     name=f"Bay {subs[n['external_key']].name} @ {feeder.name}",
-                    bay_type="LINE", drawing_side=drawing_side,
+                    bay_type=bay_type, drawing_side=drawing_side,
                     status=appearance.get("status") or "ENERGIZED",
-                    note=(f"Bootstrap via /ingest.; circuit_count={max(1, int(appearance.get('circuit_count') or 1))}"),
+                    note=(f"Bootstrap via /ingest.; kind={kind}"
+                          f"; circuit_count={max(1, int(appearance.get('circuit_count') or 1))}"),
                 ))
 
     manifests = draft["subsystem"].get("views") or [{

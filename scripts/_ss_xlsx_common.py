@@ -37,7 +37,7 @@ LINE_HEADER = ["No", "No Kerawanan", "Nama Penghantar", "Dari GI", "Ke GI",
                "Status Operasi", "Tingkat Kerawanan", "Pembebanan Sirkit 1 (%)",
                "Pembebanan Sirkit 2 (%)", "Koridor / Wilayah", "Tier Dari",
                "Tier Ke", "Single Phi", "Sudut Pandang"]
-BAY_HEADER = ["No", "Kode GI", "Nama GI", "Feeder (GI Induk)", "Tegangan",
+BAY_HEADER = ["No", "Kode GI", "Nama GI", "Feeder (GI Induk)", "Jenis", "Tegangan",
               "Jumlah Sirkit", "Status Operasi", "No Kerawanan", "Sudut Pandang"]
 RISK_HEADER = ["No", "UIT", "Kategori Kontingensi", "Kondisi / Permasalahan",
                "Dampak", "Mitigasi", "Usulan / Solusi"]
@@ -78,7 +78,11 @@ def build_workbook(spec: dict) -> Path:
                         kerawanan=None, koridor=None, tier_fr=None, tier_to=None,
                         views=None) ]
         bays:    [ (gi_code, gi_name, feeder_code, kerawanan_or_None
-                    [, circuit_count[, status]]) ]
+                    [, circuit_count[, status[, views[, jenis[, kv]]]]]) ]
+            jenis: what hangs off the bus -- "SUTT" | "SKTT" for a feeder bay,
+            "Trafo" | "IBT" for a transformer stub. Blank reads as SUTT, the
+            ordinary 150 kV case; state SKTT explicitly for a cable outgoing,
+            which is what makes the stub draw dashed.
         risks:   [ dict(no, uit="JBB", category="N-1", kondisi, dampak,
                         mitigasi, usulan) ]
     """
@@ -149,9 +153,15 @@ def build_workbook(spec: dict) -> Path:
             circuit_count = extra[0] if len(extra) > 0 else 1
             status = extra[1] if len(extra) > 1 else "Beroperasi"
             views_for_bay = extra[2] if len(extra) > 2 else ""
+            # What hangs off the bus: SUTT / SKTT for a feeder bay, or
+            # Trafo / IBT for a transformer stub. Left blank the parser reads
+            # SUTT, which is the ordinary 150 kV case.
+            jenis = extra[3] if len(extra) > 3 else ""
+            kv = extra[4] if len(extra) > 4 else "150 kV"
             if isinstance(views_for_bay, (list, tuple)):
                 views_for_bay = ";".join(views_for_bay)
-            ws.append([i, gc, gn, fd, "150 kV", circuit_count, status, kno or "", views_for_bay])
+            ws.append([i, gc, gn, fd, jenis, kv, circuit_count, status,
+                       kno or "", views_for_bay])
 
     ws = wb.create_sheet("Data_Kerawanan_Detail")
     ws.append(RISK_HEADER); _bold(ws)
