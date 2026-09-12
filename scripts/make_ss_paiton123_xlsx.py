@@ -32,9 +32,10 @@ WIL = "Jawa Timur"
 ASSETS = [
     # -- 500 kV GITET + pembangkit --
     dict(code="PITON7", name="GITET Paiton", type="Busbar GITET", tier=1, kv="500 kV"),
-    dict(code="IBT 1 PITON7", name="IBT 1,3 Paiton 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="1,3", bus_hv="PITON7", bus_lv="PITON5", trafo=2,
-         simbol="2 IBT x 500 MVA (unit 1,3)", kerawanan="2"),
+    dict(code="IBT 1 PITON7", name="IBT 1 Paiton 500/150 kV", type="IBT 3-Winding",
+         tier=2, kv="500/150 kV", ibt="1", bus_hv="PITON7", bus_lv="PITON5", trafo=1, kerawanan="2"),
+    dict(code="IBT 3 PITON7", name="IBT 3 Paiton 500/150 kV", type="IBT 3-Winding",
+         tier=2, kv="500/150 kV", ibt="3", bus_hv="PITON7", bus_lv="PITON5", trafo=1, kerawanan="2"),
     dict(code="IBT 2 PITON7", name="IBT 2 Paiton 500/150 kV", type="IBT 3-Winding",
          tier=2, kv="500/150 kV", ibt="2", bus_hv="PITON7", bus_lv="PITON5", trafo=1,
          simbol="1 IBT x 500 MVA (unit 2); beban >90%", kerawanan="1"),

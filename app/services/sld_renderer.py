@@ -1178,7 +1178,13 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
     def _pin(cx, cy, seqs):
         values = ",".join(str(q) for q in sorted(seqs))
+        # An invisible disc carries the pointer. The drawn pin is r=9 in diagram
+        # units, which at fit zoom on a wide subsystem lands around 7px on
+        # screen - too small to hit. The hit disc is transparent and has no
+        # stroke, so it enlarges the target without altering the figure by a
+        # single pixel; a print render is byte-identical in appearance.
         return (f'<g class="risk-pin" data-risk-seqs="{esc(values)}">'
+                f'<circle class="pin-hit" cx="{cx:.1f}" cy="{cy:.1f}" r="22" fill="transparent"/>'
                 f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="9" fill="#F6C000" '
                 f'stroke="#B8860B" stroke-width="1.5"/>'
                 f'<text x="{cx:.1f}" y="{cy + 3:.1f}" font-size="9" font-weight="700" '

@@ -29,10 +29,12 @@ ASSETS = [
     # -- 500 kV GITET --
     dict(code="TSBRU7", name="GITET Tasikmalaya Baru", type="Busbar GITET",
          tier=1, kv="500 kV"),
-    dict(code="IBT 1 TSBRU7", name="IBT 1,2 Tasikmalaya Baru 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2",
-         bus_hv="TSBRU7", bus_lv="TSBRU", trafo=2,
-         simbol="2 IBT (unit 1,2)", kerawanan="1"),
+    dict(code="IBT 1 TSBRU7", name="IBT 1 Tasikmalaya Baru 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         bus_hv="TSBRU7", bus_lv="TSBRU", trafo=1, kerawanan="1"),
+    dict(code="IBT 2 TSBRU7", name="IBT 2 Tasikmalaya Baru 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="2",
+         bus_hv="TSBRU7", bus_lv="TSBRU", trafo=1, kerawanan="1"),
     dict(code="TSBRU", name="Tasikmalaya Baru (bus 150 kV)", type="Busbar GI",
          tier=1),
     # -- pembangkit di Tier-1 --

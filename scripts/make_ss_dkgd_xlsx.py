@@ -22,8 +22,10 @@ ASSETS = [
     dict(code="DKSBI", name="GITET Durikosambi", type="Busbar GITET", tier=1, kv="500 kV"),
     # -- IBT 500/150. Gandul has 2 IBT (unit 1 & 3) onto one bus; modelled as one
     #    IBT row (2 trafo) -- the multi-IBT-per-GITET ingest path is mid-fix. --
-    dict(code="IBT 1 GNDUL", name="IBT 1,3 Gandul", type="IBT 3-Winding", tier=2,
-         kv="500/150 kV", ibt="1,3", bus150="GNDUL", trafo=2, simbol="2 trafo (IBT 1 & 3)"),
+    dict(code="IBT 1 GNDUL", name="IBT 1 Gandul", type="IBT 3-Winding", tier=2,
+         kv="500/150 kV", ibt="1", bus150="GNDUL", trafo=1),
+    dict(code="IBT 3 GNDUL", name="IBT 3 Gandul", type="IBT 3-Winding", tier=2,
+         kv="500/150 kV", ibt="3", bus150="GNDUL", trafo=1),
     dict(code="IBT 2 DKSBI", name="IBT 2 Durikosambi", type="IBT 3-Winding", tier=2,
          kv="500/150 kV", ibt="2", bus150="DKSBI"),
     # -- 150 kV Tier-1 injection buses --
@@ -48,9 +50,7 @@ ASSETS = [
     dict(code="BNTRO", name="Bintaro",        type="Busbar GI", tier=4),
     dict(code="TMANG", name="Tomang",         type="Busbar GIS", tier=4),
     # -- Tier-5 --
-    # Reached only by the dashed Bintaro - Bintaro Baru ruas, so not yet live.
-    dict(code="BTRBR", name="Bintaro Baru",   type="Busbar GI", tier=5,
-         status="Rencana"),
+    dict(code="BTRBR", name="Bintaro Baru",   type="Busbar GI", tier=5),
 ]
 
 BAYS = [
@@ -86,9 +86,11 @@ LINES = [
     dict(fr="PTKGN", to="BNTRO", name="SUTT Petukangan - Bintaro", tier_fr=3, tier_to=4, koridor=WIL),
     dict(fr="GROGOL", to="TMANG", name="SKTT Grogol - Tomang", kv="150 kV",
          tier_fr=3, tier_to=4, koridor=WIL),
-    # Tier-4 -> Tier-5. Drawn DASHED on Gambar 2.8, i.e. not yet energised.
-    dict(fr="BNTRO", to="BTRBR", name="SUTT Bintaro - Bintaro Baru (belum energize)",
-         tier_fr=4, tier_to=5, status="Rencana", koridor=WIL),
+    # Tier-4 -> Tier-5. Drawn RED dashed with red CBs on Gambar 2.8, which is
+    # this book's symbol for a CABLE (SKTT), not for a planned circuit. Only
+    # GREY dashed with grey CBs means rencana -- compare SNYAN on the same page.
+    dict(fr="BNTRO", to="BTRBR", name="SKTT Bintaro - Bintaro Baru", kv="150 kV",
+         tier_fr=4, tier_to=5, koridor=WIL),
 ]
 
 RISKS = [

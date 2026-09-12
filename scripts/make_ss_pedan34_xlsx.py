@@ -9,8 +9,9 @@ second Tier-1 bus, PCTAN, carries PLTU Pacitan. Three branches:
     east   PEDAN - WSARI - SLBRU / RAYUM - PALUR - MSRAN - SRAGN
     PCTAN  - NGTDI - WNGRI, which ties back into RAYUM
 
-The KNTUG-GDEAN and BANTL-WBJAN stubs are drawn dashed, so they carry status
-Rencana.
+Bantul - Wonosari Bejan is drawn RED dashed with red CBs, which in this book
+means a CABLE (SKTT), not a planned circuit; only GREY dashed with grey CBs
+means rencana. WBJAN itself is a solid red busbar.
 
 Boundaries, all mirrored on a neighbouring sheet:
     SGRAH/MDARI, GJYAN   "SS TJATI"      -- Tanjung Jati 1,2 - Ungaran 3 holds
@@ -36,10 +37,12 @@ ASSETS = [
     # prints beside the transformer symbol, and "IBT 3" alone misnames the bank.
     # The asset CODE must keep a single trailing token, since the parser reads
     # the HV side from it.
-    dict(code="IBT 3 PEDAN7", name="IBT 3,4 Pedan 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="3,4",
-         bus_hv="PEDAN7", bus_lv="PEDAN", trafo=2,
-         simbol="2 IBT (unit 3,4)", kerawanan="1;2"),
+    dict(code="IBT 3 PEDAN7", name="IBT 3 Pedan 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="3",
+         bus_hv="PEDAN7", bus_lv="PEDAN", trafo=1, kerawanan="1;2"),
+    dict(code="IBT 4 PEDAN7", name="IBT 4 Pedan 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="4",
+         bus_hv="PEDAN7", bus_lv="PEDAN", trafo=1, kerawanan="1;2"),
     dict(code="PEDAN", name="Pedan (bus 150 kV)", type="Busbar GI", tier=1),
     # -- Tier-1 kedua: PLTU Pacitan --
     dict(code="PCTAN", name="Pacitan", type="Busbar GI", tier=1),
@@ -50,8 +53,7 @@ ASSETS = [
     dict(code="GDEAN", name="Godean", type="Busbar GI", tier=3,
          kerawanan="3;4"),
     dict(code="BANTL", name="Bantul", type="Busbar GI", tier=4, kerawanan="8"),
-    dict(code="WBJAN", name="Wonosari Bejan", type="Busbar GI", tier=5,
-         status="Rencana"),
+    dict(code="WBJAN", name="Wonosari Bejan", type="Busbar GI", tier=5),
     # -- cabang timur --
     dict(code="WSARI", name="Wonosari", type="Busbar GI", tier=2, kerawanan="10"),
     dict(code="SLBRU", name="Solo Baru", type="Busbar GI", tier=3, kerawanan="5"),
@@ -89,7 +91,6 @@ LINES = [
     # -- cabang barat --
     L("PEDAN", "KNTUG", "SUTT Pedan - Kanetug", 1, 2, kno="11"),
     L("KNTUG", "SGRAH", "SUTT Kanetug - Sugihrahayu (arah SS Tanjung Jati)", 2, 3),
-    # Dashed on Gambar 4.6: not yet energised.
     # Gambar 4.6 draws ONE 2-sirkit trunk running down from Pedan and each bus
     # tapping onto it: Pedan - Kanetug - Godean - Bantul. Feeding Bantul straight
     # from Pedan skipped two tiers, which left Bantul and everything under it
@@ -99,8 +100,7 @@ LINES = [
     L("KNTUG", "GJYAN", "SUTT Kanetug - Gajahan (arah SS Tanjung Jati)", 2, 3),
     L("BANTL", "WATES", "SUTT Bantul - Wates (arah SS Kesugihan)", 4, 5, kno="8"),
     L("BANTL", "SMANU", "SUTT Bantul - Semanu (arah SS Pedan 1,2)", 4, 5),
-    L("BANTL", "WBJAN", "SUTT Bantul - Wonosari Bejan (belum energize)", 4, 5,
-      st="Rencana"),
+    L("BANTL", "WBJAN", "SKTT Bantul - Wonosari Bejan", 4, 5),
     # -- cabang timur --
     L("PEDAN", "WSARI", "SUTT Pedan - Wonosari", 1, 2, kno="10"),
     L("WSARI", "SLBRU", "SUTT Wonosari - Solo Baru", 2, 3, kno="5"),

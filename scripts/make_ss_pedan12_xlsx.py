@@ -8,7 +8,9 @@ splits into two branches:
     west  PEDAN - KLATN - KLASN - BANTL - SMANU
     east  PEDAN - JAJAR - MKRAN / GDRJO - PALUR
 
-The MKRAN stub is drawn dashed, so it carries status Rencana.
+Jajar - Mangkunegaran is drawn RED dashed with red CBs, which in this book
+means a CABLE (SKTT), not a planned circuit. Only GREY dashed with grey CBs
+means rencana. MKRAN itself is a normal red busbar.
 
 Six boundaries drawn greyed out with their owner underneath, every one of them
 a GI a neighbouring sheet already holds:
@@ -29,10 +31,12 @@ WIL = "Jawa Tengah"
 ASSETS = [
     dict(code="PEDAN7", name="GITET Pedan", type="Busbar GITET",
          tier=1, kv="500 kV"),
-    dict(code="IBT 1 PEDAN7", name="IBT 1,2 Pedan 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2",
-         bus_hv="PEDAN7", bus_lv="PEDAN", trafo=2,
-         simbol="2 IBT (unit 1,2)", kerawanan="1"),
+    dict(code="IBT 1 PEDAN7", name="IBT 1 Pedan 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         bus_hv="PEDAN7", bus_lv="PEDAN", trafo=1, kerawanan="1"),
+    dict(code="IBT 2 PEDAN7", name="IBT 2 Pedan 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="2",
+         bus_hv="PEDAN7", bus_lv="PEDAN", trafo=1, kerawanan="1"),
     dict(code="PEDAN", name="Pedan (bus 150 kV)", type="Busbar GI", tier=1,
          kerawanan="2"),
     # -- cabang barat --
@@ -42,9 +46,7 @@ ASSETS = [
     dict(code="SMANU", name="Semanu", type="Busbar GI", tier=5),
     # -- cabang timur --
     dict(code="JAJAR", name="Jajar", type="Busbar GI", tier=2, kerawanan="10"),
-    # Drawn dashed on Gambar 4.5: not yet energised.
-    dict(code="MKRAN", name="Mangkunegaran (rencana)", type="Busbar GI", tier=3,
-         status="Rencana"),
+    dict(code="MKRAN", name="Mangkunegaran", type="Busbar GI", tier=3),
     dict(code="GDRJO", name="Gondangrejo", type="Busbar GI", tier=3,
          kerawanan="3"),
     dict(code="PALUR", name="Palur", type="Busbar GI", tier=4, kerawanan="4;7"),
@@ -79,8 +81,7 @@ LINES = [
     # -- cabang timur --
     L("PEDAN", "JAJAR", "SUTT Pedan - Jajar", 1, 2, kno="10"),
     L("JAJAR", "BDONO", "SUTT Jajar - Bendono (arah SS Boyolali)", 2, 3),
-    L("JAJAR", "MKRAN", "SUTT Jajar - Mangkunegaran (belum energize)", 2, 3,
-      st="Rencana"),
+    L("JAJAR", "MKRAN", "SKTT Jajar - Mangkunegaran", 2, 3),
     L("JAJAR", "GDRJO", "SUTT Jajar - Gondangrejo", 2, 3, kno="3"),
     L("GDRJO", "PALUR", "SUTT Gondangrejo - Palur", 3, 4, kno="4"),
     L("PALUR", "SLBRU", "SUTT Palur - Solo Baru (arah SS Pedan 3,4)", 4, 5, kno="7"),

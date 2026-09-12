@@ -21,8 +21,12 @@ ASSETS = [
     # ---- 500 kV source ----
     dict(code="CLBRU", name="GITET Cilegon Baru",  type="Busbar GITET", tier=1, kv="500 kV"),
     # IBT 1,2,3 collapsed to one row (2 IBT+ on one bus -> multi-IBT ingest path mid-fix)
-    dict(code="IBT 1 CLBRU", name="IBT 1,2,3 Cilegon Baru", type="IBT 3-Winding", tier=2,
-         kv="500/150 kV", ibt="1,2,3", bus150="CLBRU", trafo=3, simbol="3 IBT (unit 1,2,3)", kerawanan="1"),
+    dict(code="IBT 1 CLBRU", name="IBT 1 Cilegon Baru", type="IBT 3-Winding", tier=2,
+         kv="500/150 kV", ibt="1", bus150="CLBRU", trafo=1, kerawanan="1"),
+    dict(code="IBT 2 CLBRU", name="IBT 2 Cilegon Baru", type="IBT 3-Winding", tier=2,
+         kv="500/150 kV", ibt="2", bus150="CLBRU", trafo=1, kerawanan="1"),
+    dict(code="IBT 3 CLBRU", name="IBT 3 Cilegon Baru", type="IBT 3-Winding", tier=2,
+         kv="500/150 kV", ibt="3", bus150="CLBRU", trafo=1, kerawanan="1"),
     # ---- generation ----
     dict(code="KIT_PLTGU_CLG", name="PLTGU Cilegon", type="Pembangkit", tier=1, kv="150 kV"),
     dict(code="KIT_PLTU_LBN",  name="PLTU Labuan",   type="Pembangkit", tier=1, kv="150 kV"),
@@ -48,7 +52,7 @@ ASSETS = [
     dict(code="SRANG", name="Serang",          type="Busbar GI", tier=3, kerawanan="7"),
     dict(code="CASRI", name="Cikande Serang (CASRI)", type="Busbar GI", tier=3),
     dict(code="ANYER", name="Anyer",           type="Busbar GI", tier=3),
-    dict(code="KSTEL", name="KTT KSTEL",       type="Busbar GI", tier=3),
+    dict(code="KSTEL", name="KTT KSTEL",       type="Busbar GI", tier=3, status="Milik Pelanggan"),
     dict(code="MITSUI", name="Mitsui",         type="Busbar GI", tier=3),
     dict(code="MCOIS", name="MCOIS",           type="Busbar GI", tier=3),
     dict(code="RKBRU", name="Rangkas Baru",    type="Busbar GI", tier=3),

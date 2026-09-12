@@ -49,17 +49,23 @@ ASSETS = [
     # ================= 500 kV sources =================
     dict(code="KMBGN", name="GITET Kembangan",    type="Busbar GITET", tier=1, kv="500 kV", views=KEM),
     dict(code="NBRJA", name="GITET New Balaraja", type="Busbar GITET", tier=1, kv="500 kV", views=BAL),
-    dict(code="IBT 1 KMBGN", name="IBT 1,2 Kembangan", type="IBT 3-Winding", tier=2, kv="500/150 kV",
-         ibt="1,2", bus150="KMBGN", trafo=2, simbol="2 IBT (unit 1,2)", views=KEM),
-    dict(code="IBT 1 NBRJA", name="IBT 1,2 New Balaraja", type="IBT 3-Winding", tier=2, kv="500/150 kV",
-         ibt="1,2", bus150="NBRJA", trafo=2, simbol="2 IBT (unit 1,2)", views=BAL),
+    dict(code="IBT 1 KMBGN", name="IBT 1 Kembangan", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="1", bus150="KMBGN", trafo=1, views=KEM),
+    dict(code="IBT 2 KMBGN", name="IBT 2 Kembangan", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="2", bus150="KMBGN", trafo=1, views=KEM),
+    dict(code="IBT 1 NBRJA", name="IBT 1 New Balaraja", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="1", bus150="NBRJA", trafo=1, views=BAL),
+    dict(code="IBT 2 NBRJA", name="IBT 2 New Balaraja", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="2", bus150="NBRJA", trafo=1, views=BAL),
     # GITET New Cikupa (NCKUPA) -- NEW_NOT_ENERGIZED, the kerawanan #4/#5
     # solution. Both its busbar and generated IBT link carry status Rencana.
     dict(code="NCKUPA", name="GITET New Cikupa (rencana)", type="Busbar GITET", tier=4, kv="500 kV",
          status="Rencana", views=BAL),
-    dict(code="IBT 1 NCKUPA", name="IBT 1,2 New Cikupa (rencana)", type="IBT 3-Winding", tier=5,
-         kv="500/150 kV", ibt="1,2", bus150="JTAKE", trafo=2,
-         simbol="2 IBT (unit 1,2), belum energize -- lihat catatan status IBT-link",
+    dict(code="IBT 1 NCKUPA", name="IBT 1 New Cikupa (rencana)", type="IBT 3-Winding", tier=5,
+         kv="500/150 kV", ibt="1", bus150="JTAKE", trafo=1,
+         status="Rencana", views=BAL),
+    dict(code="IBT 2 NCKUPA", name="IBT 2 New Cikupa (rencana)", type="IBT 3-Winding", tier=5,
+         kv="500/150 kV", ibt="2", bus150="JTAKE", trafo=1,
          status="Rencana", views=BAL),
 
     # ================= Tier-1 (150 kV injection points) =================

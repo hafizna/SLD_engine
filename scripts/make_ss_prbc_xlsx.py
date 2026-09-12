@@ -34,10 +34,14 @@ ASSETS = [
     # ================= BEKASI view =================
     dict(code="BKASI", name="GITET Bekasi",     type="Busbar GITET", tier=1, kv="500 kV", views=BKS),
     dict(code="MTWAR", name="GITET Muaratawar", type="Busbar GITET", tier=1, kv="500 kV", views=BKS),
-    dict(code="IBT 2 BKASI", name="IBT 2,4 Bekasi", type="IBT 3-Winding", tier=2, kv="500/150 kV",
-         ibt="2,4", bus150="BKASI", trafo=2, simbol="2 IBT (unit 2,4)", views=BKS),
-    dict(code="IBT 1 MTWAR", name="IBT 1,2 Muaratawar", type="IBT 3-Winding", tier=2, kv="500/150 kV",
-         ibt="1,2", bus150="MTWAR", trafo=2, simbol="2 IBT (unit 1,2)", views=BKS),
+    dict(code="IBT 2 BKASI", name="IBT 2 Bekasi", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="2", bus150="BKASI", trafo=1, views=BKS),
+    dict(code="IBT 4 BKASI", name="IBT 4 Bekasi", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="4", bus150="BKASI", trafo=1, views=BKS),
+    dict(code="IBT 1 MTWAR", name="IBT 1 Muaratawar", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="1", bus150="MTWAR", trafo=1, views=BKS),
+    dict(code="IBT 2 MTWAR", name="IBT 2 Muaratawar", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="2", bus150="MTWAR", trafo=1, views=BKS),
     dict(code="BKASI", name="Bekasi (bus 150 kV)",     type="Busbar GI", tier=1, views=BKS),
     dict(code="MTWAR", name="Muaratawar (bus 150 kV)", type="Busbar GI", tier=1, views=BKS),
     # Bekasi Tier-2
@@ -77,7 +81,7 @@ ASSETS = [
     dict(code="KMYRN", name="Kemayoran",         type="Busbar GI", tier=2, views=PRK),
     dict(code="PLPRU", name="Pulo Gadung Baru",  type="Busbar GI", tier=2, kerawanan="7", views=PRK),
     dict(code="PGSAN", name="Pegangsaan",        type="Busbar GI", tier=2, kerawanan="6", views=PRK),
-    dict(code="PLNDO", name="Pulo Mas Indo (KTT)", type="Busbar GI", tier=2, views=PRK),
+    dict(code="PLNDO", name="Pulo Mas Indo (KTT)", type="Busbar GI", tier=2, views=PRK, status="Milik Pelanggan"),
     dict(code="ANGKE", name="Angke",             type="Busbar GI", tier=2, views=PRK),
     dict(code="CNANG", name="Cinang / Cawang Baru bawah", type="Busbar GI", tier=2, views=PRK),
     # Priok Tier-3
@@ -88,7 +92,7 @@ ASSETS = [
     dict(code="GNSHR", name="Gunung Sahari",     type="Busbar GIS", tier=3, views=PRK),
     dict(code="PDMGN", name="Pademangan",        type="Busbar GI", tier=3, views=PRK),
     dict(code="MGBSR", name="Menteng Besar",     type="Busbar GIS", tier=3, views=PRK),
-    dict(code="KLBRU", name="Kelapa Baru (KTT)", type="Busbar GI", tier=3, views=PRK),
+    dict(code="KLBRU", name="Kelapa Baru (KTT)", type="Busbar GI", tier=3, views=PRK, status="Milik Pelanggan"),
     dict(code="PLMAS", name="Pulo Mas",          type="Busbar GI", tier=3, views=PRK),
     # Priok Tier-4
     dict(code="GDPLA", name="GIS Gedung Pola",   type="Busbar GIS", tier=4, kerawanan="3;7", views=PRK),

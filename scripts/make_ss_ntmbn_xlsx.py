@@ -31,10 +31,12 @@ WIL = "Jawa Barat"
 ASSETS = [
     dict(code="NTMBN7", name="GITET New Tambun", type="Busbar GITET",
          tier=1, kv="500 kV"),
-    dict(code="IBT 1 NTMBN7", name="IBT 1,2 New Tambun 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2",
-         bus_hv="NTMBN7", bus_lv="NTMBN", trafo=2,
-         simbol="2 IBT (unit 1,2)", kerawanan="1"),
+    dict(code="IBT 1 NTMBN7", name="IBT 1 New Tambun 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         bus_hv="NTMBN7", bus_lv="NTMBN", trafo=1, kerawanan="1"),
+    dict(code="IBT 2 NTMBN7", name="IBT 2 New Tambun 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="2",
+         bus_hv="NTMBN7", bus_lv="NTMBN", trafo=1, kerawanan="1"),
     dict(code="NTMBN", name="New Tambun (bus 150 kV)", type="Busbar GI", tier=1),
     dict(code="TMBUN", name="Tambun", type="Busbar GI", tier=2, kerawanan="2"),
     dict(code="GDMKR", name="Gedung Mekar", type="Busbar GI", tier=3),
@@ -42,7 +44,7 @@ ASSETS = [
     dict(code="NPNCL", name="Nusa Pancal", type="Busbar GI", tier=4),
     # Grey on Gambar 3.11: a customer-owned bus, not a PLN GI.
     dict(code="TYGRI", name="Tygri (aset milik KTT)", type="Busbar GI", tier=4,
-         simbol="aset milik KTT"),
+         simbol="aset milik KTT", status="Milik Pelanggan"),
     # -- batas subsistem, digambar dengan pemiliknya dalam kurung --
     dict(code="JTWRG", name="Jatiwaringin (UP2B Jakban)", type="Busbar GI",
          tier=2, role="SOURCE_BOUNDARY",

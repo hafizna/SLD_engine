@@ -25,9 +25,10 @@ WIL = "DKI Jakarta"
 
 ASSETS = [
     dict(code="GNDUL7", name="GITET Gandul", type="Busbar GITET", tier=1, kv="500 kV"),
-    dict(code="IBT 2 GNDUL7", name="IBT 2,4 Gandul 500/150 kV", type="IBT 3-Winding",
-         tier=2, kv="500/150 kV", ibt="2,4", bus_hv="GNDUL7", bus_lv="GNDUL", trafo=2,
-         simbol="2 IBT (unit 2,4)"),
+    dict(code="IBT 2 GNDUL7", name="IBT 2 Gandul 500/150 kV", type="IBT 3-Winding",
+         tier=2, kv="500/150 kV", ibt="2", bus_hv="GNDUL7", bus_lv="GNDUL", trafo=1),
+    dict(code="IBT 4 GNDUL7", name="IBT 4 Gandul 500/150 kV", type="IBT 3-Winding",
+         tier=2, kv="500/150 kV", ibt="4", bus_hv="GNDUL7", bus_lv="GNDUL", trafo=1),
     dict(code="GNDUL", name="Gandul (bus 150 kV)", type="Busbar GI", tier=1,
          simbol="bus section + kopel"),
     dict(code="PNDAH", name="Pondok Indah", type="Busbar GI", tier=2),
@@ -35,7 +36,7 @@ ASSETS = [
          simbol="bus coupler", kerawanan="1"),
     # Aset milik KTT (customer-owned), drawn inside its own box on Gambar 2.12.
     dict(code="SAMBAS", name="Sambas (aset milik KTT)", type="Busbar GI", tier=3,
-         simbol="aset milik KTT"),
+         simbol="aset milik KTT", status="Milik Pelanggan"),
 ]
 
 # Bay stubs on Gambar 2.12. ASARI and CSW are drawn as dashed arrows hanging off

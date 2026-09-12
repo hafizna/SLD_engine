@@ -199,6 +199,12 @@ _STATUS_MAP = {
     "belum operasi": "NEW_NOT_ENERGIZED", "belum energize": "NEW_NOT_ENERGIZED",
     "rencana": "PLANNED", "planned": "PLANNED",
     "padam": "DE_ENERGIZED", "de-energized": "DE_ENERGIZED",
+    # A KTT asset is energised, but owned by the customer rather than PLN, and
+    # the book draws it apart. The model and renderer already carry this status
+    # and its colour; without these spellings no workbook could ever select it.
+    "milik pelanggan": "OWNED_BY_CUSTOMER", "ktt": "OWNED_BY_CUSTOMER",
+    "aset milik ktt": "OWNED_BY_CUSTOMER",
+    "owned_by_customer": "OWNED_BY_CUSTOMER",
 }
 _RAWAN_CONF = {   # "Tingkat Kerawanan" -> a rough confidence for a traced ruas
     "normal": 0.85, "rawan": 0.8, "sangat rawan": 0.8, "waspada": 0.8,

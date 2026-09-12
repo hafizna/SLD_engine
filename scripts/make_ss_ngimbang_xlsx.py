@@ -31,10 +31,12 @@ WIL = "Jawa Timur"
 ASSETS = [
     dict(code="NBANG7", name="GITET Ngimbang", type="Busbar GITET",
          tier=1, kv="500 kV"),
-    dict(code="IBT 1 NBANG7", name="IBT 1,2 Ngimbang 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2",
-         bus_hv="NBANG7", bus_lv="NBANG5", trafo=2,
-         simbol="2 IBT (unit 1,2)", kerawanan="1"),
+    dict(code="IBT 1 NBANG7", name="IBT 1 Ngimbang 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         bus_hv="NBANG7", bus_lv="NBANG5", trafo=1, kerawanan="1"),
+    dict(code="IBT 2 NBANG7", name="IBT 2 Ngimbang 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="2",
+         bus_hv="NBANG7", bus_lv="NBANG5", trafo=1, kerawanan="1"),
     dict(code="NBANG5", name="Ngimbang (bus 150 kV)", type="Busbar GI", tier=1),
     # -- Tier-1 kedua: PLTU Tuban Jawa --
     dict(code="TJWAR", name="Tuban Jawa", type="Busbar GI", tier=1),
@@ -53,7 +55,7 @@ ASSETS = [
          kerawanan="2"),
     dict(code="LNGAN", name="Lamongan", type="Busbar GI", tier=3),
     dict(code="HOLCM", name="Holcim (KTT)", type="Busbar GI", tier=3,
-         simbol="aset milik KTT"),
+         simbol="aset milik KTT", status="Milik Pelanggan"),
     dict(code="KEREK", name="Kerek", type="Busbar GI", tier=3),
     # -- Tier-4 --
     # The A section of Cerme is drawn grey: not yet energised.
@@ -78,9 +80,9 @@ ASSETS = [
          role="SOURCE_BOUNDARY",
          simbol="batas ke UP2B Jateng (SS Tanjung Jati 1,2 - Ungaran 3)"),
     dict(code="STBAN", name="Semen Tuban (KTT)", type="Busbar GI", tier=4,
-         role="SOURCE_BOUNDARY", simbol="aset milik KTT"),
+         role="SOURCE_BOUNDARY", simbol="aset milik KTT", status="Milik Pelanggan"),
     dict(code="TUBAN3", name="Tuban III (KTT)", type="Busbar GI", tier=4,
-         role="SOURCE_BOUNDARY", simbol="aset milik KTT"),
+         role="SOURCE_BOUNDARY", simbol="aset milik KTT", status="Milik Pelanggan"),
 ]
 
 L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict(

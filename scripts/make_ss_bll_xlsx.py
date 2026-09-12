@@ -26,10 +26,14 @@ ASSETS = [
     dict(code="LKBRU", name="GITET Lengkong",     type="Busbar GITET", tier=1, kv="500 kV"),
     # -- IBT 500/150 (2 IBT per GITET -> collapsed to one row until the
     #    multi-IBT-per-bus ingest path is confirmed stable; see Sec 2.9/2.4 note) --
-    dict(code="IBT 3 NBRJA", name="IBT 3,4 New Balaraja", type="IBT 3-Winding", tier=2, kv="500/150 kV",
-         ibt="3,4", bus150="NBRJA", trafo=2, simbol="2 IBT (unit 3,4)"),
-    dict(code="IBT 1 LKBRU", name="IBT 1,2 Lengkong", type="IBT 3-Winding", tier=2, kv="500/150 kV",
-         ibt="1,2", bus150="LKBRU", trafo=2, simbol="2 IBT (unit 1,2)"),
+    dict(code="IBT 3 NBRJA", name="IBT 3 New Balaraja", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="3", bus150="NBRJA", trafo=1),
+    dict(code="IBT 4 NBRJA", name="IBT 4 New Balaraja", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="4", bus150="NBRJA", trafo=1),
+    dict(code="IBT 1 LKBRU", name="IBT 1 Lengkong", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="1", bus150="LKBRU", trafo=1),
+    dict(code="IBT 2 LKBRU", name="IBT 2 Lengkong", type="IBT 3-Winding", tier=2, kv="500/150 kV",
+         ibt="2", bus150="LKBRU", trafo=1),
     # -- 150 kV Tier-1 injection buses --
     dict(code="NBRJA", name="New Balaraja (bus 150 kV)", type="Busbar GI", tier=1),
     dict(code="LKBRU", name="Lengkong Baru (bus 150 kV)", type="Busbar GI", tier=1),

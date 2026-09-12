@@ -10,8 +10,9 @@ Two more Tier-1 buses carry generation drawn straight onto them:
     TBROK  -- PLTGU Tambaklorok blok B1 and B3
 
 Tier-2 is WLERI, PYUNG, KRAPK, PDLAM, KLSRI, SYUNG; Tier-3 is KLNGU, BSBRU,
-RDRUT, SRDOL, SLIMA. SLIMA and the KLSRI stub are drawn dashed, i.e. not yet
-energised, so they carry status Rencana.
+RDRUT, SRDOL, SLIMA. Kalisari - Selima is drawn RED dashed with red CBs, which
+in this book means a CABLE (SKTT), not a planned circuit; only GREY dashed with
+grey CBs means rencana. SLIMA itself is a solid red busbar.
 
 Four boundaries are drawn greyed out with their owning subsystem underneath:
     SGRAH / BRNGI   "SS BYOLI"   -- Boyolali 1,2 carries BRNGI
@@ -31,10 +32,12 @@ ASSETS = [
     # -- 500 kV GITET --
     dict(code="UNGAR7", name="GITET Ungaran", type="Busbar GITET",
          tier=1, kv="500 kV"),
-    dict(code="IBT 1 UNGAR7", name="IBT 1,2 Ungaran 500/150 kV",
-         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1,2",
-         bus_hv="UNGAR7", bus_lv="UNGAR", trafo=2,
-         simbol="2 IBT (unit 1,2)", kerawanan="1;2"),
+    dict(code="IBT 1 UNGAR7", name="IBT 1 Ungaran 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="1",
+         bus_hv="UNGAR7", bus_lv="UNGAR", trafo=1, kerawanan="1;2"),
+    dict(code="IBT 2 UNGAR7", name="IBT 2 Ungaran 500/150 kV",
+         type="IBT 3-Winding", tier=2, kv="500/150 kV", ibt="2",
+         bus_hv="UNGAR7", bus_lv="UNGAR", trafo=1, kerawanan="1;2"),
     # -- Tier-1 --
     dict(code="UNGAR", name="Ungaran (bus 150 kV)", type="Busbar GI", tier=1),
     dict(code="JELOK", name="Jelok", type="Busbar GI", tier=1),
@@ -62,9 +65,8 @@ ASSETS = [
     dict(code="RDRUT", name="Randu Garut", type="Busbar GI", tier=3,
          kerawanan="11"),
     dict(code="SRDOL", name="Srondol", type="Busbar GI", tier=3, kerawanan="9"),
-    # Drawn dashed on Gambar 4.4: not yet energised.
-    dict(code="SLIMA", name="Selima (rencana)", type="Busbar GI", tier=3,
-         status="Rencana", kerawanan="6;7"),
+    dict(code="SLIMA", name="Selima", type="Busbar GI", tier=3,
+         kerawanan="6;7"),
     # -- batas subsistem, digambar abu-abu dengan pemiliknya di bawahnya --
     dict(code="BRNGI", name="Banaran / Sugihrahayu (SS Boyolali)",
          type="Busbar GI", tier=2, role="SOURCE_BOUNDARY",
@@ -112,9 +114,7 @@ LINES = [
     L("PYUNG", "BSBRU", "SUTT Payung - Bawen Sambiroto Baru", 2, 3),
     L("KRAPK", "RDRUT", "SUTT Krapyak - Randu Garut", 2, 3, kno="11"),
     L("PDLAM", "SRDOL", "SUTT Pandean Lamper - Srondol", 2, 3),
-    # Dashed on the figure: the Selima stubs are not yet energised.
-    L("KLSRI", "SLIMA", "SUTT Kalisari - Selima (belum energize)", 2, 3,
-      kno="6;7", st="Rencana"),
+    L("KLSRI", "SLIMA", "SKTT Kalisari - Selima", 2, 3, kno="6;7"),
     L("SYUNG", "TJATI", "SUTT Sayung - Tanjung Jati (arah SS Tanjung Jati)", 2, 4),
     L("SYUNG", "KUDUS", "SUTT Sayung - Kudus (arah SS Tanjung Jati)", 2, 4),
 ]
