@@ -27,7 +27,11 @@ ASSETS = [
     dict(code="IBT 2 DKSBI", name="IBT 2 Durikosambi", type="IBT 3-Winding", tier=2,
          kv="500/150 kV", ibt="2", bus150="DKSBI"),
     # -- 150 kV Tier-1 injection buses --
-    dict(code="GNDUL", name="Gandul (bus 150 kV)",      type="Busbar GI", tier=1),
+    # Gambar 2.8 draws a 50 MVAr capacitor at Gandul, Serpong and Petukangan.
+    # Recording them keeps the symbol count on the busbar honest; without the
+    # count the renderer draws no capacitor at all.
+    dict(code="GNDUL", name="Gandul (bus 150 kV)",      type="Busbar GI", tier=1,
+         kapasitor=1, simbol="1 kapasitor 50 MVAr"),
     dict(code="DKSBI", name="Durikosambi (bus 150 kV)", type="Busbar GI", tier=1),
     # -- Tier-2 --
     dict(code="SWGAN", name="Sawangan",       type="Busbar GI", tier=2),
@@ -35,14 +39,18 @@ ASSETS = [
     dict(code="KMBGN", name="Kembangan",      type="Busbar GI", tier=2, kerawanan="1"),
     dict(code="GRGBR", name="Grogol Baru",    type="Busbar GIS", tier=2),
     # -- Tier-3 --
-    dict(code="SRPNG", name="Serpong",        type="Busbar GI", tier=3),
-    dict(code="PTKGN", name="Petukangan",     type="Busbar GI", tier=3),
+    dict(code="SRPNG", name="Serpong",        type="Busbar GI", tier=3,
+         kapasitor=1, simbol="1 kapasitor 50 MVAr"),
+    dict(code="PTKGN", name="Petukangan",     type="Busbar GI", tier=3,
+         kapasitor=1, simbol="1 kapasitor"),
     dict(code="GROGOL", name="Grogol",        type="Busbar GIS", tier=3),
     # -- Tier-4 --
     dict(code="BNTRO", name="Bintaro",        type="Busbar GI", tier=4),
     dict(code="TMANG", name="Tomang",         type="Busbar GIS", tier=4),
     # -- Tier-5 --
-    dict(code="BTRBR", name="Bintaro Baru",   type="Busbar GI", tier=5),
+    # Reached only by the dashed Bintaro - Bintaro Baru ruas, so not yet live.
+    dict(code="BTRBR", name="Bintaro Baru",   type="Busbar GI", tier=5,
+         status="Rencana"),
 ]
 
 BAYS = [
@@ -57,7 +65,10 @@ LINES = [
     # GNDUL (Tier-1) -> Tier-2
     dict(fr="GNDUL", to="SWGAN", name="SUTT Gandul - Sawangan", tier_fr=1, tier_to=2, koridor=WIL),
     dict(fr="GNDUL", to="CRNDU", name="SUTT Gandul - Cirendeu", tier_fr=1, tier_to=2, koridor=WIL),
-    dict(fr="GNDUL", to="KMBGN", name="SKTT Gandul - Kembangan", tier_fr=1, tier_to=2, koridor=WIL),
+    # There is no Gandul - Kembangan ruas. On Gambar 2.8 the GNDUL Tier-1 bar
+    # ENDS before Kembangan, with a visible break between the two Tier-1 bars,
+    # and KMBGN's two circuits rise to the DKSBI bar instead: Kembangan is fed
+    # from the Durikosambi side only. The edge below was fabricated.
     # DKSBI (Tier-1) -> Tier-2  (SKTT Durikosambi-Kembangan = kerawanan #1)
     dict(fr="DKSBI", to="KMBGN", name="SKTT Durikosambi - Kembangan (bottleneck derating -- kerawanan #1)",
          kv="150 kV", tier_fr=1, tier_to=2, kerawanan="1", koridor=WIL),
@@ -75,8 +86,9 @@ LINES = [
     dict(fr="PTKGN", to="BNTRO", name="SUTT Petukangan - Bintaro", tier_fr=3, tier_to=4, koridor=WIL),
     dict(fr="GROGOL", to="TMANG", name="SKTT Grogol - Tomang", kv="150 kV",
          tier_fr=3, tier_to=4, koridor=WIL),
-    # Tier-4 -> Tier-5
-    dict(fr="BNTRO", to="BTRBR", name="SUTT Bintaro - Bintaro Baru", tier_fr=4, tier_to=5, koridor=WIL),
+    # Tier-4 -> Tier-5. Drawn DASHED on Gambar 2.8, i.e. not yet energised.
+    dict(fr="BNTRO", to="BTRBR", name="SUTT Bintaro - Bintaro Baru (belum energize)",
+         tier_fr=4, tier_to=5, status="Rencana", koridor=WIL),
 ]
 
 RISKS = [
