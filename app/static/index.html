@@ -69,8 +69,8 @@
     color: inherit; font: inherit; cursor: pointer; border-radius: 7px; }
   header .brand:hover b { text-decoration: underline; }
   header .brand:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-  #homebtn { display:none; }
-  body.mode-viewer #homebtn { display:inline-block; }
+  #homebtn, #printbtn { display:none; }
+  body.mode-viewer #homebtn, body.mode-viewer #printbtn { display:inline-block; }
 
   /* ---- permanent top nav ----
      Destinations stay on screen at every level, so Sistem 500 kV is reachable
@@ -467,6 +467,8 @@
   <div class="spacer"></div>
   <nav class="crumbs" id="crumb" aria-label="Jejak navigasi"></nav>
   <select id="scensel" title="Pola operasi"></select>
+  <button class="navlink" id="printbtn" type="button"
+          title="Buka gambar ukuran A4 untuk dicetak">&#128438; Cetak A4</button>
   <button class="navlink back" id="homebtn" type="button">Peta Jamali</button>
   <a class="navlink primary" href="/ingest" title="Tambah subsistem baru dari SLD">+ Tambah subsistem</a>
 </header>
@@ -683,6 +685,7 @@ async function txt(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw n
   $('#zout').onclick = () => zoomBy(1.25);
   $('#zfit').onclick = () => { vb = {...vb0}; commitVB(); };
   $('#homebtn').onclick = backToMap;          // viewer -> the map one step up
+  $('#printbtn').onclick = openPrintSheet;
   $('#brandhome').onclick = () => { NAV_REGION = ''; showHub(); };
   $('#hub-up2b').onclick = showUp2bScreen;
   $('#hub-system500').onclick = showSystem500Screen;
@@ -1460,6 +1463,91 @@ function wireStage(){
 }
 
 // ---------- click -> detail ----------
+// ---------- print: one A4 sheet, everything legible ----------
+// Mirrors app/services/sld_print.py. The dashboard can zoom, so a small label
+// is recoverable; paper cannot, so the figure must carry every label at a
+// readable size. Only font-size and the outer <svg> change -- the geometry
+// printed is the geometry on screen.
+const A4 = { shortMm: 210, longMm: 297, marginMm: 10, minLabelMm: 2.1,
+             baseLabel: 12.5, comfortable: 1.6 };
+
+function planPrint(w, h){
+  let best = null;
+  for (const orientation of ['landscape', 'portrait']) {
+    const pw = orientation === 'landscape' ? A4.longMm : A4.shortMm;
+    const ph = orientation === 'landscape' ? A4.shortMm : A4.longMm;
+    const k = Math.min((pw - 2*A4.marginMm) / w, (ph - 2*A4.marginMm) / h);
+    if (!best || k > best.k) best = { k, orientation, pw, ph };
+  }
+  const boost = Math.max(1, A4.minLabelMm / (A4.baseLabel * best.k));
+  return { ...best, boost, labelMm: A4.baseLabel * boost * best.k,
+           fits: boost <= A4.comfortable };
+}
+
+function openPrintSheet(){
+  const src = $('#stage svg');
+  if (!src) return;
+  const clone = src.cloneNode(true);
+  // the screen-only affordances have no business on paper
+  clone.querySelectorAll('.pin-hit, #sel-layer').forEach(n => n.remove());
+  // Print the whole drawing, not the pan/zoom the user happens to be on:
+  // vb0 is the renderer's own extent, vb is wherever they have scrolled to.
+  const { x: x0, y: y0, w, h } = vb0 || {};
+  if (!w || !h) return;
+  const p = planPrint(w, h);
+
+  clone.querySelectorAll('[font-size]').forEach(t => {
+    // the label floor is a screen device; print from the rendered sizes
+    const base = +t.dataset.baseSize || parseFloat(t.getAttribute('font-size'));
+    t.setAttribute('font-size', (base * p.boost).toFixed(2));
+    delete t.dataset.baseSize;
+  });
+  clone.querySelectorAll('.risk-pin').forEach(g => g.removeAttribute('transform'));
+
+  // centre the drawing on the sheet: its shape rarely matches A4's, and the
+  // slack must not all fall on one side
+  const sw = p.pw / p.k, sh = p.ph / p.k;
+  clone.setAttribute('viewBox',
+    `${(x0 - (sw - w) / 2).toFixed(1)} ${(y0 - (sh - h) / 2).toFixed(1)} ${sw.toFixed(1)} ${sh.toFixed(1)}`);
+  clone.setAttribute('width', p.pw + 'mm');
+  clone.setAttribute('height', p.ph + 'mm');
+  clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+  const title = (VIEW && VIEW.name) || 'SLD';
+  const warn = p.fits ? '' :
+    `<div class="warn">Gambar ini perlu teks ${p.boost.toFixed(1)}&times; agar terbaca pada satu A4.
+     Pertimbangkan memecahnya menjadi sudut pandang tambahan, atau cetak pada kertas lebih besar.</div>`;
+  const win = window.open('', '_blank');
+  if (!win) { alert('Popup diblokir. Izinkan popup untuk membuka lembar cetak.'); return; }
+  win.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8">
+<title>${esc(title)}</title>
+<style>
+  @page { size: A4 ${p.orientation}; margin: 0; }
+  html,body { margin:0; background:#f1f5f9; font:13px -apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:#0f274a; }
+  .bar { padding:10px 14px; background:#fff; border-bottom:1px solid #dbe5f0; display:flex;
+         gap:12px; align-items:center; flex-wrap:wrap; }
+  .bar b { font-size:13px; }
+  .bar span { color:#64748b; font-size:12px; }
+  .bar button { font:inherit; font-size:12.5px; background:#0b5cab; color:#fff; border:0;
+                border-radius:7px; padding:7px 14px; cursor:pointer; margin-left:auto; }
+  .warn { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:12px;
+          padding:8px 12px; border-radius:8px; margin:10px 14px; line-height:1.5; }
+  .sheet { background:#fff; margin:14px auto; box-shadow:0 2px 12px rgba(15,39,74,.15); }
+  svg { display:block; }
+  @media print {
+    .bar, .warn { display:none !important; }
+    html,body { background:#fff; }
+    .sheet { margin:0; box-shadow:none; }
+  }
+</style></head><body>
+<div class="bar"><b>${esc(title)}</b>
+  <span>A4 ${p.orientation === 'landscape' ? 'lanskap' : 'potret'} &middot;
+  label ${p.labelMm.toFixed(1)}mm &middot; skala ${(p.k*1000).toFixed(1)} mm/1000u</span>
+  <button onclick="window.print()">Cetak</button></div>
+${warn}<div class="sheet">${clone.outerHTML}</div></body></html>`);
+  win.document.close();
+}
+
 function wireHits(){
   const svg = $('#stage svg'); if (!svg) return;
   svg.addEventListener('click', e => {

@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 import tempfile
+from dataclasses import asdict
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -51,6 +52,7 @@ from app.services.ingest import IngestError
 from app.services.ingest_parser import IngestParseError, normalise, parse_upload
 from app.services.ingestion import save_observation_batch
 from app.services.reconciliation import classify, find_candidates
+from app.services.sld_print import plan as print_plan, to_a4
 from app.services.sld_renderer import render_view_svg
 from app.services.topology import calculate_tier, get_view_graph
 
@@ -308,11 +310,25 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/views/{view_id}/sld.svg")
-def view_svg(view_id: int, db: Session = Depends(get_db)):
+def view_svg(view_id: int, mode: str = "screen", db: Session = Depends(get_db)):
     v = db.get(AnalyticalView, view_id)
     if not v:
         raise HTTPException(404, "View not found")
-    return Response(render_view_svg(db, v), media_type="image/svg+xml")
+    svg = render_view_svg(db, v)
+    # mode=print fits the same drawing to one A4 and grows the text so it
+    # survives the scaling; the geometry is identical to the screen render.
+    if mode == "print":
+        svg = to_a4(svg)
+    return Response(svg, media_type="image/svg+xml")
+
+
+@router.get("/views/{view_id}/print-fit")
+def view_print_fit(view_id: int, db: Session = Depends(get_db)):
+    """What printing this view on one A4 would cost, without rendering it."""
+    v = db.get(AnalyticalView, view_id)
+    if not v:
+        raise HTTPException(404, "View not found")
+    return asdict(print_plan(render_view_svg(db, v)))
 
 
 # ---- diagram layout: drag-and-drop persistence -----------------------

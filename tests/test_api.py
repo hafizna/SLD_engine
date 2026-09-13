@@ -1,6 +1,7 @@
 """API contract tests -- what a web viewer consumes."""
 import importlib
 import os
+import re
 import tempfile
 
 import pytest
@@ -117,6 +118,48 @@ def test_sld_svg_renders(client):
     assert r.headers["content-type"] == "image/svg+xml"
     assert b"<svg" in r.content
     assert b"overlay-risk" in r.content
+
+
+def test_print_mode_keeps_the_geometry_and_only_grows_text(client):
+    """A print figure must be the same drawing, just legible on paper.
+
+    The book is produced by screenshotting these views, so mode=print may not
+    move anything: it fits the sheet and enlarges text, which is safe only
+    because the layout never measures text. If a coordinate ever differs, a
+    printed figure has stopped matching what the engine actually computed.
+    """
+    views = client.get("/api/views").json()
+    full = next(v for v in views if v["view_key"] == "SS_LBK_BALARAJA")
+    screen = client.get(f"/api/views/{full['id']}/sld.svg").text
+    printed = client.get(f"/api/views/{full['id']}/sld.svg?mode=print").text
+
+    for what, pattern in (
+        ("node positions", r'data-x="[\d.]+" data-y="[\d.]+"'),
+        ("path geometry", r'<path[^>]*\sd="([^"]+)"'),
+        ("text anchors", r'<text x="([-\d.]+)" y="([-\d.]+)"'),
+    ):
+        assert re.findall(pattern, screen) == re.findall(pattern, printed), what
+
+    # a real A4 sheet, and text that actually grew
+    assert re.search(r'width="(297\.0|210\.0)mm" height="(210\.0|297\.0)mm"', printed)
+    sizes_screen = {float(s) for s in re.findall(r'font-size="([\d.]+)"', screen)}
+    sizes_print = {float(s) for s in re.findall(r'font-size="([\d.]+)"', printed)}
+    assert min(sizes_print) > min(sizes_screen)
+
+    # and the fit report agrees with what was rendered
+    fit = client.get(f"/api/views/{full['id']}/print-fit").json()
+    assert fit["orientation"] in ("landscape", "portrait")
+    assert fit["label_mm"] >= 2.0
+    assert f'data-label-boost="{fit["label_boost"]:.2f}"' in printed
+
+
+def test_print_mode_is_opt_in(client):
+    """The default render must stay exactly as it was."""
+    views = client.get("/api/views").json()
+    vid = views[0]["id"]
+    assert (client.get(f"/api/views/{vid}/sld.svg").text
+            == client.get(f"/api/views/{vid}/sld.svg?mode=screen").text)
+    assert "mm" not in client.get(f"/api/views/{vid}/sld.svg").text[:200]
 
 
 def test_gitet_with_single_ibt_renders(client):
