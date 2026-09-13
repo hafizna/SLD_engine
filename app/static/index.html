@@ -1349,10 +1349,33 @@ function unitPx(svg){
 // Hold GI labels and risk pins at a legible size as the diagram scales down.
 // Only the glyph size is touched - x/y stay exactly as the renderer placed
 // them, so nothing moves relative to the drawing it annotates.
+// Smallest the drawn risk pin may get on screen. A tall subsystem is fitted by
+// its height, so OPEN_SCALE cannot help it: view 3 opens at 0.766 and its pin
+// lands at 9px across - visible, but too small to read the seq number in and
+// an awkward target. The pin holds this size the same way labels hold theirs.
+const MIN_PIN_PX = 18;
+
+function applyPinFloor(svg){
+  const k = unitPx(svg); if (!k) return;
+  const grow = Math.max(1, (MIN_PIN_PX / 2) / (9 * k));
+  svg.querySelectorAll('.risk-pin').forEach(g => {
+    // scale about the pin's own centre so it stays on the object it annotates
+    const c = g.querySelector('circle:not(.pin-hit)');
+    if (!c) return;
+    const cx = +c.getAttribute('cx'), cy = +c.getAttribute('cy');
+    g.setAttribute('transform', grow > 1
+      ? `translate(${cx} ${cy}) scale(${grow.toFixed(3)}) translate(${-cx} ${-cy})`
+      : '');
+  });
+}
+
 function applyLabelFloor(svg){
   if (!svg) return;
   const k = unitPx(svg); if (!k) return;
-  svg.querySelectorAll('#busbars text, #overlay-risk text').forEach(t => {
+  applyPinFloor(svg);
+  // The pin's own number rides its group transform, so it must not also be
+  // boosted here or it would grow twice and overflow the disc.
+  svg.querySelectorAll('#busbars text').forEach(t => {
     let base = +t.dataset.baseSize;
     if (!base) {
       base = parseFloat(t.getAttribute('font-size')) || 0;
@@ -1369,7 +1392,11 @@ function wireStage(){
   let dragging = false, lx = 0, ly = 0;
 
   stage.addEventListener('pointerdown', e => {
-    if (e.target.closest('.sld-node, .sld-bay, [data-circuit-id], [data-audit-kind]')) return;
+    // Anything clickable must be listed here. Starting a pan calls
+    // setPointerCapture, which retargets the pointer to #stage, and the click
+    // event then never fires on what was actually pressed - which is why a
+    // risk pin looked inert however large its hit area was.
+    if (e.target.closest('.sld-node, .sld-bay, [data-circuit-id], [data-audit-kind], .risk-pin')) return;
     dragging = true; lx = e.clientX; ly = e.clientY;
     stage.classList.add('panning'); stage.setPointerCapture(e.pointerId);
   });
@@ -1803,7 +1830,7 @@ function riskTarget(svg, r){
   // shown as exposure below, which is what actually de-energises.
   if (r.attach_kind === 'TRANSFORMER') {
     const link = (GRAPH.edges || []).find(e =>
-      e.circuit_type === 'IBT_LINK' && (e.code || '').includes(r.attach_label || ' '));
+      e.circuit_type === 'IBT_LINK' && (e.code || '').includes(r.attach_label || '\u0000'));
     if (link) return svg.querySelector(`[data-circuit-id="${link.id}"]`);
     return svgNode(svg, 'SUBSTATION', r.attach_id);
   }
@@ -1848,7 +1875,7 @@ function exposedBy(svg, r){
     // the GI whose 500/150 transformation this IBT provides
     (GRAPH.edges || []).forEach(e => {
       if (e.circuit_type !== 'IBT_LINK') return;
-      if (!(e.code || '').includes(r.attach_label || ' ')) return;
+      if (!(e.code || '').includes(r.attach_label || '\u0000')) return;
       [e.from_substation_id, e.to_substation_id].forEach(id => {
         if (id != null) push(svgNode(svg, 'SUBSTATION', id));
       });
