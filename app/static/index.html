@@ -416,9 +416,22 @@
     font-weight: 700; cursor: pointer; border-radius: 6px;
   }
   .sstree .ss:hover { background: #f3f8ff; }
-  .sstree .ss .tw { width: 12px; color: var(--muted); transition: transform .12s; }
+  .sstree .ss:hover .tw { color: var(--blue); }
+  /* The caret is the affordance, so give it a real target and let it read as
+     a control: it was a 12px glyph with no hover state of its own, which is
+     what made the rows feel like they might not be clickable. */
+  .sstree .ss .tw { width: 16px; height: 16px; flex: none; display: grid;
+    place-items: center; font-size: 10px; border-radius: 4px;
+    color: var(--muted); background: #eef2f7;
+    transition: transform .14s ease, background .14s, color .14s; }
   .sstree .ss.open .tw { transform: rotate(90deg); }
   .sstree .ss small { font-weight: 400; color: var(--muted); }
+  /* A collapsed SS should still say what it is hiding. */
+  .sstree .ss .hidden-n { margin-left: auto; font-size: 10px; font-weight: 700;
+    color: var(--muted); background: #eef2f7; border-radius: 99px;
+    padding: 1px 7px; }
+  .sstree .ss.open .hidden-n { display: none; }
+  .sstree .ss:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
   .sstree .kids { margin: 0 0 4px 16px; border-left: 2px solid var(--line); }
   .sstree .kids[hidden] { display: none; }
   .sstree .pov {
@@ -1108,9 +1121,13 @@ function buildTree(scope='subsystem'){
     a.ss.forEach(g => {
       const head = document.createElement('div');
       head.className = 'ss open';
+      head.tabIndex = 0;
+      head.setAttribute('role', 'button');
+      head.setAttribute('aria-expanded', 'true');
       head.innerHTML = `<span class="tw">&#9656;</span>`
         + `<span>SS ${esc(ssName(g.sid))}</span>`
-        + (g.views.length > 1 ? ` <small>&middot; ${g.views.length} sudut pandang</small>` : '');
+        + (g.views.length > 1 ? ` <small>&middot; ${g.views.length} sudut pandang</small>` : '')
+        + `<span class="hidden-n">${g.views.length}</span>`;
       const kids = document.createElement('div');
       kids.className = 'kids';
       g.views.forEach(v => {
@@ -1122,20 +1139,42 @@ function buildTree(scope='subsystem'){
         b.onclick = () => selectView(v.id);
         kids.appendChild(b);
       });
-      head.onclick = () => { head.classList.toggle('open'); kids.hidden = !head.classList.contains('open'); };
+      const toggle = () => {
+        const open = head.classList.toggle('open');
+        kids.hidden = !open;
+        head.setAttribute('aria-expanded', String(open));
+        head.title = open ? 'Klik untuk menyembunyikan sudut pandang'
+                          : 'Klik untuk menampilkan sudut pandang';
+      };
+      head.title = 'Klik untuk menyembunyikan sudut pandang';
+      head.onclick = toggle;
+      head.onkeydown = e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+      };
       box.appendChild(head);
       box.appendChild(kids);
     });
   });
 
   // Scoping to one UP2B is a default, not a cage - crossing to a neighbouring
-  // region stays one click away rather than a trip back through the hub.
-  if(NAV_REGION){
-    const all = document.createElement('button');
-    all.className = 'tree-all';
-    all.type = 'button';
+  // region stays one click away rather than a trip back through the hub. The
+  // control is a toggle in both directions: widening the list used to remove
+  // the only button that could narrow it again, stranding the user in the full
+  // 33-subsystem list with no way back but the map.
+  const home = VIEW && !isSystemView(VIEW) ? regionKeyOf(apbOf(VIEW.subsystem_id)) : '';
+  const all = document.createElement('button');
+  all.className = 'tree-all';
+  all.type = 'button';
+  all.setAttribute('aria-expanded', NAV_REGION ? 'false' : 'true');
+  if (NAV_REGION) {
     all.textContent = 'Tampilkan semua UP2B';
     all.onclick = () => { NAV_REGION = ''; buildTree('subsystem'); if(VIEW) markTree(VIEW.id); };
+    box.appendChild(all);
+  } else if (home) {
+    // Only offered when there is a region to collapse back to - the one the
+    // open view belongs to.
+    all.textContent = `Ciutkan ke UP2B ${regionOfKey(home)?.name || ''}`.trim();
+    all.onclick = () => { NAV_REGION = home; buildTree('subsystem'); if(VIEW) markTree(VIEW.id); };
     box.appendChild(all);
   }
 }
