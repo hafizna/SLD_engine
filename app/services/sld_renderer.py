@@ -104,6 +104,50 @@ CB_GAP = 12
 EDGE_MARGIN = 54       # width of the outer channel a cross-tier feed routes in
 
 
+GITET_RISE = 130       # how far a GITET floats above the LV bus it feeds
+GITET_SIBLING_GAP = 40 # clear space between two GITETs feeding the same bus
+
+
+def _place_gitets(pos, gitet_feeds, subs, bus_half, only=None, skip=()):
+    """Float each GITET above the LV bus it feeds.
+
+    Several GITETs can feed one bus -- Suralaya and Suralaya Baru both feed the
+    150 kV SRLYA bus, Cirata and Cirata 3 both feed Cirata. Centring each on
+    that bus drew them at the same point, so busbars and labels landed on top
+    of one another. Siblings are spread along the bus instead, in code order so
+    the drawing is stable between renders.
+
+    `only` restricts placement to GITETs in that container; `skip` protects
+    GITETs the user has positioned by hand.
+    """
+    siblings: dict[int, list[int]] = defaultdict(list)
+    for hv, lv in gitet_feeds.items():
+        siblings[lv].append(hv)
+    for lv, hvs in siblings.items():
+        if lv not in pos:
+            continue
+        # `only` is the set a GITET must belong to; where it is given the GITET
+        # may still be absent from `pos` (this pass is what places it), so
+        # membership of `pos` is required only when it is not.
+        hvs = sorted((h for h in hvs if h not in skip
+                      and (h in only if only is not None else h in pos)),
+                     key=lambda h: (subs[h].code or "", h))
+        if not hvs:
+            continue
+        cx, cy = pos[lv]
+        top = cy - GITET_RISE
+        if len(hvs) == 1:
+            pos[hvs[0]] = (cx, top)
+            continue
+        # Never closer than the widest sibling needs, so two cannot touch, but
+        # otherwise spread across the bus they feed.
+        need = max(bus_half(h) for h in hvs) * 2 + GITET_SIBLING_GAP
+        step = max(need, (bus_half(lv) * 2) / len(hvs))
+        span = step * (len(hvs) - 1)
+        for i, hv in enumerate(hvs):
+            pos[hv] = (cx - span / 2 + i * step, top)
+
+
 def esc(v) -> str:
     return html.escape(str(v if v is not None else ""), quote=True)
 
@@ -449,9 +493,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         cut_left, cut_right = gap
         shift = cut_right - cut_left - target_strip
         pos = {sid: ((x - shift if x >= cut_right else x), y) for sid, (x, y) in pos.items()}
-    for hv, lv in gitet_feeds.items():
-        if hv in row_of and lv in pos:
-            pos[hv] = (pos[lv][0], pos[lv][1] - 130)
+    _place_gitets(pos, gitet_feeds, subs, bus_half, only=row_of)
     W = max((x + bus_half(sid) for sid, (x, y) in pos.items()), default=800) + margin_x
     gen_pos = {gid: (pos.get(gens[gid].outlet_substation_id, (W / 2, 0))[0],
                      pos.get(gens[gid].outlet_substation_id, (0, 210))[1] - 85)
@@ -481,9 +523,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # a GITET busbar sits directly above the LV bus it feeds (its IBT chains
     # rise straight into that bus); the DFS cursor placed it as a loose root.
     # Skip any GITET the user has explicitly placed.
-    for hv, lv in gitet_feeds.items():
-        if hv in pos and lv in pos and ("SUBSTATION", hv) not in saved:
-            pos[hv] = (pos[lv][0], pos[lv][1] - 130)
+    _place_gitets(pos, gitet_feeds, subs, bus_half,
+                  skip={hv for kind, hv in saved if kind == "SUBSTATION"})
 
     # A manual position is a fixed obstacle. Move automatic neighbours away
     # before allocating ports instead of translating the saved node itself.
@@ -631,9 +672,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 continue
             kind = "in" if side(sid, oth) == -1 else "out"
             bus_attach[sid].append((f"c{c.id}", kind, pos.get(oth, (pos[sid][0],))[0]))
+    # One port per GITET, not one shared "ibt" port: two GITETs feeding the
+    # same bus (Suralaya + Suralaya Baru, Cirata + Cirata 3) would otherwise
+    # resolve to the same slot and be drawn on top of each other.
     for hv, lv in gitet_feeds.items():
         if lv in pos and hv in pos:
-            bus_attach[lv].append(("ibt", "ibt", pos[hv][0]))
+            bus_attach[lv].append((f"ibt{hv}", "ibt", pos[hv][0]))
     for g in gens.values():
         if g.outlet_substation_id in pos:
             bus_attach[g.outlet_substation_id].append((f"gen{g.id}", "gen", None))
@@ -667,8 +711,18 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             group.sort(key=lambda it: (rank.get(it[1], 9), *_order_key(sid, it[1], it[2]), it[0]))
             weights = []
             for key, _, _ in group:
-                if key == "ibt":
-                    weight = max(1, sum(len(ls) for (hv, lv), ls in ibt_links_by_pair.items() if lv == sid))
+                if key.startswith("ibt"):
+                    # a per-GITET port carries only that GITET's chains; the
+                    # bare "ibt" key still covers every IBT landing on this bus
+                    _hv = int(key[3:]) if key[3:].isdigit() else None
+                    weight = max(1, sum(len(ls) for (hv, lv), ls in ibt_links_by_pair.items()
+                                        if lv == sid and (_hv is None or hv == _hv)))
+                    # The GITET busbar is drawn centred on this port, so the
+                    # slot has to be as wide as the bar. Sized by chain count
+                    # alone, two GITETs on one bus sat a single pitch apart and
+                    # their bars still overlapped.
+                    if _hv is not None:
+                        weight = max(weight, (2 * bus_half(_hv) + GITET_SIBLING_GAP) / bay_slot)
                 elif key.startswith("bay") and key[3:].isdigit():
                     weight = bay_counts.get(int(key[3:]), 1)
                 elif key.startswith("spur") and key[4:].isdigit():
@@ -765,7 +819,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     symbol_obstacles = []
     for (hv, lv), links in ibt_links_by_pair.items():
         if hv in pos and lv in pos:
-            base = port(lv, "ibt")
+            base = port(lv, f"ibt{hv}" if hv in gitet_feeds else "ibt")
             radius = (len(links) - 1) * 46 / 2 + 20
             symbol_obstacles.append((base - radius, pos[hv][1], base + radius, pos[lv][1] - 20))
     for gid, (gx, gy) in gen_pos.items():
@@ -872,7 +926,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if not hp or not lp:
             continue
         hv_col, lv_col = _vcol(subs[hv].voltage_kv), _vcol(subs[lv].voltage_kv)
-        base = port(lv, "ibt")
+        base = port(lv, f"ibt{hv}" if hv in gitet_feeds else "ibt")
         n = len(links)
         slinks = sorted(links, key=lambda z: (_ibt_unit.get(z.transformer_id, ""), z.code))
         IBT_DX = 46   # room for the inline symbol + a unit label per chain
@@ -991,7 +1045,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # attaches to it here), so it can't overrun the rest of the diagram
         if sid in gitet_feeds:
             lv = gitet_feeds[sid]
-            base = port(lv, "ibt")
+            base = port(lv, f"ibt{sid}")
             n = len(ibt_links_by_pair.get((sid, lv), [1]))
             x = base
             bh = max((n - 1) * 46 / 2 + 26, 40)
