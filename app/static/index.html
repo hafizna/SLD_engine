@@ -1185,7 +1185,7 @@ async function selectView(id){
   el.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   const [x, y, w, h] = el.getAttribute('viewBox').split(/\s+/).map(Number);
   vb0 = { x, y, w, h };
-  vb  = { ...vb0 };
+  vb  = openingVB(el);
   commitVB();
 
   markTree(id);
@@ -1304,6 +1304,29 @@ function zoomBy(f, cx, cy){
 // unreadable. Boosting them back to 9px introduces no label collisions on any
 // fixture - the renderer's own left/right/centre placement leaves the room.
 const MIN_LABEL_PX = 9;
+
+// Every SLD is drawn on a canvas sized by its own content, and across the 42
+// built views that canvas runs from 738 to 5382 units wide. Opening each one
+// "fit to stage" therefore opened each at a different scale: labels landed
+// anywhere between 2.1px and 10.5px, and the same subsystem drawn on a wider
+// sheet looked like a different style rather than the same one further away.
+// Opening at a common scale instead makes every SS read alike; a view small
+// enough to fit at more than this still opens whole, and nothing here changes
+// the drawing, only the zoom it starts at.
+const OPEN_SCALE = 0.45;   // px per diagram unit; 5.0x label spread -> 1.87x
+
+function openingVB(el){
+  const r = el.getBoundingClientRect();
+  const W = r.width, H = r.height;
+  if (!W || !H) return { ...vb0 };
+  const fit = Math.min(W / vb0.w, H / vb0.h);
+  if (fit >= OPEN_SCALE) return { ...vb0 };   // already opens large enough
+  // Keep the top-left of the drawing in view: that is where the title, the
+  // source tier and the first busbars are, so a partially shown diagram still
+  // opens on something meaningful rather than on empty mid-canvas.
+  const w = W / OPEN_SCALE, h = H / OPEN_SCALE;
+  return { x: vb0.x, y: vb0.y, w, h };
+}
 
 function applySemanticZoom(z){
   const svg = $('#stage svg'); if (!svg) return;
