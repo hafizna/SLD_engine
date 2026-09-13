@@ -21,8 +21,10 @@ ASSETS = [
     dict(code="SRLYABR", name="GITET Suralaya Baru", type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="SRLYA",   name="GITET Suralaya",      type="Busbar GITET", tier=1, kv="500 kV"),
     dict(code="CLBRU",   name="GITET Cilegon Baru",  type="Busbar GITET", tier=1, kv="500 kV"),
-    # -- generation: PLTU Suralaya Unit 3, step-up onto GITET Suralaya Baru --
-    dict(code="KIT_SRLYA_U3", name="PLTU Suralaya Unit 3", type="Pembangkit", tier=1, kv="500 kV"),
+    # -- generation: PLTU Suralaya Unit 3. Gambar 2.3 draws it at the far left of
+    #    TIER-1 with its own step-up dropping onto the 150 kV Suralaya bus, not
+    #    under either 500 kV bar -- its outlet is SRLYA (150 kV), not SRLYABR. --
+    dict(code="KIT_SRLYA_U3", name="PLTU Suralaya Unit 3", type="Pembangkit", tier=1, kv="150 kV"),
     # -- IBT 500/150 (code's last token = GITET busbar code; Bus 150 kV = the LV bus it feeds) --
     dict(code="IBT 2 SRLYABR", name="IBT 2 Suralaya Baru", type="IBT 3-Winding", tier=2,
          kv="500/150 kV", ibt="2", bus150="SRLYA", kerawanan="1"),
@@ -58,8 +60,8 @@ BAYS = [
 ]
 
 LINES = [
-    # generation outlet: PLTU Suralaya Unit 3 -> GITET Suralaya Baru 500 kV
-    dict(fr="KIT_SRLYA_U3", to="SRLYABR", name="Outlet PLTU Suralaya Unit 3", kv="500 kV",
+    # generation outlet: PLTU Suralaya Unit 3 -> Suralaya 150 kV bus (per Gambar 2.3)
+    dict(fr="KIT_SRLYA_U3", to="SRLYA", name="Outlet PLTU Suralaya Unit 3", kv="150 kV",
          sirkit=2, tier_fr=1, tier_to=1, koridor=WIL),
     # SRLYA (Tier-1) -> Tier-2
     dict(fr="SRLYA", to="SLRDA", name="SUTT Suralaya - Suralaya Dalam", tier_fr=1, tier_to=2, koridor=WIL),
