@@ -33,7 +33,7 @@ def build() -> None:
     from app.db import Base, SessionLocal, engine
     from app.models import AnalyticalView
     from app.services.excel_register import export_register
-    from app.services.seed import seed_demo
+    from app.services.seed_ss_bll import seed_ss_bll
     from app.services.seed_backbone_500 import seed_backbone_500
     from app.services.seed_ss_cwd import seed_ss_cwd
     from app.services.seed_xlsx_fixture import seed_xlsx_fixture
@@ -42,7 +42,11 @@ def build() -> None:
 
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
-        seed_demo(db)
+        # Keep the BLL fixture from the normal demo seed, but ingest LBK from
+        # the reviewed single-view workbook below. The hard-coded LBK seeder
+        # still serves the live app's legacy demo; the static snapshot must
+        # mirror the samples that were just reviewed and published.
+        seed_ss_bll(db)
         # SS Cawang 2,3-Depok 1 (Sec 2.7): authored via /ingest in the live
         # engine, seeded straight into the snapshot here. Kept out of seed_demo
         # so the /ingest test suite can still publish under code SS_CWD.
@@ -51,10 +55,11 @@ def build() -> None:
         # stress fixture stays out of seed_demo while its geometry findings
         # remain visible in the workbook audit.
         seed_backbone_500(db)
-        # Remaining reviewed workbook fixtures. LBK/BLL/CWD use dedicated
-        # seeders above; shared physical GI rows are reused across SS.
+        # Remaining reviewed workbook fixtures. Shared physical GI rows are
+        # reused across SS; the workbook is the source of truth for these
+        # static snapshot projections, including the reviewed single-view LBK.
         for name in (# UP2B Jakarta & Banten
-                     "ss_dkgd_ingest.xlsx", "ss_gucl_ingest.xlsx",
+                     "ss_lbk_ingest.xlsx", "ss_dkgd_ingest.xlsx", "ss_gucl_ingest.xlsx",
                      "ss_prbc_ingest.xlsx", "ss_slcg_ingest.xlsx",
                      "ss_muarakarang_durikosambi_ingest.xlsx",
                      "ss_plbratu_ingest.xlsx", "ss_bksi_cbng_ingest.xlsx",
