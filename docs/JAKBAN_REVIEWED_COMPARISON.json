@@ -48,7 +48,7 @@
         {
           "view_key": "SS_LBK_FULL",
           "profile": "SUBSYSTEM_500_150",
-          "svg_bytes": 56881,
+          "svg_bytes": 57384,
           "geometry_errors": []
         }
       ],
@@ -837,7 +837,7 @@
         {
           "view_key": "SS_GUCL_FULL",
           "profile": "SUBSYSTEM_500_150",
-          "svg_bytes": 104544,
+          "svg_bytes": 104530,
           "geometry_errors": []
         }
       ],
@@ -1149,7 +1149,7 @@
         {
           "view_key": "SS_PRBC_FULL",
           "profile": "SUBSYSTEM_500_150",
-          "svg_bytes": 129475,
+          "svg_bytes": 130910,
           "geometry_errors": []
         }
       ],

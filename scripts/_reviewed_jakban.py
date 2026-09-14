@@ -4,6 +4,7 @@ Keep audit prose as evidence, not as machine-readable view membership.
 The original workbooks under samples/sources are never modified.
 """
 from pathlib import Path
+import json
 
 import openpyxl
 from openpyxl.styles import Font
@@ -14,6 +15,9 @@ SOURCES = {
     "SS_GUCL": "JBB_SS_GUCL_manual_audit_v2 (1).xlsx",
     "SS_PRBC": "JBB_SS_PBRC_single_view_v1.xlsx",
 }
+LEGACY_NAMES = json.loads(
+    (ROOT / "samples" / "sources" / "jakban_legacy_names.json").read_text(encoding="utf-8")
+)
 
 
 def _headers(ws):
@@ -56,6 +60,65 @@ def _next_no(ws):
     return max(values, default=0) + 1
 
 
+def _legacy_name(subsystem, code, asset_type, voltage, fallback):
+    """Return the old workbook's clearer label when the code is stable.
+
+    The code is the join key. Voltage disambiguates the old workbook's shared
+    GITET/GI codes; the ``GITET_`` fallback handles the explicit split used by
+    the reviewed PBRC model. A type mismatch is tolerated because the reviewed
+    book intentionally corrected a few GIS/GI classifications.
+    """
+    names = LEGACY_NAMES.get(subsystem, {})
+    wanted_type = str(asset_type or "").strip()
+    wanted_voltage = str(voltage or "").strip()
+    exact = f"{code}|{wanted_type}|{wanted_voltage}"
+    if exact in names:
+        return names[exact]
+    base = code[6:] if code.startswith("GITET_") else code
+    for key, value in names.items():
+        raw_code, raw_type, raw_voltage = key.split("|", 2)
+        if raw_code == base and raw_voltage == wanted_voltage:
+            return value
+    for key, value in names.items():
+        raw_code, _raw_type, raw_voltage = key.split("|", 2)
+        if raw_code == base and (not wanted_voltage or raw_voltage == wanted_voltage):
+            return value
+    # A boundary Bay can intentionally represent the other voltage side of a
+    # shared old code (for example NCKUPA). Keep its established site label
+    # even when the old asset row used only the 500 kV spelling.
+    for key, value in names.items():
+        raw_code, _raw_type, _raw_voltage = key.split("|", 2)
+        if raw_code == base:
+            return value
+    return fallback
+
+
+def _restore_legacy_names(wb, subsystem):
+    """Enrich code-only reviewed rows with stable labels from the old book."""
+    ws = wb["Gardu_Induk_dan_Aset"]
+    headers = _headers(ws)
+    code_col = _column(headers, "Kode Singkatan", "Kode", "Code")
+    name_col = _column(headers, "Nama Asset / GI", "Nama Asset", "Nama GI", "Name")
+    type_col = _column(headers, "Tipe Asset", "Tipe", "Type")
+    voltage_col = _column(headers, "Tegangan", "Voltage")
+    if not all((code_col, name_col)):
+        return
+    for row in range(2, ws.max_row + 1):
+        raw_code = ws.cell(row, code_col).value
+        if not raw_code:
+            continue
+        current = ws.cell(row, name_col).value
+        label = _legacy_name(
+            subsystem,
+            str(raw_code).strip(),
+            ws.cell(row, type_col).value if type_col else None,
+            ws.cell(row, voltage_col).value if voltage_col else None,
+            current,
+        )
+        if label and label != current:
+            ws.cell(row, name_col).value = label
+
+
 def _augment_boundary_evidence(wb, code):
     """Promote explicit source/stub evidence into the ingest model.
 
@@ -92,6 +155,7 @@ def _augment_boundary_evidence(wb, code):
                   role=None, note=None, bus_hv=None, bus_lv=None, unit=None):
         if asset_code in asset_codes:
             return
+        name = _legacy_name(code, asset_code, asset_type, voltage, name)
         _append_record(asset, {
             "No": _next_no(asset), "Nama Asset / GI": name,
             "Kode Singkatan": asset_code, "Tipe Asset": asset_type,
@@ -119,6 +183,7 @@ def _augment_boundary_evidence(wb, code):
     def add_bay(stub, name, feeder, kind="Boundary / external", status="Belum Operasi"):
         if (stub, feeder) in bay_pairs:
             return
+        name = _legacy_name(code, stub, "Busbar GI", "150 kV", name)
         _append_record(bay, {
             "No": _next_no(bay), "Kode GI": stub, "Nama GI": name,
             "Feeder (GI Induk)": feeder, "Jenis": kind, "Tegangan": "150 kV",
@@ -213,6 +278,7 @@ def build_reviewed(code: str, output_dir: Path | None = None) -> Path:
     for col, width in {"A": 16, "B": 24, "C": 65, "D": 18}.items():
         ws.column_dimensions[col].width = width
     ws.freeze_panes = "A2"
+    _restore_legacy_names(wb, code)
     _augment_boundary_evidence(wb, code)
     output_dir = Path(output_dir) if output_dir else ROOT / "samples"
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -32,6 +32,9 @@ baris Bay tidak dihitung sebagai relasi tambahan.
 - `Busbar GITET` 150 kV pada `BKASI`, `MTWAR`, dan `CWBRU` dikoreksi menjadi
   `Busbar GI`; GITET 500 kV dimodelkan sebagai node terpisah agar pasangan
   GITET/GI dan IBT tidak lepas.
+- Label aset yang kodenya stabil dipulihkan dari workbook lama melalui
+  `samples/sources/jakban_legacy_names.json`. Rekonsiliasi memakai kode dan
+  tegangan; relasi, status, dan koreksi tipe dari workbook baru tetap dipakai.
 - Baris KIT ke bus dibaca ingest sebagai hubungan outlet generator. Saat
   publish, hubungan ini mengisi `GeneratingUnit.outlet_substation_id` dan
   renderer menggambar jalur vertikal generator ke bus.

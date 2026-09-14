@@ -94,3 +94,18 @@ def test_reviewed_pbrc_generator_and_gitet_relations():
     assert {("GITET_BKASI", "BKASI", "2"), ("GITET_BKASI", "BKASI", "4"),
             ("GITET_MTWAR", "MTWAR", "1"), ("GITET_MTWAR", "MTWAR", "2"),
             ("GITET_CWBRU", "CWBRU", "1")} <= ibt
+
+
+def test_legacy_labels_are_carried_by_stable_codes():
+    checks = {
+        "SS_LBK": {"KMBGN": "Kembangan (bus 150 kV)", "MTLAN": "Metland",
+                    "NCKUPA": "GITET New Cikupa (rencana)"},
+        "SS_GUCL": {"RGKOT": "Rangkasbitung Kota", "LBUAN": "Labuan"},
+        "SS_PRBC": {"BKASI": "Bekasi (bus 150 kV)",
+                    "GITET_BKASI": "GITET Bekasi", "CNANG": "Cinang / Cawang Baru bawah"},
+    }
+    for code, expected in checks.items():
+        path = ROOT / "samples" / f"{code.lower()}_ingest.xlsx"
+        parsed = parse_upload(path.read_bytes(), path.name)
+        names = {n["external_key"]: n["raw_label"] for n in parsed["objects"]}
+        assert {key: names[key] for key in expected} == expected
