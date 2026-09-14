@@ -1,7 +1,7 @@
 {
   "lbk": {
     "before": {
-      "file": "samples\\ss_lbk_ingest.xlsx",
+      "file": "git:8cdcfa3^:samples/ss_lbk_ingest.xlsx",
       "kind": "subsystem",
       "code": "SS_LBK",
       "objects": 42,
@@ -31,16 +31,16 @@
       "ok": true
     },
     "after": {
-      "file": "samples\\ss_lbk_ingest.xlsx",
+      "file": "samples/ss_lbk_ingest.xlsx",
       "kind": "subsystem",
       "code": "SS_LBK",
-      "objects": 31,
+      "objects": 36,
       "connections": 32,
       "risks": 0,
       "validation": {
         "ok": true,
         "problems": [],
-        "node_count": 31,
+        "node_count": 36,
         "edge_count": 32,
         "risk_count": 0
       },
@@ -48,7 +48,7 @@
         {
           "view_key": "SS_LBK_FULL",
           "profile": "SUBSYSTEM_500_150",
-          "svg_bytes": 53735,
+          "svg_bytes": 56881,
           "geometry_errors": []
         }
       ],
@@ -58,112 +58,8 @@
       {
         "edge": [
           [
-            "NSYAN",
-            "UUMI"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "DNYSA",
-            "SNYAN"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "DLRA",
-            "NBRJA"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "ILKNG",
-            "SUJYA"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "DADAP",
-            "ILKNG"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "ILKNG",
-            "TGBRU"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "DLRA",
-            "SVRNA"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "SUJYA",
-            "SVRNA"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "DADAP",
-            "TLKGA"
+            "CKDRU",
+            "CNKNG"
           ],
           "CONNECTED_TO",
           null,
@@ -188,6 +84,97 @@
       {
         "edge": [
           [
+            "DADAP",
+            "ILKNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DADAP",
+            "TLKGA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DLRA",
+            "NBRJA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DLRA",
+            "SVRNA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DNYSA",
+            "SNYAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GJTGL",
+            "PSKBR"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GJTGL",
+            "PSKMS"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
             "IIS",
             "TGBRU"
           ],
@@ -201,12 +188,64 @@
       {
         "edge": [
           [
-            "SPTAR",
-            "TLKGA"
+            "ILKNG",
+            "SUJYA"
           ],
           "CONNECTED_TO",
           null,
           2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "ILKNG",
+            "TGBRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTKDR",
+            "TGRNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "NSYAN",
+            "UUMI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PSKBR",
+            "PSKMS"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
           false
         ],
         "count": 1
@@ -240,8 +279,8 @@
       {
         "edge": [
           [
-            "CKDRU",
-            "CNKNG"
+            "SPTAR",
+            "TLKGA"
           ],
           "CONNECTED_TO",
           null,
@@ -253,148 +292,18 @@
       {
         "edge": [
           [
-            "JTKDR",
-            "TGRNG"
+            "SUJYA",
+            "SVRNA"
           ],
           "CONNECTED_TO",
           null,
           2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "PSKBR",
-            "PSKMS"
-          ],
-          "CONNECTED_TO",
-          null,
-          1,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GJTGL",
-            "PSKBR"
-          ],
-          "CONNECTED_TO",
-          null,
-          1,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GJTGL",
-            "PSKMS"
-          ],
-          "CONNECTED_TO",
-          null,
-          1,
           false
         ],
         "count": 1
       }
     ],
     "removed_connections": [
-      {
-        "edge": [
-          [
-            "KIT_LTKNG",
-            "LTKNG"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GISPD",
-            "KIT_SNYAN"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "NSYAN",
-            "ULJMI"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "DNYSA",
-            "SNYAN"
-          ],
-          "CONNECTED_TO",
-          null,
-          1,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GISPD",
-            "SNYAN"
-          ],
-          "CONNECTED_TO",
-          null,
-          1,
-          true
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "DNYSA",
-            "GISPD"
-          ],
-          "CONNECTED_TO",
-          null,
-          1,
-          true
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "ABDGP",
-            "SNYAN"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
       {
         "edge": [
           [
@@ -411,8 +320,8 @@
       {
         "edge": [
           [
-            "DNYSA",
-            "MPANG"
+            "ABDGP",
+            "SNYAN"
           ],
           "CONNECTED_TO",
           null,
@@ -424,8 +333,8 @@
       {
         "edge": [
           [
-            "JTAKE",
-            "JTKBR"
+            "BLRJA",
+            "CKNDE"
           ],
           "CONNECTED_TO",
           null,
@@ -450,7 +359,7 @@
       {
         "edge": [
           [
-            "LTKNG",
+            "BLRJA",
             "SDJYA"
           ],
           "CONNECTED_TO",
@@ -463,8 +372,255 @@
       {
         "edge": [
           [
+            "CKBRU",
+            "CNKNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CKBRU",
+            "TGBRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CNKNG",
+            "DKSBI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DNYSA",
+            "GISPD"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DNYSA",
+            "MPANG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DNYSA",
+            "SNYAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GISPD",
+            "KIT_SNYAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GISPD",
+            "SNYAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GITET_KMBGN",
+            "KMBGN"
+          ],
+          "IBT_LINK",
+          "1",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GITET_KMBGN",
+            "KMBGN"
+          ],
+          "IBT_LINK",
+          "2",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GITET_NBRJA",
+            "NBRJA"
+          ],
+          "IBT_LINK",
+          "1",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GITET_NBRJA",
+            "NBRJA"
+          ],
+          "IBT_LINK",
+          "2",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GJTGL",
+            "PSKBR"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GJTGL",
+            "PSKMS"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTAKE",
+            "JTKBR"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTAKE",
+            "NCKUPA"
+          ],
+          "IBT_LINK",
+          "1",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTAKE",
+            "NCKUPA"
+          ],
+          "IBT_LINK",
+          "2",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTAKE",
+            "TGRNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "KIT_LTKNG",
+            "LTKNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
             "LTKNG",
-            "TLKNG2"
+            "SDJYA"
           ],
           "CONNECTED_TO",
           null,
@@ -502,8 +658,8 @@
       {
         "edge": [
           [
-            "BLRJA",
-            "CKNDE"
+            "LTKNG",
+            "TLKNG2"
           ],
           "CONNECTED_TO",
           null,
@@ -515,8 +671,34 @@
       {
         "edge": [
           [
-            "BLRJA",
-            "SDJYA"
+            "NSYAN",
+            "ULJMI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PSKBR",
+            "PSKMS"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PSKBR",
+            "SPTAN"
           ],
           "CONNECTED_TO",
           null,
@@ -541,21 +723,8 @@
       {
         "edge": [
           [
-            "TLKGA",
-            "TLKNG2"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "CKBRU",
-            "TGBRU"
+            "SPTAN",
+            "SPTAN2"
           ],
           "CONNECTED_TO",
           null,
@@ -580,188 +749,21 @@
       {
         "edge": [
           [
-            "CKBRU",
-            "CNKNG"
+            "TLKGA",
+            "TLKNG2"
           ],
           "CONNECTED_TO",
           null,
           2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "CNKNG",
-            "DKSBI"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "PSKBR",
-            "SPTAN"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "SPTAN",
-            "SPTAN2"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "PSKBR",
-            "PSKMS"
-          ],
-          "CONNECTED_TO",
-          null,
-          1,
-          true
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GJTGL",
-            "PSKBR"
-          ],
-          "CONNECTED_TO",
-          null,
-          1,
-          true
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GJTGL",
-            "PSKMS"
-          ],
-          "CONNECTED_TO",
-          null,
-          1,
-          true
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "JTAKE",
-            "TGRNG"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GITET_KMBGN",
-            "KMBGN"
-          ],
-          "IBT_LINK",
-          "1",
-          1,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GITET_KMBGN",
-            "KMBGN"
-          ],
-          "IBT_LINK",
-          "2",
-          1,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GITET_NBRJA",
-            "NBRJA"
-          ],
-          "IBT_LINK",
-          "1",
-          1,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GITET_NBRJA",
-            "NBRJA"
-          ],
-          "IBT_LINK",
-          "2",
-          1,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "JTAKE",
-            "NCKUPA"
-          ],
-          "IBT_LINK",
-          "1",
-          1,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "JTAKE",
-            "NCKUPA"
-          ],
-          "IBT_LINK",
-          "2",
-          1,
           false
         ],
         "count": 1
       }
     ],
     "added_nodes": [
+      "BSH",
       "CKDRU",
+      "CKNN?",
       "DADAP",
       "DLRA",
       "IIS",
@@ -780,16 +782,13 @@
       "GISPD",
       "GITET_KMBGN",
       "GITET_NBRJA",
-      "JTKBR",
       "KIT_LTKNG",
       "KIT_SNYAN",
       "LTKNG",
       "MPANG",
-      "NCKUPA",
       "PKTGN",
       "SDJYA",
       "SPTAN2",
-      "TGBRU3",
       "TLKNG2",
       "ULJMI"
     ],
@@ -797,7 +796,7 @@
   },
   "gucl": {
     "before": {
-      "file": "samples\\ss_gucl_ingest.xlsx",
+      "file": "git:8cdcfa3^:samples/ss_gucl_ingest.xlsx",
       "kind": "subsystem",
       "code": "SS_GUCL",
       "objects": 59,
@@ -821,16 +820,16 @@
       "ok": true
     },
     "after": {
-      "file": "samples\\ss_gucl_ingest.xlsx",
+      "file": "samples/ss_gucl_ingest.xlsx",
       "kind": "subsystem",
       "code": "SS_GUCL",
-      "objects": 56,
+      "objects": 60,
       "connections": 43,
       "risks": 7,
       "validation": {
         "ok": true,
         "problems": [],
-        "node_count": 56,
+        "node_count": 60,
         "edge_count": 43,
         "risk_count": 7
       },
@@ -838,26 +837,13 @@
         {
           "view_key": "SS_GUCL_FULL",
           "profile": "SUBSYSTEM_500_150",
-          "svg_bytes": 100948,
+          "svg_bytes": 104544,
           "geometry_errors": []
         }
       ],
       "ok": true
     },
     "added_connections": [
-      {
-        "edge": [
-          [
-            "LBUAN",
-            "MENES"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
       {
         "edge": [
           [
@@ -874,8 +860,8 @@
       {
         "edge": [
           [
-            "RKBRU",
-            "SKETI"
+            "GORDA",
+            "MDERN"
           ],
           "CONNECTED_TO",
           null,
@@ -900,6 +886,19 @@
       {
         "edge": [
           [
+            "LBUAN",
+            "MENES"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
             "MDERN",
             "PUCAM"
           ],
@@ -913,8 +912,8 @@
       {
         "edge": [
           [
-            "GORDA",
-            "MDERN"
+            "RKBRU",
+            "SKETI"
           ],
           "CONNECTED_TO",
           null,
@@ -928,112 +927,8 @@
       {
         "edge": [
           [
-            "CLBRU",
-            "MENES"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "CLBRU",
-            "LBUAN"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "CLGON",
-            "MITSUI"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "CLGON",
-            "MCOIS"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "MENES",
-            "RKBRU"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "MENES",
-            "SKETI"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "CASRI",
-            "SRANG"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
             "ANYER",
             "KSTEL"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GORDA",
-            "SRANG"
           ],
           "CONNECTED_TO",
           null,
@@ -1071,8 +966,112 @@
       {
         "edge": [
           [
+            "CASRI",
+            "SRANG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CLBRU",
+            "LBUAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CLBRU",
+            "MENES"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CLGON",
+            "MCOIS"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CLGON",
+            "MITSUI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GORDA",
+            "SRANG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
             "KOPO",
             "MDERN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "MENES",
+            "RKBRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "MENES",
+            "SKETI"
           ],
           "CONNECTED_TO",
           null,
@@ -1083,21 +1082,21 @@
       }
     ],
     "added_nodes": [
+      "BUNAR",
       "KTT_MCOIS",
-      "KTT_MITSUI"
+      "KTT_MITSUI",
+      "SARAN4"
     ],
     "removed_nodes": [
       "KOPO",
-      "KRACAK",
       "MCOIS",
-      "MITSUI",
-      "RGKOT"
+      "MITSUI"
     ],
     "dropped_edges": []
   },
   "prbc": {
     "before": {
-      "file": "samples\\ss_prbc_ingest.xlsx",
+      "file": "git:8cdcfa3^:samples/ss_prbc_ingest.xlsx",
       "kind": "subsystem",
       "code": "SS_PRBC",
       "objects": 60,
@@ -1133,24 +1132,24 @@
       "ok": true
     },
     "after": {
-      "file": "samples\\ss_prbc_ingest.xlsx",
+      "file": "samples/ss_prbc_ingest.xlsx",
       "kind": "subsystem",
       "code": "SS_PRBC",
-      "objects": 45,
-      "connections": 51,
+      "objects": 54,
+      "connections": 59,
       "risks": 0,
       "validation": {
         "ok": true,
         "problems": [],
-        "node_count": 45,
-        "edge_count": 51,
+        "node_count": 54,
+        "edge_count": 59,
         "risk_count": 0
       },
       "views": [
         {
           "view_key": "SS_PRBC_FULL",
           "profile": "SUBSYSTEM_500_150",
-          "svg_bytes": 111427,
+          "svg_bytes": 129475,
           "geometry_errors": []
         }
       ],
@@ -1160,8 +1159,8 @@
       {
         "edge": [
           [
-            "GDPLA",
-            "MGRAI"
+            "BKASI",
+            "RATER"
           ],
           "CONNECTED_TO",
           null,
@@ -1186,8 +1185,47 @@
       {
         "edge": [
           [
-            "BKASI",
-            "RATER"
+            "GDPLA",
+            "MGRAI"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "KIT_MKR_ST30",
+            "MKLMA"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "KIT_PRIOK_B12",
+            "PRBRT"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "KIT_PRIOK_B3",
+            "PRTRU"
           ],
           "CONNECTED_TO",
           null,
@@ -1215,19 +1253,6 @@
         "edge": [
           [
             "BKASI",
-            "RATER"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          true
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "BKASI",
             "MTWAR"
           ],
           "CONNECTED_TO",
@@ -1240,7 +1265,7 @@
       {
         "edge": [
           [
-            "PGLNG",
+            "BKASI",
             "RATER"
           ],
           "CONNECTED_TO",
@@ -1253,73 +1278,8 @@
       {
         "edge": [
           [
-            "KIT_PRIOK_B3",
-            "PRTRU"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "KIT_PRIOK_B12",
-            "PRBRT"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "KIT_MKR_ST30",
-            "MKLMA"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "PGSAN",
-            "PLMAS"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "MGBSR",
-            "MGRAI"
-          ],
-          "CONNECTED_TO",
-          null,
-          2,
-          false
-        ],
-        "count": 1
-      },
-      {
-        "edge": [
-          [
-            "GDPLA",
-            "MGRAI"
+            "CWANG",
+            "STBDI"
           ],
           "CONNECTED_TO",
           null,
@@ -1344,8 +1304,8 @@
       {
         "edge": [
           [
-            "CWANG",
-            "STBDI"
+            "GDPLA",
+            "MGRAI"
           ],
           "CONNECTED_TO",
           null,
@@ -1357,12 +1317,12 @@
       {
         "edge": [
           [
-            "BKASI",
-            "GITET_BKASI"
+            "KIT_MKR_ST30",
+            "MKLMA"
           ],
-          "IBT_LINK",
-          "2",
-          1,
+          "CONNECTED_TO",
+          null,
+          2,
           false
         ],
         "count": 1
@@ -1370,25 +1330,12 @@
       {
         "edge": [
           [
-            "BKASI",
-            "GITET_BKASI"
+            "KIT_PRIOK_B12",
+            "PRBRT"
           ],
-          "IBT_LINK",
-          "4",
-          1,
-          false
-        ],
-        "count": 2
-      },
-      {
-        "edge": [
-          [
-            "GITET_MTWAR",
-            "MTWAR"
-          ],
-          "IBT_LINK",
-          "1",
-          1,
+          "CONNECTED_TO",
+          null,
+          2,
           false
         ],
         "count": 1
@@ -1396,25 +1343,51 @@
       {
         "edge": [
           [
-            "GITET_MTWAR",
-            "MTWAR"
+            "KIT_PRIOK_B3",
+            "PRTRU"
           ],
-          "IBT_LINK",
-          "2",
-          1,
+          "CONNECTED_TO",
+          null,
+          2,
           false
         ],
-        "count": 2
+        "count": 1
       },
       {
         "edge": [
           [
-            "CWBRU",
-            "GITET_CWBRU"
+            "MGBSR",
+            "MGRAI"
           ],
-          "IBT_LINK",
-          "1",
-          1,
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PGLNG",
+            "RATER"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PGSAN",
+            "PLMAS"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
           false
         ],
         "count": 1
@@ -1423,20 +1396,11 @@
     "added_nodes": [],
     "removed_nodes": [
       "CWANG",
-      "GITET_BKASI",
-      "GITET_CWBRU",
-      "GITET_MTWAR",
       "KARET",
-      "KIT_MKR_ST30",
-      "KIT_PRIOK_B12",
-      "KIT_PRIOK_B3",
       "KTPNG",
       "KTT_TOSAN",
       "KTT_WRGL",
-      "MKRNG",
-      "PDKLP",
-      "SKTNI",
-      "SMRCN"
+      "MKRNG"
     ],
     "dropped_edges": []
   }

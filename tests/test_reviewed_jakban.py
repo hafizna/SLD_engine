@@ -23,13 +23,15 @@ def test_reviewed_regeneration_preserves_topology_and_full_membership(code, tmp_
     assert parsed["subsystem"]["code"] == code
     assert parsed["meta"]["dropped_edges"] == []
     assert parsed["risks"] == original["risks"]
-    # Only interpretation of the source's view prose may change.
-    def without_views(rows):
-        return [{k: v for k, v in row.items()
-                 if k not in {"view_keys", "bay_view_keys", "bay_appearances"}}
-                for row in rows]
-    assert without_views(parsed["objects"]) == without_views(original["objects"])
-    assert without_views(parsed["connections"]) == without_views(original["connections"])
+    # The reviewed workbook may add explicit source/stub evidence to the
+    # machine-readable sheets. Every row from the user's source must still be
+    # present, while the supplemental rows are checked below by code.
+    parsed_objects = {n["external_key"]: n for n in parsed["objects"]}
+    assert {n["external_key"] for n in original["objects"]} <= set(parsed_objects)
+    parsed_edges = {(e["from_external_key"], e["to_external_key"],
+                     e.get("relation_type", "CONNECTED_TO")) for e in parsed["connections"]}
+    assert {(e["from_external_key"], e["to_external_key"],
+             e.get("relation_type", "CONNECTED_TO")) for e in original["connections"]} <= parsed_edges
     assert all(not n["view_keys"] for n in parsed["objects"])
     assert all(not c["view_keys"] for c in parsed["connections"])
     engine = create_engine("sqlite://")
@@ -60,3 +62,35 @@ def test_gucl_reviewed_supply_relations():
         assert frozenset(pair) in pairs
     for pair in [("CLBRU", "MENES"), ("CLBRU", "LBUAN"), ("MENES", "SKETI")]:
         assert frozenset(pair) not in pairs
+
+
+def test_reviewed_boundary_evidence_is_explicit():
+    expected = {
+        "SS_LBK": {"NCKUPA": "CKUPA", "CKNN?": "DLRA", "TGBRU3": "SUJYA",
+                    "JTKBR": "JTAKE", "BSH": "CKDRU"},
+        "SS_GUCL": {"SARAN4": "SRANG", "RGKOT": "SARAN4", "BUNAR": "RGKOT",
+                     "KRACAK": "BUNAR"},
+        "SS_PRBC": {"PDKLP": "BKASI", "SKTNI": "BKASI", "SMRCN": "BKASI"},
+    }
+    for code, bays in expected.items():
+        path = ROOT / "samples" / f"{code.lower()}_ingest.xlsx"
+        parsed = parse_upload(path.read_bytes(), path.name)
+        actual = {n["external_key"]: n.get("bay_feeder_key")
+                  for n in parsed["objects"] if n.get("is_bay")}
+        assert {key: actual[key] for key in bays} == bays
+
+
+def test_reviewed_pbrc_generator_and_gitet_relations():
+    path = ROOT / "samples/ss_prbc_ingest.xlsx"
+    parsed = parse_upload(path.read_bytes(), path.name)
+    objects = {n["external_key"]: n for n in parsed["objects"]}
+    assert {"KIT_MKR_ST30", "KIT_PRIOK_B12", "KIT_PRIOK_B3"} <= set(objects)
+    assert {"GITET_BKASI", "GITET_MTWAR", "GITET_CWBRU"} <= set(objects)
+    pairs = {(e["from_external_key"], e["to_external_key"]) for e in parsed["connections"]}
+    assert {("KIT_MKR_ST30", "MKLMA"), ("KIT_PRIOK_B12", "PRBRT"),
+            ("KIT_PRIOK_B3", "PRTRU")} <= pairs
+    ibt = {(e["from_external_key"], e["to_external_key"], e["unit_no"])
+           for e in parsed["connections"] if e.get("relation_type") == "IBT_LINK"}
+    assert {("GITET_BKASI", "BKASI", "2"), ("GITET_BKASI", "BKASI", "4"),
+            ("GITET_MTWAR", "MTWAR", "1"), ("GITET_MTWAR", "MTWAR", "2"),
+            ("GITET_CWBRU", "CWBRU", "1")} <= ibt
