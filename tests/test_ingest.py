@@ -60,7 +60,7 @@ def test_muarakarang_both_views_render_without_geometry_errors():
 
 def test_prbc_three_views_preserve_multiple_continuations():
     from app.services.ingest_parser import parse_upload
-    path = SAMPLE_XLSX.parent / 'ss_prbc_ingest.xlsx'
+    path = Path(__file__).parent / 'fixtures/jakban_legacy/ss_prbc_ingest.xlsx'
     data = parse_upload(path.read_bytes(), path.name)
     assert {v['view_key'] for v in data['subsystem']['views']} == {'BEKASI', 'PRIOK', 'CAWANG'}
     ancol = next(e for e in data['connections'] if {e['from_external_key'],e['to_external_key']} == {'ANGKE','ANCOL'})
@@ -180,7 +180,8 @@ def test_zero_based_workbook_tiers_are_fully_converted(client):
 def test_lbk_template_preserves_single_phi_planned_ibt_and_view_scoped_boundary():
     from app.services.ingest_parser import parse_upload
 
-    payload = parse_upload(LBK_XLSX.read_bytes(), LBK_XLSX.name)
+    legacy = Path(__file__).parent / "fixtures/jakban_legacy/ss_lbk_ingest.xlsx"
+    payload = parse_upload(legacy.read_bytes(), legacy.name)
     single = {(c["from_external_key"], c["to_external_key"])
               for c in payload["connections"] if c.get("single_phi")}
     assert {("SNYAN", "GISPD"), ("GISPD", "DNYSA"),

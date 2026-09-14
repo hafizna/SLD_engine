@@ -1,0 +1,1443 @@
+{
+  "lbk": {
+    "before": {
+      "file": "samples\\ss_lbk_ingest.xlsx",
+      "kind": "subsystem",
+      "code": "SS_LBK",
+      "objects": 42,
+      "connections": 48,
+      "risks": 6,
+      "validation": {
+        "ok": true,
+        "problems": [],
+        "node_count": 42,
+        "edge_count": 48,
+        "risk_count": 6
+      },
+      "views": [
+        {
+          "view_key": "SS_LBK_KEMBANGAN",
+          "profile": "SUBSYSTEM_500_150",
+          "svg_bytes": 37371,
+          "geometry_errors": []
+        },
+        {
+          "view_key": "SS_LBK_BALARAJA",
+          "profile": "SUBSYSTEM_500_150",
+          "svg_bytes": 45914,
+          "geometry_errors": []
+        }
+      ],
+      "ok": true
+    },
+    "after": {
+      "file": "samples\\ss_lbk_ingest.xlsx",
+      "kind": "subsystem",
+      "code": "SS_LBK",
+      "objects": 31,
+      "connections": 32,
+      "risks": 0,
+      "validation": {
+        "ok": true,
+        "problems": [],
+        "node_count": 31,
+        "edge_count": 32,
+        "risk_count": 0
+      },
+      "views": [
+        {
+          "view_key": "SS_LBK_FULL",
+          "profile": "SUBSYSTEM_500_150",
+          "svg_bytes": 53735,
+          "geometry_errors": []
+        }
+      ],
+      "ok": true
+    },
+    "added_connections": [
+      {
+        "edge": [
+          [
+            "NSYAN",
+            "UUMI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DNYSA",
+            "SNYAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DLRA",
+            "NBRJA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "ILKNG",
+            "SUJYA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DADAP",
+            "ILKNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "ILKNG",
+            "TGBRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DLRA",
+            "SVRNA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "SUJYA",
+            "SVRNA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DADAP",
+            "TLKGA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CKDRU",
+            "TGBRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "IIS",
+            "TGBRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "SPTAR",
+            "TLKGA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PSKBR",
+            "SPTAR"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "SPTAN",
+            "SPTAR"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CKDRU",
+            "CNKNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTKDR",
+            "TGRNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PSKBR",
+            "PSKMS"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GJTGL",
+            "PSKBR"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GJTGL",
+            "PSKMS"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      }
+    ],
+    "removed_connections": [
+      {
+        "edge": [
+          [
+            "KIT_LTKNG",
+            "LTKNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GISPD",
+            "KIT_SNYAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "NSYAN",
+            "ULJMI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DNYSA",
+            "SNYAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GISPD",
+            "SNYAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DNYSA",
+            "GISPD"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "ABDGP",
+            "SNYAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "ABDGP",
+            "DNYSA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "DNYSA",
+            "MPANG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTAKE",
+            "JTKBR"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "BLRJA",
+            "NBRJA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "LTKNG",
+            "SDJYA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "LTKNG",
+            "TLKNG2"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "LTKNG",
+            "TGBRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "LTKNG",
+            "TGBRU3"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "BLRJA",
+            "CKNDE"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "BLRJA",
+            "SDJYA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "SDJYA",
+            "SVRNA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "TLKGA",
+            "TLKNG2"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CKBRU",
+            "TGBRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "SPTAN",
+            "TLKGA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CKBRU",
+            "CNKNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CNKNG",
+            "DKSBI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PSKBR",
+            "SPTAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "SPTAN",
+            "SPTAN2"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PSKBR",
+            "PSKMS"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GJTGL",
+            "PSKBR"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GJTGL",
+            "PSKMS"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTAKE",
+            "TGRNG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GITET_KMBGN",
+            "KMBGN"
+          ],
+          "IBT_LINK",
+          "1",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GITET_KMBGN",
+            "KMBGN"
+          ],
+          "IBT_LINK",
+          "2",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GITET_NBRJA",
+            "NBRJA"
+          ],
+          "IBT_LINK",
+          "1",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GITET_NBRJA",
+            "NBRJA"
+          ],
+          "IBT_LINK",
+          "2",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTAKE",
+            "NCKUPA"
+          ],
+          "IBT_LINK",
+          "1",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "JTAKE",
+            "NCKUPA"
+          ],
+          "IBT_LINK",
+          "2",
+          1,
+          false
+        ],
+        "count": 1
+      }
+    ],
+    "added_nodes": [
+      "CKDRU",
+      "DADAP",
+      "DLRA",
+      "IIS",
+      "ILKNG",
+      "JTKDR",
+      "SPTAR",
+      "SUJYA",
+      "UUMI"
+    ],
+    "removed_nodes": [
+      "ABDGP",
+      "BLRJA",
+      "CKBRU",
+      "CKNDE",
+      "DKSBI",
+      "GISPD",
+      "GITET_KMBGN",
+      "GITET_NBRJA",
+      "JTKBR",
+      "KIT_LTKNG",
+      "KIT_SNYAN",
+      "LTKNG",
+      "MPANG",
+      "NCKUPA",
+      "PKTGN",
+      "SDJYA",
+      "SPTAN2",
+      "TGBRU3",
+      "TLKNG2",
+      "ULJMI"
+    ],
+    "dropped_edges": []
+  },
+  "gucl": {
+    "before": {
+      "file": "samples\\ss_gucl_ingest.xlsx",
+      "kind": "subsystem",
+      "code": "SS_GUCL",
+      "objects": 59,
+      "connections": 49,
+      "risks": 7,
+      "validation": {
+        "ok": true,
+        "problems": [],
+        "node_count": 59,
+        "edge_count": 49,
+        "risk_count": 7
+      },
+      "views": [
+        {
+          "view_key": "SS_GUCL_FULL",
+          "profile": "SUBSYSTEM_500_150",
+          "svg_bytes": 122203,
+          "geometry_errors": []
+        }
+      ],
+      "ok": true
+    },
+    "after": {
+      "file": "samples\\ss_gucl_ingest.xlsx",
+      "kind": "subsystem",
+      "code": "SS_GUCL",
+      "objects": 56,
+      "connections": 43,
+      "risks": 7,
+      "validation": {
+        "ok": true,
+        "problems": [],
+        "node_count": 56,
+        "edge_count": 43,
+        "risk_count": 7
+      },
+      "views": [
+        {
+          "view_key": "SS_GUCL_FULL",
+          "profile": "SUBSYSTEM_500_150",
+          "svg_bytes": 100948,
+          "geometry_errors": []
+        }
+      ],
+      "ok": true
+    },
+    "added_connections": [
+      {
+        "edge": [
+          [
+            "LBUAN",
+            "MENES"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "ANYER",
+            "MENES"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "RKBRU",
+            "SKETI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "KRWTU",
+            "SRANG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "MDERN",
+            "PUCAM"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GORDA",
+            "MDERN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      }
+    ],
+    "removed_connections": [
+      {
+        "edge": [
+          [
+            "CLBRU",
+            "MENES"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CLBRU",
+            "LBUAN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CLGON",
+            "MITSUI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CLGON",
+            "MCOIS"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "MENES",
+            "RKBRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "MENES",
+            "SKETI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CASRI",
+            "SRANG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "ANYER",
+            "KSTEL"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GORDA",
+            "SRANG"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "BAROS",
+            "RGKOT"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "BLRJA",
+            "IKIAT"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "KOPO",
+            "MDERN"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      }
+    ],
+    "added_nodes": [
+      "KTT_MCOIS",
+      "KTT_MITSUI"
+    ],
+    "removed_nodes": [
+      "KOPO",
+      "KRACAK",
+      "MCOIS",
+      "MITSUI",
+      "RGKOT"
+    ],
+    "dropped_edges": []
+  },
+  "prbc": {
+    "before": {
+      "file": "samples\\ss_prbc_ingest.xlsx",
+      "kind": "subsystem",
+      "code": "SS_PRBC",
+      "objects": 60,
+      "connections": 65,
+      "risks": 7,
+      "validation": {
+        "ok": true,
+        "problems": [],
+        "node_count": 60,
+        "edge_count": 65,
+        "risk_count": 7
+      },
+      "views": [
+        {
+          "view_key": "SS_PRBC_BEKASI",
+          "profile": "SUBSYSTEM_500_150",
+          "svg_bytes": 47231,
+          "geometry_errors": []
+        },
+        {
+          "view_key": "SS_PRBC_PRIOK",
+          "profile": "SUBSYSTEM_500_150",
+          "svg_bytes": 54726,
+          "geometry_errors": []
+        },
+        {
+          "view_key": "SS_PRBC_CAWANG",
+          "profile": "SUBSYSTEM_500_150",
+          "svg_bytes": 24572,
+          "geometry_errors": []
+        }
+      ],
+      "ok": true
+    },
+    "after": {
+      "file": "samples\\ss_prbc_ingest.xlsx",
+      "kind": "subsystem",
+      "code": "SS_PRBC",
+      "objects": 45,
+      "connections": 51,
+      "risks": 0,
+      "validation": {
+        "ok": true,
+        "problems": [],
+        "node_count": 45,
+        "edge_count": 51,
+        "risk_count": 0
+      },
+      "views": [
+        {
+          "view_key": "SS_PRBC_FULL",
+          "profile": "SUBSYSTEM_500_150",
+          "svg_bytes": 111427,
+          "geometry_errors": []
+        }
+      ],
+      "ok": true
+    },
+    "added_connections": [
+      {
+        "edge": [
+          [
+            "GDPLA",
+            "MGRAI"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GDPLA",
+            "GMLMA"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "BKASI",
+            "RATER"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PGLNG",
+            "RATER"
+          ],
+          "CONNECTED_TO",
+          null,
+          1,
+          false
+        ],
+        "count": 1
+      }
+    ],
+    "removed_connections": [
+      {
+        "edge": [
+          [
+            "BKASI",
+            "RATER"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "BKASI",
+            "MTWAR"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PGLNG",
+            "RATER"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          true
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "KIT_PRIOK_B3",
+            "PRTRU"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "KIT_PRIOK_B12",
+            "PRBRT"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "KIT_MKR_ST30",
+            "MKLMA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "PGSAN",
+            "PLMAS"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "MGBSR",
+            "MGRAI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GDPLA",
+            "MGRAI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GDPLA",
+            "GMLMA"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "CWANG",
+            "STBDI"
+          ],
+          "CONNECTED_TO",
+          null,
+          2,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "BKASI",
+            "GITET_BKASI"
+          ],
+          "IBT_LINK",
+          "2",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "BKASI",
+            "GITET_BKASI"
+          ],
+          "IBT_LINK",
+          "4",
+          1,
+          false
+        ],
+        "count": 2
+      },
+      {
+        "edge": [
+          [
+            "GITET_MTWAR",
+            "MTWAR"
+          ],
+          "IBT_LINK",
+          "1",
+          1,
+          false
+        ],
+        "count": 1
+      },
+      {
+        "edge": [
+          [
+            "GITET_MTWAR",
+            "MTWAR"
+          ],
+          "IBT_LINK",
+          "2",
+          1,
+          false
+        ],
+        "count": 2
+      },
+      {
+        "edge": [
+          [
+            "CWBRU",
+            "GITET_CWBRU"
+          ],
+          "IBT_LINK",
+          "1",
+          1,
+          false
+        ],
+        "count": 1
+      }
+    ],
+    "added_nodes": [],
+    "removed_nodes": [
+      "CWANG",
+      "GITET_BKASI",
+      "GITET_CWBRU",
+      "GITET_MTWAR",
+      "KARET",
+      "KIT_MKR_ST30",
+      "KIT_PRIOK_B12",
+      "KIT_PRIOK_B3",
+      "KTPNG",
+      "KTT_TOSAN",
+      "KTT_WRGL",
+      "MKRNG",
+      "PDKLP",
+      "SKTNI",
+      "SMRCN"
+    ],
+    "dropped_edges": []
+  }
+}

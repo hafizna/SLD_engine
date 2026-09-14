@@ -1,6 +1,9 @@
 """samples/ss_lbk_ingest.xlsx  -- Subsistem Lontar - Balaraja 1,2 - Kembangan 1,2.
 
-Source: this is a REVERSE of the already-seeded, already-rendered
+CURRENT CLI: regenerates from samples/sources using _reviewed_jakban.py.
+The legacy SPEC below is retained as historical reference only.
+
+Legacy source: this is a REVERSE of the already-seeded, already-rendered
 `app/services/seed_ss_lbk.py` (Buku Kerawanan SJB 2026 Sec 2.5, SLD hal.69
 sisi Kembangan + hal.70 sisi Balaraja/Lontar + Tabel 2.3, 6 kerawanan) -- not
 a fresh trace from the PDF. seed_ss_lbk.py is the reviewed, live source of
@@ -275,4 +278,5 @@ SPEC = dict(
 )
 
 if __name__ == "__main__":
-    build_workbook(SPEC)
+    from _reviewed_jakban import build_reviewed
+    print(build_reviewed(SPEC["code"]))

@@ -1,6 +1,9 @@
 """samples/ss_prbc_ingest.xlsx  -- Subsistem Priok - Bekasi 2,4 - Cawang 1.
 
-Source: Buku Kerawanan SJB 2026 Sec 2.10 -- Gambar 2.9 (Peta Kerawanan, TWO SLD
+CURRENT CLI: regenerates from samples/sources using _reviewed_jakban.py.
+The legacy SPEC below is retained as historical reference only.
+
+Legacy source: Buku Kerawanan SJB 2026 Sec 2.10 -- Gambar 2.9 (Peta Kerawanan, TWO SLD
 pages, PDF p98) + Tabel 2.8 (7 titik kerawanan, PDF p99-101).
 
 Three panels on PDF p98 -> three analytical views:
@@ -320,4 +323,5 @@ SPEC = dict(
 )
 
 if __name__ == "__main__":
-    build_workbook(SPEC)
+    from _reviewed_jakban import build_reviewed
+    print(build_reviewed(SPEC["code"]))

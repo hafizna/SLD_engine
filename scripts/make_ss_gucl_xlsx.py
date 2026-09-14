@@ -1,6 +1,9 @@
 """samples/ss_gucl_ingest.xlsx  -- Subsistem GU Cilegon - Cilegon Baru 1,2,3 - Labuan.
 
-Source: Buku Kerawanan SJB 2026 Sec 2.4 -- Gambar 2.3 (Peta Kerawanan, PDF p82)
+CURRENT CLI: regenerates from samples/sources using _reviewed_jakban.py.
+The legacy SPEC below is retained as historical reference only.
+
+Legacy source: Buku Kerawanan SJB 2026 Sec 2.4 -- Gambar 2.3 (Peta Kerawanan, PDF p82)
 + Tabel 2.2 (7 titik kerawanan, PDF p82-84).
 
 Large 150 kV subsystem (~8 Tier bands). One 500 kV injection point:
@@ -261,4 +264,5 @@ SPEC = dict(
 )
 
 if __name__ == "__main__":
-    build_workbook(SPEC)
+    from _reviewed_jakban import build_reviewed
+    print(build_reviewed(SPEC["code"]))
