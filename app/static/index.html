@@ -711,6 +711,9 @@ const SYSTEMS = {
     regionTerm: 'UP2B', regionWord: 'UP2B', regionsLabel: 'Wilayah UP2B',
     regionFull: {},
     regionMapHeight: '',          // the stylesheet's wide strip suits Jawa
+    // Smallest window (degrees) a region's subsystem map zooms to; one SS
+    // alone would otherwise shrink it to a point.
+    subsystemMinSpan: 0.9,
     // Approximate centre of each UP2B's service area - these label the
     // island, they are not derived from the fixtures, so the pins stay put
     // even before any subsystem for that region exists.
@@ -740,6 +743,9 @@ const SYSTEMS = {
     },
     // Sumatera stands tall where Jawa lies long: give its map height.
     regionMapHeight: 'clamp(320px, 58vh, 600px)',
+    // Sumbagteng is one SS in the middle of the island: 0.9 deg around it is
+    // all land and no coast, so the map read as empty.
+    subsystemMinSpan: 4.0,
     // The deck's own three subsystems (slide 2). Rough centres, labelling the
     // island only.
     regionAt: {
@@ -1118,7 +1124,7 @@ function drawSubsystemMap(key, host, region){
   // Zoom to this region's own subsystems, keeping the coastline in the same
   // projection so the dots visibly sit on their part of the island.
   const view = fitView(withPos.map(s => s.anchor.lon), withPos.map(s => s.anchor.lat),
-                       W, H, 0.35, 0.9);
+                       W, H, 0.35, cfg.subsystemMinSpan || 0.9);
   const proj = makeProjection(view, W, H, {l:34, r:34, t:24, b:28});
   drawCoast(key, host, proj, W, H);
 

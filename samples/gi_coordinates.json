@@ -62,6 +62,12 @@
         "scope": "SS_SUMBAGTENG (Sistem Sumatera)",
         "source": "OpenStreetMap via Overpass API (maps.mail.ru mirror; per-province boxes, the one-box query timed out)",
         "note": "same matching rules as above, and only 150/275/500 kV OSM stations: Chevron's 115/44 kV 'Gardu Induk Bangko' (Rokan) must not stand in for GITET Bangko (Jambi). 'GITET New Payakumbuh' NOT matched (qualifier); 'Siak Sri Indrapura' and 'Kawasan Industri Dumai' NOT matched to SIAK / KID (different names)."
+      },
+      {
+        "generated": "2026-09-24",
+        "scope": "SS_LAMPUNG and the Palembang area of SS_SUMSEL (Sistem Sumatera)",
+        "source": "OpenStreetMap via Overpass API (maps.mail.ru mirror)",
+        "note": "same matching rules; only 150/275/500 kV OSM stations; a PLT* station never takes the point of the GI/GITET of the same name (PLTP Lumut Balai vs GITET Lumut Balai). Keramasan is stored as KRSAN@SUMATERA -- KRSAN is Kraksaan (Jawa Timur), the engine's own split."
       }
     ]
   },
@@ -4386,6 +4392,328 @@
       "match_score": 1.0,
       "lat": -1.15773,
       "lon": 103.09212
+    },
+    "GMWNG_275": {
+      "name": "GITET Gumawang (275 kV)",
+      "osm_name": "GITET Gumawang",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.05389,
+      "lon": 104.78333,
+      "shares_point_with": [
+        "GMWNG"
+      ]
+    },
+    "GMWNG": {
+      "name": "Gumawang (bus 150 kV)",
+      "osm_name": "GITET Gumawang",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.05389,
+      "lon": 104.78333,
+      "shares_point_with": [
+        "GMWNG_275"
+      ]
+    },
+    "TRHAN": {
+      "name": "Tarahan",
+      "osm_name": "Gardu Induk Tarahan",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.5182,
+      "lon": 105.35016
+    },
+    "BKMNG": {
+      "name": "Bukit Kemuning",
+      "osm_name": "Gardu Induk Bukit Kemuning",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.83187,
+      "lon": 104.57646
+    },
+    "PGLRN": {
+      "name": "Pagelaran",
+      "osm_name": "Gardu Induk Pagelaran",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.36943,
+      "lon": 104.93085
+    },
+    "KGUNG": {
+      "name": "Kota Agung",
+      "osm_name": "Gardu Induk Kota Agung",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.49863,
+      "lon": 104.65482
+    },
+    "STAMI@SUMATERA": {
+      "name": "Sutami",
+      "osm_name": "Gardu Induk Sutami",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.39054,
+      "lon": 105.37714
+    },
+    "SRBWN": {
+      "name": "Sribawono",
+      "osm_name": "Gardu Induk Sribawono",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.31221,
+      "lon": 105.71485
+    },
+    "SDMLY": {
+      "name": "Sidomulyo",
+      "osm_name": "Gardu Induk Sidomulyo",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.58259,
+      "lon": 105.49448
+    },
+    "MSUJI": {
+      "name": "Mesuji",
+      "osm_name": "Gardu Induk Mesuji",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.01988,
+      "lon": 105.26375
+    },
+    "BLMPU": {
+      "name": "Blambangan Umpu",
+      "osm_name": "Gardu Induk Blambangan Umpu",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.58312,
+      "lon": 104.49531
+    },
+    "LIWA": {
+      "name": "Liwa",
+      "osm_name": "Gardu Induk Liwa",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.01864,
+      "lon": 104.1665
+    },
+    "KTBMI": {
+      "name": "Kotabumi",
+      "osm_name": "Gardu Induk Kotabumi",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.85143,
+      "lon": 104.8629
+    },
+    "TGNNG": {
+      "name": "Tegineneng",
+      "osm_name": "Gardu Induk Tegineneng",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.18461,
+      "lon": 105.17406
+    },
+    "METRO": {
+      "name": "Metro",
+      "osm_name": "Gardu Induk Metro",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.14953,
+      "lon": 105.32626
+    },
+    "SRAME": {
+      "name": "Sukarame",
+      "osm_name": "Gardu Induk Sukarame",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.36227,
+      "lon": 105.3057
+    },
+    "SPBYK": {
+      "name": "Seputih Banyak",
+      "osm_name": "Gardu Induk Seputih Banyak",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.88349,
+      "lon": 105.50831
+    },
+    "KLNDA": {
+      "name": "Kalianda",
+      "osm_name": "Gardu Induk Kalianda",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.72337,
+      "lon": 105.62643
+    },
+    "MNGLA": {
+      "name": "Menggala",
+      "osm_name": "Gardu Induk Menggala",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.50994,
+      "lon": 105.20094
+    },
+    "ADJYA": {
+      "name": "Adijaya",
+      "osm_name": "Gardu Induk Adijaya",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.93784,
+      "lon": 105.18879
+    },
+    "NATAR": {
+      "name": "Natar",
+      "osm_name": "Gardu Induk Natar",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.33493,
+      "lon": 105.20529
+    },
+    "JTAGG": {
+      "name": "Jati Agung",
+      "osm_name": "Gardu Induk Jati Agung",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.30793,
+      "lon": 105.38195
+    },
+    "KTAPG": {
+      "name": "Ketapang",
+      "osm_name": "Gardu Induk Ketapang",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.7277,
+      "lon": 105.78124
+    },
+    "DTLDS": {
+      "name": "Dente Teladas",
+      "osm_name": "Gardu Induk Dente Teladas",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.46902,
+      "lon": 105.81815
+    },
+    "LKPURA": {
+      "name": "Langkapura",
+      "osm_name": "Gardu Induk Langkapura",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.40781,
+      "lon": 105.19382
+    },
+    "TLBTG": {
+      "name": "Teluk Betung",
+      "osm_name": "Gardu Induk Teluk Betung",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -5.43969,
+      "lon": 105.25368
+    },
+    "KRSAN@SUMATERA": {
+      "name": "Keramasan (bus 150 kV)",
+      "osm_name": "Gardu Induk Keramasan",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -3.03337,
+      "lon": 104.74507,
+      "shares_point_with": [
+        "KRSAN_70"
+      ]
+    },
+    "BRANG": {
+      "name": "Borang (bus 150 kV)",
+      "osm_name": "Gardu Induk Borang",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -2.92428,
+      "lon": 104.87154,
+      "shares_point_with": [
+        "BRANG_70"
+      ]
+    },
+    "TLKLP": {
+      "name": "Talang Kelapa",
+      "osm_name": "Gardu Induk Talang Kelapa",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -2.92793,
+      "lon": 104.64703
+    },
+    "GNDUS": {
+      "name": "Gandus",
+      "osm_name": "Gardu Induk Gandus",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -2.97566,
+      "lon": 104.69472
+    },
+    "KNTEN": {
+      "name": "Kenten",
+      "osm_name": "Gardu Induk Kenten",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -2.88386,
+      "lon": 104.73874
+    },
+    "MRINA": {
+      "name": "Mariana",
+      "osm_name": "Gardu Induk Mariana",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -2.94947,
+      "lon": 104.89627
+    },
+    "TJAPI": {
+      "name": "Tanjung Api-Api",
+      "osm_name": "Gardu Induk Tanjung Api-Api",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -2.42743,
+      "lon": 104.81794
+    },
+    "KYANG": {
+      "name": "Kayu Agung",
+      "osm_name": "Gardu Induk Kayu Agung",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -3.39147,
+      "lon": 104.86415
+    },
+    "MPURA": {
+      "name": "Martapura",
+      "osm_name": "Gardu Induk Martapura",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -4.37878,
+      "lon": 104.35816
+    },
+    "KRSAN_70": {
+      "name": "Keramasan (bus 70 kV)",
+      "osm_name": "Gardu Induk Keramasan",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -3.03337,
+      "lon": 104.74507,
+      "shares_point_with": [
+        "KRSAN@SUMATERA"
+      ]
+    },
+    "BRANG_70": {
+      "name": "Borang (bus 70 kV)",
+      "osm_name": "Gardu Induk Borang",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -2.92428,
+      "lon": 104.87154,
+      "shares_point_with": [
+        "BRANG"
+      ]
+    },
+    "SKDKN": {
+      "name": "Sungai Kedukan",
+      "osm_name": "Gardu Induk Sungai Kedukan",
+      "confidence": "strong",
+      "match_score": 1.0,
+      "lat": -3.01744,
+      "lon": 104.83364
     }
   },
   "unmatched": [
@@ -4587,7 +4915,6 @@
     "RJMDL",
     "RJPSI",
     "RKBRU",
-    "SALAK",
     "SAMBAS",
     "SAMSIK",
     "SBGAN",
@@ -4650,7 +4977,6 @@
     "ARPTH",
     "TES",
     "KTAUN",
-    "BRANG",
     "AGPBRANG",
     "SPTGA",
     "GUMEG",
@@ -4661,25 +4987,14 @@
     "SBING",
     "BSARI",
     "KBANG",
-    "TLKLP",
-    "GNDUS",
     "NJBRG",
-    "KNTEN",
-    "MRINA",
     "PBLIH",
     "EPLWG",
     "KOBAR",
     "KOTIM",
-    "TJAPI",
-    "KYANG",
     "SMBTRJA",
-    "MPURA",
-    "GMWNG",
-    "KRSAN_70",
     "SJARO",
-    "BRANG_70",
     "BGRAN",
-    "SKDKN",
     "BKSGT",
     "SDPTH",
     "TRATU",
@@ -4707,6 +5022,16 @@
     "PYSLC",
     "MRNGN",
     "MTEBO",
-    "SPNUH"
+    "SPNUH",
+    "BESAI",
+    "ULBLU34",
+    "ULBLU12",
+    "BTEGI",
+    "SMGKA",
+    "NTRHN",
+    "SBLNG",
+    "TRAYA",
+    "DPSNA",
+    "LPUG1"
   ]
 }
