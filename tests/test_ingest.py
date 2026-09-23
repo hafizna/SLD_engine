@@ -58,6 +58,114 @@ def test_muarakarang_both_views_render_without_geometry_errors():
     assert len(result['views']) == 2
 
 
+def test_step_down_bus_feeding_a_lower_tier_routes_clean():
+    """Bengkulu's Pekalongan 70 sits level with its 150 kV bus in the deck and
+    still feeds Sukamerindu on Tier-3. The router used to find no channel for
+    that line, and a fractional bus y printed 0.1 px off its wires' ends."""
+    from scripts.audit_sample_workbooks import audit_one
+    path = SAMPLE_XLSX.parent / 'ss_bengkulu_ingest.xlsx'
+    result = audit_one(path)
+    assert result['ok'], result
+
+    from app.services.ingest_parser import parse_upload
+    payload = parse_upload(path.read_bytes(), path.name)
+    by_seq = {r['seq_no']: r for r in payload['risks']}
+    # Multi Pin = Ya: risk #1 names two ruas, #3 three, #4 two ruas + two GIs
+    assert len(by_seq[1]['extra_pins']) == 1
+    assert len(by_seq[3]['extra_pins']) == 2
+    assert len(by_seq[4]['extra_pins']) == 3
+
+
+def test_sumsel_draws_its_ibt_only_source_and_routes_past_offset_step_downs(client):
+    """Two things Sumsel exposed. Sungai Lilin's 150 kV bus is fed only by its
+    IBT (its SUTET lives on the backbone sheet); it used to be filed as a 'bay'
+    of its own GITET and both vanished. And an offset 150/70 chain's obstacle
+    ran from the HV row down, sealing the exit of PLTU Sumbagsel-1, which sits
+    above the pushed Palembang 70 kV bus -- the router found no channel."""
+    path = SAMPLE_XLSX.parent / 'ss_sumsel_ingest.xlsx'
+    r = client.post("/api/ingest/parse-file", files={"file": (path.name, path.read_bytes(),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+    assert r.status_code == 200, r.text
+    draft = r.json()
+    for n in draft["nodes"]:
+        n["resolution"] = "NEW"
+    published = client.post('/api/ingest/publish', json={
+        'draft': draft, 'subsystem_code': 'SS_SUMSEL', 'subsystem_name': 'Sumsel'})
+    assert published.status_code == 200, published.text
+    view = next(v for v in client.get('/api/views').json() if v['view_key'] == 'SS_SUMSEL_FULL')
+    svg = client.get(f"/api/views/{view['id']}/sld.svg").text
+    assert 'data-code="SGLIN"' in svg and 'data-code="SGLIN_275"' in svg
+    assert 'TIDAK masuk gambar utama' not in svg
+    from tests.test_sld_geometry import geometry_errors
+    assert geometry_errors(svg) == []
+
+
+def test_sumbagteng_stacks_500_275_150_and_lifts_the_sutet_arrows(client):
+    """New Aurduri and Perawang step 500 -> 275 -> 150 kV through two IBTs.
+    The GITET placer ran one pass, so the 500 kV bar -- whose LV side is itself
+    a GITET -- never got a position and the view failed to render. And a bay on
+    a GITET (the SUTET arrow to Muara Enim) hung down into the IBT chain; it
+    now leaves from the top of the bar."""
+    import re
+    path = SAMPLE_XLSX.parent / 'ss_sumbagteng_ingest.xlsx'
+    r = client.post("/api/ingest/parse-file", files={"file": (path.name, path.read_bytes(),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+    assert r.status_code == 200, r.text
+    draft = r.json()
+    for n in draft["nodes"]:
+        n["resolution"] = "NEW"
+    published = client.post('/api/ingest/publish', json={
+        'draft': draft, 'subsystem_code': 'SS_SUMBAGTENG', 'subsystem_name': 'Sumbagteng'})
+    assert published.status_code == 200, published.text
+    from tests.test_sld_geometry import geometry_errors
+    views = {v['view_key']: v for v in client.get('/api/views').json()}
+    for side in ('RIAU', 'SUMBAR', 'JAMBI'):
+        svg = client.get(f"/api/views/{views[f'SS_SUMBAGTENG_{side}']['id']}/sld.svg").text
+        assert geometry_errors(svg) == [], side
+    svg = client.get(f"/api/views/{views['SS_SUMBAGTENG_JAMBI']['id']}/sld.svg").text
+
+    def bus_y(code):
+        m = re.search(rf'class="sld-node" data-node-kind="SUBSTATION" data-node-id="\d+" '
+                      rf'data-code="{code}" data-x="[\d.]+" data-y="([\d.]+)"', svg)
+        assert m, code
+        return float(m.group(1))
+    assert bus_y('NAURD_500') < bus_y('NAURD_275') < bus_y('NAURD')
+    arrow = re.search(r'class="sld-bay"[^>]*data-code="MENIM_500".*?d="M[\d.]+,([\d.]+) V([\d.]+)"',
+                      svg, re.S)
+    assert arrow and float(arrow.group(2)) < float(arrow.group(1))
+
+
+def test_same_short_code_on_two_islands_stays_two_substations(client):
+    """KRSAN is Kraksaan in Jawa Timur (SS Paiton 1,2,3) and Keramasan in
+    Sumsel; both 150 kV. Ingest used to reuse the first one it met, so the two
+    became one node. A node held only by another system's subsystems is now a
+    different site: Sumsel gets KRSAN@SUMATERA, drawn as plain KRSAN."""
+    def publish(name, code):
+        path = SAMPLE_XLSX.parent / name
+        r = client.post("/api/ingest/parse-file", files={"file": (path.name, path.read_bytes(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+        assert r.status_code == 200, r.text
+        draft = r.json()
+        for n in draft["nodes"]:
+            n["resolution"] = "NEW"
+            n["canonical_id"] = None
+        r = client.post('/api/ingest/publish', json={
+            'draft': draft, 'subsystem_code': code, 'subsystem_name': code})
+        assert r.status_code == 200, r.text
+
+    publish('ss_paiton123_ingest.xlsx', 'SS_PAITON123')
+    publish('ss_sumsel_ingest.xlsx', 'SS_SUMSEL')
+    views = {v['view_key']: v['id'] for v in client.get('/api/views').json()}
+    paiton = client.get(f"/api/views/{views['SS_PAITON123_FULL']}/graph").json()
+    sumsel = client.get(f"/api/views/{views['SS_SUMSEL_FULL']}/graph").json()
+    kraksaan = next(n for n in paiton['nodes'] if n.get('code') == 'KRSAN')
+    keramasan = next(n for n in sumsel['nodes'] if n.get('code') == 'KRSAN@SUMATERA')
+    assert kraksaan['id'] != keramasan['id']
+    assert 'Keramasan' in keramasan['name'] and 'Kraksaan' in kraksaan['name']
+    svg = client.get(f"/api/views/{views['SS_SUMSEL_FULL']}/sld.svg").text
+    assert '>KRSAN<' in svg and 'KRSAN@SUMATERA<' not in svg
+
+
 def test_prbc_three_views_preserve_multiple_continuations():
     from app.services.ingest_parser import parse_upload
     path = Path(__file__).parent / 'fixtures/jakban_legacy/ss_prbc_ingest.xlsx'
@@ -405,6 +513,35 @@ def test_publish_refuses_duplicate_subsystem(client):
     assert "sudah ada" in r2.json()["detail"]
 
 
+def test_same_site_code_at_different_voltages_materialises_as_distinct_buses(client):
+    def publish(code, kv, peer):
+        payload = {
+            "subsystem": {"code": code, "name": code},
+            "objects": [
+                {"external_key": "CURUG", "object_type": "GI", "raw_label": "Curug",
+                 "site_name": "Curug", "voltage_hv_kv": kv, "tier_hint": 1},
+                {"external_key": peer, "object_type": "GI", "raw_label": peer,
+                 "voltage_hv_kv": kv, "tier_hint": 2},
+            ],
+            "connections": [{"from_external_key": "CURUG", "to_external_key": peer,
+                             "voltage_hv_kv": kv}],
+            "risks": [],
+        }
+        draft = client.post("/api/ingest/parse", json=payload).json()
+        response = client.post("/api/ingest/publish", json={
+            "draft": draft, "subsystem_code": code, "subsystem_name": code})
+        assert response.status_code == 200, response.text
+        return response.json()["view_id"]
+
+    publish("SS_CURUG150", 150, "PEER150")
+    view70 = publish("SS_CURUG70", 70, "PEER70")
+    graph = client.get(f"/api/views/{view70}/graph").json()
+    curug = next(n for n in graph["nodes"] if n["kind"] == "SUBSTATION"
+                 and n["name"] == "Curug")
+    assert curug["code"] == "CURUG_70KV"
+    assert curug["voltage_kv"] == 70
+
+
 def test_publish_refuses_invalid_draft(client):
     d = _draft(client)
     for n in d["nodes"]:
@@ -470,6 +607,61 @@ def test_negative_symbol_count_is_not_published(client):
     assert any('jumlah simbol' in p for p in result['problems'])
 
 
+def test_line_voltage_reaches_read_only_audit(monkeypatch):
+    import openpyxl
+    from app.services.ingest_parser import parse_xlsx
+
+    class Sheet:
+        def __init__(self, rows): self.rows = rows
+        def iter_rows(self, values_only=True): return iter(self.rows)
+    class Book(dict):
+        @property
+        def sheetnames(self): return list(self)
+
+    book = Book({
+        'Info': Sheet([('Kode Subsistem', 'SS_VOLT'), ('Nama Subsistem', 'Voltage audit')]),
+        'Gardu_Induk_dan_Aset': Sheet([
+            ('Kode', 'Tipe', 'Tier', 'Tegangan'),
+            ('A', 'Busbar GI', 1, '150 kV'), ('B', 'Busbar GI', 2, '150 kV')]),
+        'Jalur_Transmisi': Sheet([
+            ('Dari GI', 'Ke GI', 'Tegangan', 'Jumlah Sirkit'),
+            ('A', 'B', '20 kV', 1)]),
+    })
+    monkeypatch.setattr(openpyxl, 'load_workbook', lambda *a, **kw: book)
+    payload = parse_xlsx(b'', 'voltage.xlsx')
+    assert payload['connections'][0]['voltage_hv_kv'] == 20
+    from pathlib import Path
+    from scripts.audit_voltage_consistency import audit_payloads
+    findings = audit_payloads([(Path('voltage.xlsx'), payload)])
+    assert any(f['rule'] == 'LINE_BUS_VOLTAGE_MISMATCH' for f in findings)
+
+
+def test_voltage_audit_finds_cross_workbook_collision_and_orphan_generator():
+    from pathlib import Path
+    from scripts.audit_voltage_consistency import audit_payloads
+
+    def payload(code, kv, generator=False):
+        objects = [{
+            'external_key': 'CURUG', 'object_type': 'GI', 'raw_label': 'Curug',
+            'site_name': 'Curug', 'voltage_hv_kv': kv,
+        }]
+        if generator:
+            objects.append({
+                'external_key': 'KIT_X', 'object_type': 'GENERATING_UNIT',
+                'raw_label': 'PLTA X', 'site_name': 'PLTA X',
+                'voltage_hv_kv': 11, 'outlet_key': None,
+            })
+        return {'subsystem': {'code': code}, 'objects': objects, 'connections': []}
+
+    findings = audit_payloads([
+        (Path('a.xlsx'), payload('SS_A', 150, generator=True)),
+        (Path('b.xlsx'), payload('SS_B', 70)),
+    ])
+    rules = {f['rule'] for f in findings}
+    assert 'CROSS_WORKBOOK_CODE_VOLTAGE_COLLISION' in rules
+    assert 'GENERATOR_WITHOUT_OUTLET' in rules
+
+
 def test_multiview_500kv_and_multi_risk_tags_publish(client, monkeypatch):
     import openpyxl
     from app.services.ingest_parser import parse_xlsx
@@ -523,3 +715,72 @@ def test_multiview_500kv_and_multi_risk_tags_publish(client, monkeypatch):
     assert {n['code'] for n in g3['nodes']} == {'A', 'Z'}
     assert next(n['id'] for n in g1['nodes'] if n['code'] == 'A') == next(
         n['id'] for n in g3['nodes'] if n['code'] == 'A')
+
+
+def test_one_risk_number_on_several_objects_pins_each_of_them(client, monkeypatch):
+    """The book draws one numbered starburst on every object a finding sits on.
+    In a sheet that opts in with "Multi Pin = Ya", a number written on several
+    objects keeps them all: the last one written stays the primary (what a
+    single-pin risk always resolved to), the rest become extra pins, and the
+    SLD marks each one. Without the flag the sheet keeps its single pin."""
+    import openpyxl
+    from app.services.ingest_parser import parse_xlsx
+
+    class Sheet:
+        def __init__(self, rows): self.rows = rows
+        def iter_rows(self, values_only=True): return iter(self.rows)
+    class Book(dict):
+        @property
+        def sheetnames(self): return list(self)
+
+    info = [('Kode Subsistem', 'SS_MULTIPIN'), ('Nama Subsistem', 'Multi pin')]
+    book = Book({
+        'Info': Sheet(info),
+        'Gardu_Induk_dan_Aset': Sheet([
+            ('Kode', 'Tipe', 'Tier', 'Tegangan', 'Bus HV', 'Bus LV', 'No IBT', 'No Kerawanan'),
+            ('G', 'Busbar GITET', 1, '500 kV', None, None, None, None),
+            ('IBT 1 G', 'IBT 3-Winding', 2, '500/150 kV', 'G', 'A', 1, 3),
+            ('IBT 2 G', 'IBT 3-Winding', 2, '500/150 kV', 'G', 'A', 2, 3),
+            ('A', 'Busbar GI', 1, '150 kV', None, None, None, None),
+            ('B', 'Busbar GI', 2, '150 kV', None, None, None, 2),
+            ('C', 'Busbar GI', 3, '150 kV', None, None, None, 1)]),
+        'Jalur_Transmisi': Sheet([
+            ('Dari GI', 'Ke GI', 'Jumlah Sirkit', 'No Kerawanan'),
+            ('A', 'B', 2, 1), ('B', 'C', 1, 1)]),
+        'Data_Kerawanan_Detail': Sheet([
+            ('No', 'Kondisi / Permasalahan'),
+            (1, 'Radial A - B - C'), (2, 'Only at B'), (3, 'IBT 1,2 G')]),
+    })
+    monkeypatch.setattr(openpyxl, 'load_workbook', lambda *a, **kw: book)
+    # without the flag: same primary, no extra pins (the Jamali sheets)
+    single = {r['seq_no']: r for r in parse_xlsx(b'', 'multipin.xlsx')['risks']}
+    assert (single[1]['pin_kind'], single[1]['pin_key']) == ('CIRCUIT', 'B-C')
+    assert all(r['extra_pins'] == [] for r in single.values())
+
+    info.append(('Multi Pin', 'Ya'))
+    payload = parse_xlsx(b'', 'multipin.xlsx')
+    by_seq = {r['seq_no']: r for r in payload['risks']}
+    assert (by_seq[1]['pin_kind'], by_seq[1]['pin_key']) == ('CIRCUIT', 'B-C')
+    assert by_seq[1]['extra_pins'] == [['SUBSTATION', 'C'], ['CIRCUIT', 'A-B']]
+    assert by_seq[2]['extra_pins'] == []
+    assert (by_seq[3]['pin_kind'], by_seq[3]['pin_key']) == ('TRANSFORMER', 'G:2')
+    assert by_seq[3]['extra_pins'] == [['TRANSFORMER', 'G:1']]
+
+    draft = client.post('/api/ingest/parse', json={'payload': payload}).json()
+    assert draft['validation']['ok'], draft['validation']['problems']
+    published = client.post('/api/ingest/publish', json={
+        'draft': draft, 'subsystem_code': 'SS_MULTIPIN', 'subsystem_name': 'Multi pin'})
+    assert published.status_code == 200, published.text
+
+    view = next(v for v in client.get('/api/views').json() if v['view_key'].startswith('SS_MULTIPIN'))
+    graph = client.get(f"/api/views/{view['id']}/graph").json()
+    risks = {r['seq_no']: r for r in graph['overlays']['risk']}
+    assert sorted(a['attach_label'] for a in risks[1]['attachments']) == ['A-B', 'C']
+    assert [a['attach_label'] for a in risks[3]['attachments']] == ['G:1']
+
+    svg = ET.fromstring(client.get(f"/api/views/{view['id']}/sld.svg").text)
+    pins = [g.get('data-risk-seqs') for g in svg.iter('{http://www.w3.org/2000/svg}g')
+            if g.get('class') == 'risk-pin']
+    # risk 1 on C, A-B and B-C; IBT 1 and 2 share one spot, so one pin for #3
+    assert sum('1' in (s or '').split(',') for s in pins) == 3
+    assert sum('3' in (s or '').split(',') for s in pins) == 1

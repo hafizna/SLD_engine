@@ -35,6 +35,7 @@ from app.models import (
     Circuit,
     GeneratingUnit,
     ObservedObject,
+    RiskAttachment,
     RiskRecord,
     SourceDocument,
     Substation,
@@ -47,6 +48,7 @@ from app.models import (
 )
 from app.services.reconciliation import classify, find_candidates
 from app.services.sld_renderer import render_view_svg
+from app.services.systems import system_of_apb
 from app.services.sld_symbols import symbol_note, symbol_count
 
 _LIVE = {"ENERGIZED", "DE_ENERGIZED", "OWNED_BY_CUSTOMER"}
@@ -220,7 +222,8 @@ _ALLOWED_EDGE = {"from_key", "to_key", "relation_type", "circuit_type_hint",
                  "status_hint", "circuit_count", "unit_no", "confidence",
                  "confirmed", "note", "view_keys", "single_phi"}
 _ALLOWED_RISK = {"seq_no", "uit", "category", "priority", "title", "condition",
-                 "impact", "mitigation", "follow_up", "pin_kind", "pin_key"}
+                 "impact", "mitigation", "follow_up", "pin_kind", "pin_key",
+                 "extra_pins"}
 
 
 def _clean(draft: dict) -> dict:
@@ -342,6 +345,10 @@ def validate(db: Session, draft: dict) -> dict:
                 f"kerawanan #{r.get('seq_no')}: "
                 + ("belum ditautkan ke objek" if not r.get("pin_key")
                    else f"tautan '{r.get('pin_key')}' tidak cocok objek mana pun"))
+        for kind, key in _extra_pins(r):
+            if not _resolve_pin(kind, key, keys):
+                problems.append(f"kerawanan #{r.get('seq_no')}: tautan tambahan "
+                                f"'{key}' tidak cocok objek mana pun")
 
     return {"ok": not problems, "problems": problems,
             "node_count": len(nodes), "edge_count": len(edges),
@@ -361,6 +368,22 @@ def _resolve_pin(kind: str | None, key: str | None, keys: set[str]):
         gk = key.partition(":")[0]
         return ("TRANSFORMER", key) if gk in keys else None
     return ("SUBSTATION", key) if key in keys else None
+
+
+def _extra_pins(r: dict) -> list[tuple[str | None, str]]:
+    """The further objects a risk is pinned to, minus any repeat of its primary.
+
+    The draft round-trips through the browser, so anything that is not a
+    [kind, key] pair is dropped rather than trusted."""
+    primary = (r.get("pin_kind"), r.get("pin_key"))
+    out: list[tuple[str | None, str]] = []
+    for p in r.get("extra_pins") or []:
+        if not isinstance(p, (list, tuple)) or len(p) != 2 or not p[1]:
+            continue
+        pin = (p[0], str(p[1]))
+        if pin != primary and pin not in out:
+            out.append(pin)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -406,6 +429,22 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
     kinds: dict[str, str] = {}
     _members: set[tuple[str, int]] = set()
 
+    # Short GI codes are unique only within one system's drawings: KRSAN is
+    # Kraksaan in Jawa Timur and Keramasan in Sumsel, PRATU Pelabuhan Ratu and
+    # Pakuan Ratu. An existing node held only by another system's subsystems is
+    # a different site, so it is never reused; the incoming one gets its own
+    # canonical code with an internal "@SYSTEM" suffix the renderer hides --
+    # the same move as the voltage guard below (CURUG_70KV).
+    incoming_system = system_of_apb(apb)
+
+    def _foreign(kind: str, node_id: int) -> bool:
+        owners = {system_of_apb(a) for (a,) in (
+            db.query(Subsystem.apb)
+            .join(SubsystemMembership, SubsystemMembership.subsystem_id == Subsystem.id)
+            .filter(SubsystemMembership.node_kind == kind,
+                    SubsystemMembership.node_id == node_id))}
+        return bool(owners) and incoming_system not in owners
+
     def _member(kind: str, node_id: int, role: str, order):
         if (kind, node_id) in _members:
             return
@@ -424,6 +463,10 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
             unit_type = next((kind for kind in ("PLTS", "PLTA", "PLTU", "PLTGU", "PLTD", "PLTP")
                               if kind in label.upper()), None)
             g = db.query(GeneratingUnit).filter(GeneratingUnit.code == ckey).first()
+            if g is not None and _foreign("GENERATING_UNIT", g.id):
+                ckey = f"{ckey}@{incoming_system}"
+                n["confirmed_code"] = ckey
+                g = db.query(GeneratingUnit).filter(GeneratingUnit.code == ckey).first()
             if g is None:
                 g = GeneratingUnit(code=ckey, name=label, unit_type=unit_type,
                                    voltage_kv=n.get("voltage_hv_kv") or 150.0)
@@ -440,6 +483,22 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         if n.get("resolution") == "MATCH" and n.get("canonical_id"):
             s = db.get(Substation, n["canonical_id"])
         if s is None:
+            s = db.query(Substation).filter(Substation.code == ckey).first()
+        if (s is not None and n.get("resolution") != "MATCH"
+                and _foreign("SUBSTATION", s.id)):
+            ckey = f"{ckey}@{incoming_system}"
+            n["confirmed_code"] = ckey
+            s = db.query(Substation).filter(Substation.code == ckey).first()
+        incoming_kv = float(n.get("voltage_hv_kv") or 150.0)
+        if (s is not None and n.get("resolution") != "MATCH"
+                and abs(float(s.voltage_kv or 0) - incoming_kv) > 0.1):
+            # A short code identifies the site in the source drawing, not a
+            # globally unique bus. Keep CURUG 150 and CURUG 70 as different
+            # canonical buses instead of letting ingest order overwrite the
+            # voltage of either one. The renderer hides this internal suffix.
+            voltage_token = f"{incoming_kv:g}".replace(".", "P")
+            ckey = f"{ckey}_{voltage_token}KV"
+            n["confirmed_code"] = ckey
             s = db.query(Substation).filter(Substation.code == ckey).first()
         if s is None:
             s = Substation(
@@ -657,25 +716,30 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                 member_seen.add(("CIRCUIT", c.id))
     view = views[0]
 
+    def _attach(kind: str | None, key: str | None) -> tuple[str | None, int | None]:
+        tag = _resolve_pin(kind, key, set(by_key))
+        if not tag:
+            return None, None
+        akind, ref = tag
+        aid = None
+        if akind == "SUBSTATION":
+            aid = subs[ref].id if ref in subs else None
+        elif akind == "CIRCUIT":
+            c = circuits.get(ref)
+            aid = c.id if c else None
+        elif akind == "TRANSFORMER":
+            gk, _, unit = ref.partition(":")
+            tcode = f"IBT_{(by_key[gk].get('confirmed_code') or gk).upper()}_{unit or '1'}"
+            t = txs.get(tcode) or db.query(Transformer).filter(Transformer.code == tcode).first()
+            aid = t.id if t else None
+        elif akind == "SUBSYSTEM":
+            aid = ss.id
+        return akind, aid
+
     for r in draft["risks"]:
-        tag = _resolve_pin(r.get("pin_kind"), r.get("pin_key"), set(by_key))
-        akind = aid = None
-        if tag:
-            akind, ref = tag
-            if akind == "SUBSTATION":
-                aid = subs[ref].id if ref in subs else None
-            elif akind == "CIRCUIT":
-                c = circuits.get(ref)
-                aid = c.id if c else None
-            elif akind == "TRANSFORMER":
-                gk, _, unit = ref.partition(":")
-                tcode = f"IBT_{(by_key[gk].get('confirmed_code') or gk).upper()}_{unit or '1'}"
-                t = txs.get(tcode) or db.query(Transformer).filter(Transformer.code == tcode).first()
-                aid = t.id if t else None
-            elif akind == "SUBSYSTEM":
-                aid = ss.id
+        akind, aid = _attach(r.get("pin_kind"), r.get("pin_key"))
         seq = r.get("seq_no") or 0
-        db.add(RiskRecord(
+        risk = RiskRecord(
             risk_key=f"RISK-{code}-{seq:02d}",
             subsystem_id=ss.id, seq_no=seq, uit=r.get("uit") or "JBB",
             attach_kind=akind, attach_id=aid, attach_label=(r.get("pin_key") or None),
@@ -684,7 +748,16 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
             follow_up=r.get("follow_up") or "",
             category=r.get("category") or "N-1", priority=r.get("priority") or "High",
             status="OPEN", source_document_id=doc.id,
-        ))
+        )
+        db.add(risk)
+        extras = _extra_pins(r)
+        if extras:
+            db.flush()
+            for kind, key in extras:
+                xkind, xid = _attach(kind, key)
+                if xkind and xid is not None and (xkind, xid) != (akind, aid):
+                    db.add(RiskAttachment(risk_id=risk.id, attach_kind=xkind,
+                                          attach_id=xid, attach_label=key))
 
     db.add(ChangeSet(
         change_key=f"CR-{code}-INGEST-{doc.id}", version_id=tv.id, action="MODEL",

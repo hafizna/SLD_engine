@@ -28,6 +28,7 @@ from app.models import (
     DSRelation,
     GeneratingUnit,
     ObservedObject,
+    RiskAttachment,
     RiskRecord,
     Substation,
     Subsystem,
@@ -54,6 +55,7 @@ from app.services.ingestion import save_observation_batch
 from app.services.reconciliation import classify, find_candidates
 from app.services.sld_print import plan as print_plan, to_a4
 from app.services.sld_renderer import render_view_svg
+from app.services.systems import region_key, system_of_apb  # noqa: F401  (tests import them here)
 from app.services.topology import calculate_tier, get_view_graph
 
 router = APIRouter(prefix="/api")
@@ -119,13 +121,46 @@ def _ss_anchors() -> dict[str, dict]:
     }
 
 
+# Each transmission system the dashboard knows: its regions (the pins on its
+# landing map) and the system-scope projections shown on its own page, apart
+# from the subsystem list. Jamali's regions are the five UP2B; Sumatera's are
+# the deck's own three subsystems (slide 2: SUMBAGUT / SUMBAGTENG / SUMBAGSEL).
+DASHBOARD_SYSTEMS = {
+    "JAMALI": {
+        "regions": {
+            "JAKARTA_BANTEN": "Jakarta & Banten", "JAWA_BARAT": "Jawa Barat",
+            "JAWA_TENGAH_DIY": "Jawa Tengah & DIY", "JAWA_TIMUR": "Jawa Timur",
+            "BALI": "Bali", "BELUM_DIPETAKAN": "Belum dipetakan",
+        },
+        "system_title": "Sistem 500 kV",
+        "system_groups": [("transmission", "Transmisi", "BACKBONE_500"),
+                          ("ibt", "IBT", "IBT_500_150")],
+    },
+    "SUMATERA": {
+        "regions": {
+            "SUMBAGUT": "Sumbagut", "SUMBAGTENG": "Sumbagteng",
+            "SUMBAGSEL": "Sumbagsel", "SUMATERA_LAIN": "Belum dipetakan",
+        },
+        "system_title": "Backbone Sumatera",
+        "system_groups": [("transmission", "Backbone 500/275 kV", "BACKBONE_SUMATERA")],
+    },
+}
+_SYSTEM_PROFILES = {profile: scope for scope, cfg in DASHBOARD_SYSTEMS.items()
+                    for _, _, profile in cfg["system_groups"]}
+
+
 @router.get("/dashboard/summary")
-def dashboard_summary(db: Session = Depends(get_db)):
-    """One reconciled index for the Jamali landing page.
+def dashboard_summary(scope: str = "JAMALI", db: Session = Depends(get_db)):
+    """One reconciled index for one system's landing map (Jamali by default).
 
     Risks are counted by RiskRecord, never by view, so a multiview subsystem
-    cannot inflate the population shown at Jamali or UP2B level.
+    cannot inflate the population shown at system or region level. Each
+    system sees only its own subsystems and its own system-scope projections.
     """
+    scope = (scope or "JAMALI").upper()
+    if scope not in DASHBOARD_SYSTEMS:
+        raise HTTPException(404, f"sistem '{scope}' tidak dikenal")
+    cfg = DASHBOARD_SYSTEMS[scope]
     subsystems = db.query(Subsystem).filter(Subsystem.active.is_(True)).all()
     views = db.query(AnalyticalView).order_by(AnalyticalView.id).all()
     risks = db.query(RiskRecord).all()
@@ -136,33 +171,16 @@ def dashboard_summary(db: Session = Depends(get_db)):
     for risk in risks:
         risks_by_ss.setdefault(risk.subsystem_id, []).append(risk)
 
-    def region_key(apb: str | None) -> str:
-        value = (apb or "").upper()
-        if "JAKARTA" in value or "BANTEN" in value or value == "JBB":
-            return "JAKARTA_BANTEN"
-        if "BARAT" in value or "JABAR" in value:
-            return "JAWA_BARAT"
-        if "TENGAH" in value or "DIY" in value or "JATENG" in value:
-            return "JAWA_TENGAH_DIY"
-        if "TIMUR" in value or "JATIM" in value:
-            return "JAWA_TIMUR"
-        if "BALI" in value:
-            return "BALI"
-        return "BELUM_DIPETAKAN"
-
-    region_names = {
-        "JAKARTA_BANTEN": "Jakarta & Banten", "JAWA_BARAT": "Jawa Barat",
-        "JAWA_TENGAH_DIY": "Jawa Tengah & DIY", "JAWA_TIMUR": "Jawa Timur",
-        "BALI": "Bali", "BELUM_DIPETAKAN": "Belum dipetakan",
-    }
     regions = {key: {"key": key, "name": name, "subsystems": [], "risks": []}
-               for key, name in region_names.items()}
+               for key, name in cfg["regions"].items()}
+    # A subsystem holding any system-scope projection belongs to that system's
+    # page, never to a region list -- whichever island's profile it carries.
     system_ss_ids = {
         v.subsystem_id for v in views
-        if v.rule_profile in {"BACKBONE_500", "IBT_500_150"} and v.subsystem_id is not None
+        if v.rule_profile in _SYSTEM_PROFILES and v.subsystem_id is not None
     }
     for subsystem in subsystems:
-        if subsystem.id in system_ss_ids:
+        if subsystem.id in system_ss_ids or system_of_apb(subsystem.apb) != scope:
             continue
         region = regions[region_key(subsystem.apb)]
         ss_risks = risks_by_ss.get(subsystem.id, [])
@@ -174,10 +192,12 @@ def dashboard_summary(db: Session = Depends(get_db)):
             "views": [{"id": v.id, "key": v.view_key, "name": v.name}
                       for v in views_by_ss.get(subsystem.id, [])],
         })
+    local_risks = [r for region in regions.values() for r in region["risks"]]
+    catch_all = list(cfg["regions"])[-1]      # "Belum dipetakan" -- shown only when used
     region_out = []
     for region in regions.values():
         region["risk"] = _risk_counts(region.pop("risks"))
-        if region["subsystems"] or region["key"] != "BELUM_DIPETAKAN":
+        if region["subsystems"] or region["key"] != catch_all:
             region_out.append(region)
 
     def system_group(profile: str):
@@ -190,16 +210,19 @@ def dashboard_summary(db: Session = Depends(get_db)):
                       for v in selected],
         }
 
-    local_risks = [r for r in risks if r.subsystem_id not in system_ss_ids]
-    system_risks = [r for r in risks if r.subsystem_id in system_ss_ids]
+    groups = [{"key": key, "label": label, "profile": profile, **system_group(profile)}
+              for key, label, profile in cfg["system_groups"]]
+    own_system_ss = {v.subsystem_id for v in views
+                     if _SYSTEM_PROFILES.get(v.rule_profile) == scope}
+    system_risks = [r for r in risks if r.subsystem_id in own_system_ss]
     return {
-        "scope": "JAMALI", "risk": _risk_counts(local_risks + system_risks),
+        "scope": scope, "risk": _risk_counts(local_risks + system_risks),
         "local_risk": _risk_counts(local_risks), "system_risk": _risk_counts(system_risks),
         "regions": region_out,
-        "system_500": {
-            "transmission": system_group("BACKBONE_500"),
-            "ibt": system_group("IBT_500_150"),
-        },
+        # generic: this system's own page (Sistem 500 kV / Backbone Sumatera)
+        "system": {"title": cfg["system_title"], "groups": groups},
+        # kept for existing Jamali consumers
+        "system_500": {g["key"]: {"risk": g["risk"], "views": g["views"]} for g in groups},
     }
 
 
@@ -268,13 +291,23 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
     risks = []
     schemes = []
     if v.subsystem_id:
-        for r in db.query(RiskRecord).filter(RiskRecord.subsystem_id == v.subsystem_id).order_by(RiskRecord.seq_no).all():
+        ss_risks = (db.query(RiskRecord).filter(RiskRecord.subsystem_id == v.subsystem_id)
+                    .order_by(RiskRecord.seq_no).all())
+        extra_by_risk: dict[int, list] = {}
+        for a in (db.query(RiskAttachment)
+                  .filter(RiskAttachment.risk_id.in_([r.id for r in ss_risks] or [-1])).all()):
+            extra_by_risk.setdefault(a.risk_id, []).append({
+                "attach_kind": a.attach_kind, "attach_id": a.attach_id,
+                "attach_label": a.attach_label})
+        for r in ss_risks:
             risks.append({
                 "risk_key": r.risk_key, "seq_no": r.seq_no, "category": r.category,
                 "title": r.title, "condition": r.condition, "impact": r.impact,
                 "mitigation": r.mitigation, "follow_up": r.follow_up,
                 "horizon": r.horizon, "priority": r.priority, "status": r.status,
                 "attach_kind": r.attach_kind, "attach_id": r.attach_id, "attach_label": r.attach_label,
+                # further objects the same finding is pinned to (primary excluded)
+                "attachments": extra_by_risk.get(r.id, []),
             })
         rel_by_scheme: dict[int, list] = {}
         for rel in db.query(DSRelation).filter(DSRelation.subsystem_id == v.subsystem_id).all():

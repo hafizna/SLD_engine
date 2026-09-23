@@ -31,6 +31,7 @@ from app.models import (
     ChangeSet,
     Circuit,
     DiagramNodePosition,
+    RiskAttachment,
     RiskRecord,
     Substation,
     Subsystem,
@@ -76,6 +77,15 @@ def _circ(db: Session, code: str) -> Circuit:
     if not c:
         raise EditError(f"penghantar '{code}' tidak ada")
     return c
+
+
+def _risk_labels(db: Session, r: RiskRecord) -> list[str]:
+    """Every object label a kerawanan is pinned to: its primary, then the rest."""
+    labels = [r.attach_label] if r.attach_label else []
+    labels += [a.attach_label for a in
+               db.query(RiskAttachment).filter(RiskAttachment.risk_id == r.id).all()
+               if a.attach_label]
+    return labels
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +239,8 @@ def _apply_line(db: Session, cr: ChangeRequest, cs: ChangeSet) -> None:
         for r in db.query(RiskRecord).filter(
                 RiskRecord.attach_kind == "SUBSTATION", RiskRecord.attach_id == s.id).all():
             r.attach_kind = r.attach_id = None
+        db.query(RiskAttachment).filter(
+            RiskAttachment.attach_kind == "SUBSTATION", RiskAttachment.attach_id == s.id).delete()
         db.delete(s)
 
     elif a == "ADD_CIRCUIT":
@@ -260,6 +272,8 @@ def _apply_line(db: Session, cr: ChangeRequest, cs: ChangeSet) -> None:
         for r in db.query(RiskRecord).filter(
                 RiskRecord.attach_kind == "CIRCUIT", RiskRecord.attach_id == c.id).all():
             r.attach_kind = r.attach_id = None
+        db.query(RiskAttachment).filter(
+            RiskAttachment.attach_kind == "CIRCUIT", RiskAttachment.attach_id == c.id).delete()
         db.delete(c)
 
     elif a == "MOVE_MEMBERSHIP":
@@ -400,12 +414,13 @@ def impact(db: Session, cr_id: int) -> dict:
         risk_reassess = []
         for r in db.query(RiskRecord).filter(
                 RiskRecord.subsystem_id == cr.subsystem_id).all():
-            lab = r.attach_label
-            if lab and (lab in touched or lab not in alive or lab in moved):
-                why = ("objek diedit" if lab in touched else
-                       "objek hilang" if lab not in alive else "Tier berubah")
-                risk_reassess.append({"risk_key": r.risk_key, "seq_no": r.seq_no,
-                                      "title": r.title, "attach": lab, "why": why})
+            for lab in _risk_labels(db, r):
+                if lab in touched or lab not in alive or lab in moved:
+                    why = ("objek diedit" if lab in touched else
+                           "objek hilang" if lab not in alive else "Tier berubah")
+                    risk_reassess.append({"risk_key": r.risk_key, "seq_no": r.seq_no,
+                                          "title": r.title, "attach": lab, "why": why})
+                    break
     finally:
         sp.rollback()
     res = {
@@ -497,8 +512,8 @@ def publish(db: Session, cr_id: int, approver: str | None) -> dict:
                 RiskRecord.subsystem_id == cr.subsystem_id).all():
             if r.status not in ("OPEN", "MATERIALIZED"):
                 continue
-            lab = r.attach_label
-            if lab and (lab in touched or lab not in alive or lab in moved):
+            if any(lab in touched or lab not in alive or lab in moved
+                   for lab in _risk_labels(db, r)):
                 r.status = "REASSESS"
                 reassessed.append(r.risk_key)
 

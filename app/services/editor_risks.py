@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     AnalyticalView,
     Circuit,
+    RiskAttachment,
     RiskRecord,
     Substation,
     Subsystem,
@@ -81,5 +82,6 @@ def delete_risk(db: Session, risk_key: str) -> None:
     r = db.query(RiskRecord).filter(RiskRecord.risk_key == risk_key).first()
     if not r:
         raise EditError(f"kerawanan '{risk_key}' tidak ada")
+    db.query(RiskAttachment).filter(RiskAttachment.risk_id == r.id).delete()
     db.delete(r)
     db.commit()

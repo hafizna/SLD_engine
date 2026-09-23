@@ -80,7 +80,10 @@ def build() -> None:
                      "ss_ngimbang_ingest.xlsx", "ss_kediri34_ingest.xlsx",
                      "ss_grati_ingest.xlsx",
                      # UP2B Bali
-                     "ss_bali_ingest.json"):
+                     "ss_bali_ingest.json",
+                     # Sistem Sumatera (Kerawanan Sumatera Sep 2026 deck)
+                     "ss_bengkulu_ingest.xlsx", "ss_sumsel_ingest.xlsx",
+                     "ss_lampung_ingest.xlsx", "ss_sumbagteng_ingest.xlsx"):
             seed_xlsx_fixture(db, ROOT / "samples" / name)
         # Keep the IBT risk projection as its own Sistem 500 kV view. Load it
         # after the SS fixtures so shared physical circuits keep the reviewed
@@ -98,8 +101,12 @@ def build() -> None:
         (data_dir / "views.json").write_text(json.dumps(views, indent=2), encoding="utf-8")
         subs = client.get("/api/subsystems").json()
         (data_dir / "subsystems.json").write_text(json.dumps(subs, indent=2), encoding="utf-8")
-        summary = client.get("/api/dashboard/summary").json()
-        (data_dir / "dashboard-summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        # one landing index per transmission system; the shell maps each
+        # /api/dashboard/summary?scope=... to its own file
+        for scope, fname in (("JAMALI", "dashboard-summary.json"),
+                             ("SUMATERA", "dashboard-summary-sumatera.json")):
+            summary = client.get("/api/dashboard/summary", params={"scope": scope}).json()
+            (data_dir / fname).write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
         for v in views:
             vid = v["id"]
@@ -118,10 +125,9 @@ def build() -> None:
     (OUT / "index.html").write_text(shell, encoding="utf-8")
     (OUT / ".nojekyll").write_text("", encoding="utf-8")
 
-    # Map backdrop: FastAPI serves it from /static, the snapshot keeps it next
-    # to index.html. Absent, the map simply draws no coastline.
-    outline = ROOT / "app" / "static" / "jamali_outline.json"
-    if outline.exists():
+    # Map backdrops: FastAPI serves them from /static, the snapshot keeps them
+    # next to index.html. Absent, a map simply draws no coastline.
+    for outline in sorted((ROOT / "app" / "static").glob("*_outline.json")):
         shutil.copyfile(outline, OUT / outline.name)
 
     print(f"static site -> {OUT}")

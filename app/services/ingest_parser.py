@@ -27,7 +27,7 @@ The normalised payload (a plain dict):
                         circuit_type_hint, status_hint, circuit_count, unit_no,
                         confidence, note}, ... ],
       "risks":     [ {seq_no, uit, category, priority, title, condition, impact,
-                      mitigation, follow_up, pin_kind, pin_key}, ... ],
+                      mitigation, follow_up, pin_kind, pin_key, extra_pins}, ... ],
     }
 """
 from __future__ import annotations
@@ -71,13 +71,16 @@ _NODE_DEFAULTS = {
 _CONN_DEFAULTS = {
     "relation_type": "CONNECTED_TO", "circuit_type_hint": "SUTT",
     "status_hint": "ENERGIZED", "circuit_count": 2, "unit_no": None,
-    "confidence": 0.5, "note": None,
+    "confidence": 0.5, "note": None, "voltage_hv_kv": None,
     "view_keys": [], "single_phi": False,
 }
 _RISK_DEFAULTS = {
     "seq_no": None, "uit": "JBB", "category": "N-1", "priority": "High",
     "title": "", "condition": "", "impact": "", "mitigation": "", "follow_up": "",
     "pin_kind": None, "pin_key": None,
+    # every further object the same "No Kerawanan" was written on, as
+    # [kind, key] pairs; pin_kind/pin_key stays the primary
+    "extra_pins": [],
 }
 
 
@@ -147,6 +150,8 @@ def normalise(raw: dict, filename: str | None = None, *, drop_bad_edges: bool = 
     norm_risks = []
     for r in (raw.get("risks") or []):
         row = {**_RISK_DEFAULTS, **{kk: vv for kk, vv in r.items() if kk in _RISK_DEFAULTS}}
+        row["extra_pins"] = [[str(p[0]), str(p[1])] for p in (row.get("extra_pins") or [])
+                             if isinstance(p, (list, tuple)) and len(p) == 2]
         norm_risks.append(row)
 
     return {
@@ -373,7 +378,8 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
     _gitet_ext = {o["external_key"] for o in objects if o["object_type"] in ("GITET", "GISTET")}
     _all_ext = {o["external_key"] for o in objects}
     ibt_units: dict[str, dict] = {}
-    ibt_pins: dict[int, tuple[str, str]] = {}   # No Kerawanan -> (GITET key, unit)
+    # No Kerawanan -> every (GITET key, unit) it is written on, in sheet order
+    ibt_pins: dict[int, list[tuple[str, str]]] = {}
     for row in _rows(ws_asset):
         atype = _norm(_get(row, "Tipe Asset", "Tipe", "Type"))
         if "ibt" not in atype and "winding" not in atype:
@@ -399,7 +405,7 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             {"unit": unit, "lv": lv, "status": link_status,
              "view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key"))})
         for nk in _risk_numbers(_get(row, "No Kerawanan", "No. Kerawanan")):
-            ibt_pins[nk] = (gk, unit)
+            ibt_pins.setdefault(nk, []).append((gk, unit))
 
     # ---- Bay sheet (MANTAPS extension: GI drawn as a stub + its feeder) ----
     ws_bay = _sheet("Bay", "Bays", "Bay_Menggantung")
@@ -469,6 +475,7 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             cnt = 2
         connections.append({
             "from_external_key": fr, "to_external_key": to,
+            "voltage_hv_kv": _kv(_get(row, "Tegangan", "Voltage")),
             "circuit_type_hint": _line_type(_get(row, "Nama Penghantar", "Nama", "Name"),
                                             _kv(_get(row, "Tegangan"))),
             "status_hint": _STATUS_MAP.get(_norm(_get(row, "Status Operasi", "Status")), "ENERGIZED"),
@@ -495,16 +502,28 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                 "view_keys": unit_info["view_keys"],
             })
 
-    # auto-pin: template marks "No Kerawanan" on the asset / line / IBT it belongs to
-    pin_by_seq: dict[int, tuple[str, str]] = {}
+    # auto-pin: template marks "No Kerawanan" on the asset / line / IBT it belongs to.
+    # One number is often written on several objects (a chain of ruas, both ends
+    # of a radial line), and every one of them is kept. The primary is still the
+    # last one written, in the order objects -> lines -> IBTs, which is what a
+    # single-pin risk has always resolved to -- so existing sheets keep their pin.
+    pins_by_seq: dict[int, list[tuple[str, str]]] = {}
+
+    def _pin(nk: int, pin: tuple[str, str]) -> None:
+        seen = pins_by_seq.setdefault(nk, [])
+        if pin in seen:
+            seen.remove(pin)
+        seen.append(pin)
+
     for o in objects:
         for nk in o.pop("_no_kerawanan", []):
-            pin_by_seq[nk] = ("SUBSTATION", o["external_key"])
+            _pin(nk, ("SUBSTATION", o["external_key"]))
     for c in connections:
         for nk in c.pop("_no_kerawanan", []):
-            pin_by_seq[nk] = ("CIRCUIT", f"{c['from_external_key']}-{c['to_external_key']}")
-    for nk, (gk, unit) in ibt_pins.items():
-        pin_by_seq[nk] = ("TRANSFORMER", f"{gk}:{unit}")
+            _pin(nk, ("CIRCUIT", f"{c['from_external_key']}-{c['to_external_key']}"))
+    for nk, units in ibt_pins.items():
+        for gk, unit in units:
+            _pin(nk, ("TRANSFORMER", f"{gk}:{unit}"))
 
     # ---- risks ----
     risks: list[dict] = []
@@ -514,7 +533,8 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             if no is None and not _get(row, "Kondisi / Permasalahan", "Kondisi"):
                 continue
             seq = _int_or_none(no)
-            pk = pin_by_seq.get(seq, (None, None))
+            pins = pins_by_seq.get(seq) or [(None, None)]
+            pk = pins[-1]
             risks.append({
                 "seq_no": seq,
                 "uit": str(_get(row, "UIT") or "JBB").strip(),
@@ -526,6 +546,7 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                 "mitigation": str(_get(row, "Mitigasi") or "").strip(),
                 "follow_up": str(_get(row, "Usulan / Solusi", "Usulan", "Solusi") or "").strip(),
                 "pin_kind": pk[0], "pin_key": pk[1],
+                "extra_pins": [list(p) for p in pins[:-1]],
             })
     # strip the private key from any objects/connections that had no risk
     for o in objects:
@@ -536,6 +557,7 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
     # optional Info sheet: "Kode Subsistem" / "Nama Subsistem" / "APB"
     ss_code = ss_name = ss_apb = None
     rule_profile = None
+    multi_pin = False
     ws_info = _sheet("Info", "Informasi", "Subsistem", "Header")
     if ws_info is not None:
         kv = {}
@@ -546,6 +568,16 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
         ss_name = kv.get("nama subsistem") or kv.get("nama")
         ss_apb = kv.get("apb") or kv.get("up2b")
         rule_profile = kv.get("rule profile") or kv.get("profil aturan")
+        multi_pin = _norm(kv.get("multi pin")) in ("ya", "yes", "true", "1")
+    # A pin marks WHERE a finding sits -- the objects its Kondisi names -- not
+    # what it knocks out; exposure is computed from the topology on click. The
+    # older (Jamali) sheets write the number on affected GIs too, as register
+    # status, so drawing every numbered object there would pin the impact. A
+    # sheet whose numbers mean location only opts in with "Multi Pin = Ya";
+    # everywhere else a risk keeps its single primary pin.
+    if not multi_pin:
+        for r in risks:
+            r["extra_pins"] = []
     # Optional multi-SLD manifest. Rows identify independent analytical views;
     # assets/connections remain shared and are never merged by the parser.
     ws_views = _sheet("Views", "Sudut Pandang", "SLD Views")

@@ -70,6 +70,9 @@
   header .brand:hover b { text-decoration: underline; }
   header .brand:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   #homebtn, #printbtn { display:none; }
+  /* The viewer header also carries the breadcrumb, scenario and print
+     controls; the tagline is what gives way so it stays one row. */
+  body.mode-viewer header .brand > div.sub { display:none; }
   body.mode-viewer #homebtn, body.mode-viewer #printbtn { display:inline-block; }
 
   /* ---- permanent top nav ----
@@ -88,6 +91,22 @@
   }
   .topnav button[disabled] { opacity: .4; cursor: not-allowed; }
   .topnav button[disabled]:hover { background: transparent; }
+  /* Each system's destinations sit under its own small label, so "Wilayah"
+     and "Backbone" never read as belonging to the wrong island. */
+  .topnav .navsys { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em;
+    opacity: .6; padding: 0 1px 0 10px; white-space: nowrap; }
+  @media (max-width: 1280px) { header { flex-wrap: wrap; row-gap: 6px; } }
+  /* On a phone the destinations get their own row that scrolls sideways,
+     instead of one nowrap strip pushing the whole page wider than the
+     screen (which it did even with three destinations). */
+  @media (max-width: 700px) {
+    header { padding: 8px 12px; gap: 6px 10px; }
+    header .brand > div.sub { display: none; }
+    .topnav { order: 3; flex: 1 0 100%; min-width: 0; overflow-x: auto;
+      scrollbar-width: none; }
+    .crumbs { order: 4; flex: 1 0 100%; }
+    header .spacer { display: none; }
+  }
 
   /* ---- breadcrumb: every segment is a real way back ---- */
   .crumbs { display:flex; align-items:center; gap:2px; font-size:11px; flex-wrap:wrap; }
@@ -237,6 +256,37 @@
   }
   .map-hint::before { content:"\25B8"; font-size:10px; }
   @media(max-width:900px){ .hub-main{grid-template-columns:1fr} }
+
+  /* ---- landing: one card per transmission system, side by side ----
+     Jamali is a wide island and Sumatera a tall one, so Jamali gets the wider
+     column and both maps share one height; each card carries its own two
+     doors (regions, system page) instead of a shared rail. */
+  .hub-systems { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);
+    gap:16px; align-items:stretch; }
+  .sys-card { display:flex; flex-direction:column; }
+  .sys-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+  .sys-head h2 { margin:0; }
+  .sys-total { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .sys-total b { font-size:18px; color:var(--ink); }
+  .hub-systems .jamali-map { height:clamp(300px, 48vh, 520px); }
+  .sys-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+  .sys-actions .hub-card { padding:12px 14px; border-radius:12px; gap:6px; }
+  .sys-actions .hub-card h2 { font-size:14px; }
+  .sys-actions .hub-card .hub-stats { gap:12px; padding-top:2px; }
+  .sys-actions .hub-card .hub-stat b { font-size:17px; }
+  .sys-actions .hub-card[disabled] { opacity:.55; cursor:not-allowed; }
+  .sys-actions .hub-card[disabled]:hover { border-color:var(--line); box-shadow:none; }
+  .hub-legend { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin-top:14px;
+    font-size:11px; color:var(--muted); }
+  .hub-legend b { font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
+  .hub-legend span { display:inline-flex; align-items:center; gap:6px; }
+  .hub-legend i { width:8px; height:8px; border-radius:50%; }
+  @media(max-width:1000px){
+    .hub-systems{grid-template-columns:1fr}
+    /* stacked, Jawa's long thin shape needs width, not height */
+    .sys-card[data-sys="JAMALI"] .jamali-map { height:clamp(200px, 32vh, 340px); }
+  }
+  @media(max-width:520px){ .sys-actions{grid-template-columns:1fr} }
 
   .screen-back {
     display:inline-flex; align-items:center; gap:6px; margin-bottom:16px;
@@ -455,79 +505,55 @@
 </head>
 <body class="mode-hub">
 <header>
-  <button class="brand" id="brandhome" type="button" title="Kembali ke Peta Jamali">
+  <button class="brand" id="brandhome" type="button" title="Kembali ke Beranda">
     <b>MANTAPS</b> &nbsp;<span class="sub">Peta Kerawanan</span>
-    <div class="sub">Subsistem transmisi per UP2B &middot; Tier per sudut pandang &middot; overlay kerawanan</div>
+    <div class="sub">Subsistem transmisi Jamali &amp; Sumatera &middot; Tier per sudut pandang &middot; overlay kerawanan</div>
   </button>
-  <nav class="topnav" id="topnav">
-    <button type="button" data-dest="hub">Peta Jamali</button>
-    <button type="button" data-dest="up2b">Wilayah UP2B</button>
-    <button type="button" data-dest="system500">Sistem 500 kV</button>
+  <nav class="topnav" id="topnav" aria-label="Menu utama">
+    <button type="button" data-dest="hub">Beranda</button>
+    <span class="navsys" aria-hidden="true">Jamali</span>
+    <button type="button" data-dest="up2b" data-sys="JAMALI" aria-label="Jamali: Wilayah UP2B">Wilayah UP2B</button>
+    <button type="button" data-dest="system500" data-sys="JAMALI" aria-label="Jamali: Sistem 500 kV">Sistem 500 kV</button>
+    <span class="navsys" aria-hidden="true">Sumatera</span>
+    <button type="button" data-dest="up2b" data-sys="SUMATERA" aria-label="Sumatera: Wilayah">Wilayah</button>
+    <button type="button" data-dest="system500" data-sys="SUMATERA" aria-label="Sumatera: Backbone">Backbone</button>
   </nav>
   <div class="spacer"></div>
   <nav class="crumbs" id="crumb" aria-label="Jejak navigasi"></nav>
   <select id="scensel" title="Pola operasi"></select>
   <button class="navlink" id="printbtn" type="button"
           title="Buka gambar ukuran A4 untuk dicetak">&#128438; Cetak A4</button>
-  <button class="navlink back" id="homebtn" type="button">Peta Jamali</button>
+  <button class="navlink back" id="homebtn" type="button">Beranda</button>
   <a class="navlink primary" href="/ingest" title="Tambah subsistem baru dari SLD">+ Tambah subsistem</a>
 </header>
 
 <section id="portal"><div class="portal-wrap">
 
-  <!-- HUB: two separate entry points, never on the same card/scroll -->
+  <!-- HUB: one card per transmission system; each card's regions and system
+       page are separate doors, never mixed on one card/scroll -->
   <div id="hub-screen">
     <div class="hero">
-      <div><h1>Peta Kerawanan Sistem Jamali</h1><p>Snapshot topologi dan kerawanan sistem transmisi Jawa&ndash;Madura&ndash;Bali.</p></div>
-      <div class="metric"><b id="jamali-total">&ndash;</b><span>kerawanan tercatat</span></div>
+      <div><h1>Peta Kerawanan Sistem Transmisi</h1><p>Snapshot topologi dan kerawanan sistem transmisi Jawa&ndash;Madura&ndash;Bali dan Sumatera.</p></div>
+      <div class="metric"><b id="all-total">&ndash;</b><span>kerawanan tercatat</span></div>
     </div>
-    <div class="hub-main">
-      <div class="portal-card">
-        <h2>Wilayah UP2B</h2>
-        <div class="lead">Klik sebuah pin wilayah untuk menelusuri subsistem di dalamnya.</div>
-        <div class="jamali-map" id="hub-map">
-          <svg id="hub-coast" aria-hidden="true" preserveAspectRatio="none"></svg>
-          <div class="map-legend">
-            <b>Tingkat kerawanan</b>
-            <div><i style="background:var(--sev-n1)"></i> N-1 &mdash; kontingensi tunggal</div>
-            <div><i style="background:var(--sev-n2)"></i> N-2 &mdash; kontingensi ganda</div>
-            <div><i style="background:var(--sev-n12)"></i> N-1-2 &mdash; kombinasi</div>
-            <div><i style="background:var(--sev-other)"></i> Lainnya / belum ditetapkan</div>
-          </div>
-        </div>
-        <div class="map-hint" id="hub-hint">Pilih wilayah UP2B pada peta untuk melihat subsistemnya</div>
-        <div class="risk-chips" id="hub-cats"></div>
-      </div>
-      <div class="hub-rail">
-        <div class="hub-grid">
-          <button class="hub-card hub-up2b" id="hub-up2b" type="button">
-            <span class="hub-head"><span class="hub-icon">&#128506;</span><h2>Peta Wilayah UP2B</h2></span>
-            <p class="lead">Lima wilayah kerja UP2B dan subsistem transmisi di dalamnya.</p>
-            <div class="hub-stats">
-              <div class="hub-stat"><b id="hub-up2b-ss">&ndash;</b><span>subsistem</span></div>
-              <div class="hub-stat"><b id="hub-up2b-risk">&ndash;</b><span>kerawanan</span></div>
-            </div>
-          </button>
-          <button class="hub-card hub-500" id="hub-system500" type="button">
-            <span class="hub-head"><span class="hub-icon">&#9889;</span><h2>Sistem 500 kV</h2></span>
-            <p class="lead">Backbone transmisi dan IBT Jawa-Madura-Bali, terpisah dari risiko lokal SS.</p>
-            <div class="hub-stats">
-              <div class="hub-stat"><b id="hub-500-views">&ndash;</b><span>proyeksi</span></div>
-              <div class="hub-stat"><b id="hub-500-risk">&ndash;</b><span>kerawanan</span></div>
-            </div>
-          </button>
-        </div>
-      </div>
+    <div class="hub-systems" id="hub-systems"></div>
+    <div class="hub-legend">
+      <b>Tingkat kerawanan</b>
+      <span><i style="background:var(--sev-n1)"></i> N-1 &mdash; kontingensi tunggal</span>
+      <span><i style="background:var(--sev-n2)"></i> N-2 &mdash; kontingensi ganda</span>
+      <span><i style="background:var(--sev-n12)"></i> N-1-2 &mdash; kombinasi</span>
+      <span><i style="background:var(--sev-other)"></i> Lainnya / belum ditetapkan</span>
     </div>
   </div>
 
-  <!-- SCREEN: Peta Wilayah UP2B (pins -> SS list), fully separate from 500 kV -->
+  <!-- SCREEN: one system's regions (pins -> SS list), fully separate from its
+       system page -->
   <div id="up2b-screen">
-    <button class="screen-back" id="back-up2b" type="button">&larr; Peta Jamali</button>
-    <div class="screen-head"><h1>Peta Wilayah UP2B</h1><p>Pilih pin wilayah untuk menyaring subsistem, atau klik langsung sebuah subsistem untuk membuka SLD.</p></div>
+    <button class="screen-back" id="back-up2b" type="button">&larr; Beranda</button>
+    <div class="screen-head"><h1 id="regions-title">Peta Wilayah UP2B</h1><p>Pilih pin wilayah untuk menyaring subsistem, atau klik langsung sebuah subsistem untuk membuka SLD.</p></div>
     <div class="portal-grid">
       <div class="portal-card">
-        <h2>Wilayah UP2B</h2><div class="lead">Populasi dihitung per risk record; multiview tidak menggandakan angka.</div>
+        <h2 id="regions-card-title">Wilayah UP2B</h2><div class="lead">Populasi dihitung per risk record; multiview tidak menggandakan angka.</div>
         <div class="jamali-map" id="jamali-map">
           <svg id="jamali-coast" aria-hidden="true" preserveAspectRatio="none"></svg>
         </div>
@@ -537,10 +563,11 @@
     </div>
   </div>
 
-  <!-- SCREEN: Sistem 500 kV (Transmisi/IBT), fully separate from UP2B/SS -->
+  <!-- SCREEN: one system's own page (Sistem 500 kV / Backbone Sumatera),
+       fully separate from its regions and SS -->
   <div id="system500-screen">
-    <button class="screen-back" id="back-system500" type="button">&larr; Peta Jamali</button>
-    <div class="screen-head"><h1>Sistem 500 kV</h1><p>Backbone transmisi dan IBT Jawa-Madura-Bali. Kerawanan sistem dan bayangan dampaknya tetap terpisah dari risiko lokal SS.</p></div>
+    <button class="screen-back" id="back-system500" type="button">&larr; Beranda</button>
+    <div class="screen-head"><h1 id="system-title">Sistem 500 kV</h1><p id="system-lead"></p></div>
     <div class="portal-card"><div class="system-grid" id="system500"></div></div>
   </div>
 
@@ -597,7 +624,9 @@
       <h3>Legenda</h3>
       <div class="legend">
         <span><i style="border-color:#0047AB"></i> 500 kV</span>
+        <span><i style="border-color:#00A6D6"></i> 275 kV</span>
         <span><i style="border-color:#C00000"></i> 150 kV</span>
+        <span><i style="border-color:#E6B800"></i> 70 kV</span>
         <span><i class="dash" style="border-color:#111"></i> belum energize</span>
         <span><i class="dash" style="border-color:#9AA0A6"></i> objek perencanaan</span>
         <span><i class="dot" style="background:var(--risk);border:1.5px solid var(--risk-b)"></i> titik kerawanan (N-x)</span>
@@ -654,13 +683,14 @@ const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => (
   {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 function resourcePath(p){
-  // The map backdrop is a static asset, served from /static by FastAPI but
+  // The map backdrops are static assets, served from /static by FastAPI but
   // sitting next to index.html in the exported snapshot.
-  if(p==='jamali_outline.json') return window.STATIC_SNAPSHOT ? p : '/static/'+p;
+  if(/^[a-z]+_outline\.json$/.test(p)) return window.STATIC_SNAPSHOT ? p : '/static/'+p;
   if(!window.STATIC_SNAPSHOT) return API+p;
   if(p==='/api/views') return 'data/views.json';
   if(p==='/api/subsystems') return 'data/subsystems.json';
   if(p==='/api/dashboard/summary') return 'data/dashboard-summary.json';
+  if(p==='/api/dashboard/summary?scope=SUMATERA') return 'data/dashboard-summary-sumatera.json';
   let m=p.match(/^\/api\/views\/(\d+)\/graph$/); if(m) return `data/view-${m[1]}.json`;
   m=p.match(/^\/api\/views\/(\d+)\/sld\.svg$/); if(m) return `data/view-${m[1]}.svg`;
   return p;
@@ -668,10 +698,78 @@ function resourcePath(p){
 async function j(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw new Error(p+' '+r.status); return r.json(); }
 async function txt(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw new Error(p+' '+r.status); return r.text(); }
 
+// ---------- transmission systems ----------
+// Each system has its own landing map, regions and system page. Keys and
+// region keys match DASHBOARD_SYSTEMS in app/api/routes.py.
+const SYSTEMS = {
+  JAMALI: {
+    key: 'JAMALI', name: 'Jamali', full: 'Jawa–Madura–Bali',
+    summary: '/api/dashboard/summary', coast: 'jamali_outline.json',
+    // The whole extent, fixed rather than derived, so the overview always
+    // shows the same familiar island shape whichever fixtures are loaded.
+    view: {lon0: 104.9, lon1: 116.1, lat0: -9.2, lat1: -5.6},
+    regionTerm: 'UP2B', regionWord: 'UP2B', regionsLabel: 'Wilayah UP2B',
+    regionFull: {},
+    regionMapHeight: '',          // the stylesheet's wide strip suits Jawa
+    // Approximate centre of each UP2B's service area - these label the
+    // island, they are not derived from the fixtures, so the pins stay put
+    // even before any subsystem for that region exists.
+    regionAt: {
+      JAKARTA_BANTEN:  [-6.25, 106.20],
+      JAWA_BARAT:      [-6.95, 107.60],
+      JAWA_TENGAH_DIY: [-7.30, 110.10],
+      JAWA_TIMUR:      [-7.60, 112.60],
+      BALI:            [-8.40, 115.15],
+    },
+    regionsLead: 'Klik sebuah pin UP2B untuk menelusuri subsistem di dalamnya.',
+    regionsDoor: 'Lima wilayah kerja UP2B dan subsistem transmisinya.',
+    systemLabel: 'Sistem 500 kV',
+    systemDoor: 'Backbone transmisi dan IBT, terpisah dari risiko lokal SS.',
+    systemLead: 'Backbone transmisi dan IBT Jawa-Madura-Bali. Kerawanan sistem dan bayangan dampaknya tetap terpisah dari risiko lokal SS.',
+  },
+  SUMATERA: {
+    key: 'SUMATERA', name: 'Sumatera', full: 'Sumatera',
+    summary: '/api/dashboard/summary?scope=SUMATERA', coast: 'sumatera_outline.json',
+    view: {lon0: 94.7, lon1: 107.2, lat0: -6.3, lat1: 6.1},
+    regionTerm: 'Wilayah', regionWord: 'wilayah', regionsLabel: 'Wilayah Sumatera',
+    // SBU / SBT / SBS in the deck's own tables (UIT column, slide 29)
+    regionFull: {
+      SUMBAGUT: 'Sumatera Bagian Utara (SBU)',
+      SUMBAGTENG: 'Sumatera Bagian Tengah (SBT)',
+      SUMBAGSEL: 'Sumatera Bagian Selatan (SBS)',
+    },
+    // Sumatera stands tall where Jawa lies long: give its map height.
+    regionMapHeight: 'clamp(320px, 58vh, 600px)',
+    // The deck's own three subsystems (slide 2). Rough centres, labelling the
+    // island only.
+    regionAt: {
+      SUMBAGUT:   [3.30, 98.30],
+      SUMBAGTENG: [-0.30, 101.40],
+      SUMBAGSEL:  [-3.60, 104.00],
+    },
+    regionsLead: 'Klik pin Sumbagut, Sumbagteng atau Sumbagsel untuk menelusuri subsistemnya.',
+    regionsDoor: 'Tiga wilayah subsistem Sumatera beserta subsistem di dalamnya.',
+    systemLabel: 'Backbone Sumatera',
+    systemDoor: 'Backbone 500/275 kV, terpisah dari risiko lokal subsistem.',
+    systemLead: 'Backbone 500/275 kV Sumatera. Kerawanan sistem tetap terpisah dari risiko lokal subsistem.',
+  },
+};
+const SYSTEM_PROFILES = {BACKBONE_500: 'JAMALI', IBT_500_150: 'JAMALI', BACKBONE_SUMATERA: 'SUMATERA'};
+const SUMMARIES = {};        // system key -> /api/dashboard/summary for it
+let SYS = 'JAMALI';          // the system the user is currently inside
+function setSys(key){ SYS = key; SUMMARY = SUMMARIES[key] || null; }
+function sysCfg(key){ return SYSTEMS[key || SYS]; }
+
 // ---------- boot ----------
 (async function boot(){
   if(window.STATIC_SNAPSHOT) document.querySelector('a[href="/ingest"]')?.remove();
-  [VIEWS, SUBS, SUMMARY] = await Promise.all([j('/api/views'), j('/api/subsystems'), j('/api/dashboard/summary')]);
+  const keys = Object.keys(SYSTEMS);
+  const [views, subs, ...summaries] = await Promise.all(
+    [j('/api/views'), j('/api/subsystems'), ...keys.map(k => j(SYSTEMS[k].summary))]);
+  VIEWS = views; SUBS = subs;
+  keys.forEach((k, i) => { SUMMARIES[k] = summaries[i]; });
+  setSys('JAMALI');
+  buildHubCards();
   buildTree();
   showHub();
 
@@ -687,15 +785,13 @@ async function txt(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw n
   $('#homebtn').onclick = backToMap;          // viewer -> the map one step up
   $('#printbtn').onclick = openPrintSheet;
   $('#brandhome').onclick = () => { NAV_REGION = ''; showHub(); };
-  $('#hub-up2b').onclick = showUp2bScreen;
-  $('#hub-system500').onclick = showSystem500Screen;
   $('#back-up2b').onclick = () => { NAV_REGION = ''; showHub(); };
   $('#back-system500').onclick = showHub;
   $$('#topnav button').forEach(b => b.onclick = () => {
     const d = b.dataset.dest;
     if (d === 'hub') { NAV_REGION = ''; showHub(); }
-    else if (d === 'up2b') { NAV_REGION = ''; showUp2bScreen(); }
-    else showSystem500Screen();
+    else if (d === 'up2b') { NAV_REGION = ''; showUp2bScreen(b.dataset.sys); }
+    else showSystem500Screen(b.dataset.sys);
   });
   wirePanel();
   wireStage();
@@ -708,16 +804,17 @@ async function txt(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw n
     rt = setTimeout(() => {
       if (document.body.classList.contains('mode-viewer')) { applyLabelFloor($('#stage svg')); return; }
       if (!SUMMARY) return;
-      if (MAP_REGION) drawSubsystemMap(MAP_REGION); else drawRegionMap();
+      if (document.body.classList.contains('mode-hub')) drawHubMaps();
+      else if (MAP_REGION) drawSubsystemMap(SYS, REGION_HOST, MAP_REGION);
+      else drawRegionMap(SYS, REGION_HOST);
     }, 150);
   });
 })().catch(e => {
   showHub();
-  $('#jamali-total').textContent = '!';
-  $('#hub-up2b-ss').textContent = '!'; $('#hub-up2b-risk').textContent = '!';
-  $('#hub-500-views').textContent = '!'; $('#hub-500-risk').textContent = '!';
+  $('#all-total').textContent = '!';
+  $('#hub-systems').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Gagal memuat data dashboard. '
+    + 'Jalankan aplikasi melalui FastAPI atau layani hasil build statis lewat HTTP. Detail: '+esc(e.message)+'</div>';
   $('#jamali-cats').innerHTML = '<span class="risk-chip">data tidak tersedia</span>';
-  $('#hub-cats').innerHTML = '<span class="risk-chip">data tidak tersedia</span>';
   $('#system500').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Gagal memuat data dashboard.</div>';
   $('#portal-ss').innerHTML = '<div class="empty-state">Jalankan aplikasi melalui FastAPI atau layani hasil build statis lewat HTTP. Detail: '+esc(e.message)+'</div>';
 });
@@ -756,43 +853,55 @@ function markTopnav(mode){
   const dest = mode === 'viewer'
     ? (VIEW && isSystemView(VIEW) ? 'system500' : 'up2b') : mode;
   $$('#topnav button').forEach(b =>
-    b.toggleAttribute('aria-current', b.dataset.dest === dest));
+    b.toggleAttribute('aria-current',
+      b.dataset.dest === dest && (dest === 'hub' || b.dataset.sys === SYS)));
+}
+
+// The first crumb is always home; the second names the system the user is in
+// and goes to its regions (or its system page, for a system view).
+function homeCrumb(){ return {label: 'Beranda', go: () => { NAV_REGION = ''; showHub(); }}; }
+function regionTitle(r){
+  if (!r) return '';
+  return sysCfg(systemOfRegionKey(r.key)).regionTerm === 'UP2B' ? `UP2B ${r.name}` : r.name;
 }
 
 function showHub(){
   setPortalMode('hub');
-  setCrumb([{label: 'Jamali'}]);
+  setCrumb([{label: 'Beranda'}]);
   if(SUMMARY) renderHub();
 }
-function showUp2bScreen(){
+function showUp2bScreen(key){
+  if (key) setSys(key);
   setPortalMode('up2b');
-  setCrumb([{label: 'Jamali', go: showHub}, {label: 'Wilayah UP2B'}]);
+  setCrumb([homeCrumb(), {label: `${sysCfg().name} · ${sysCfg().regionsLabel}`}]);
   if(SUMMARY) renderUp2bScreen();
 }
-function showSystem500Screen(){
+function showSystem500Screen(key){
+  if (key) setSys(key);
   setPortalMode('system500');
-  setCrumb([{label: 'Jamali', go: showHub}, {label: 'Sistem 500 kV'}]);
+  setCrumb([homeCrumb(), {label: sysCfg().systemLabel}]);
   if(SUMMARY) renderSystem500Screen();
 }
 
-// Open one UP2B: zoom the map to it and scope the list, from wherever the user
-// clicked its pin.
+// Open one region: zoom the map to it and scope the list, from wherever the
+// user clicked its pin.
 function openRegion(r){
+  setSys(systemOfRegionKey(r.key));
   setPortalMode('up2b');
   MAP_REGION = r; NAV_REGION = r.key;
-  MAP_HOST = {map: '#jamali-map', coast: '#jamali-coast'};
-  setCrumb([{label: 'Jamali', go: showHub},
-            {label: 'Wilayah UP2B', go: showUp2bScreen},
+  setRegionHeadings();
+  setCrumb([homeCrumb(),
+            {label: `${sysCfg().name} · ${sysCfg().regionsLabel}`, go: () => showUp2bScreen()},
             {label: r.name}]);
   $('#jamali-cats').innerHTML = riskChips(SUMMARY.local_risk);
-  loadCoast().then(() => drawSubsystemMap(r));
+  loadCoast(SYS).then(() => drawSubsystemMap(SYS, REGION_HOST, r));
   renderSubsystems(r);
 }
 
 // Back from a viewer goes one step up, to the map the user actually came
-// from, with that UP2B still selected - not all the way home to the hub.
+// from, with that region still selected - not all the way home.
 function backToMap(){
-  if(VIEW && isSystemView(VIEW)) return showSystem500Screen();
+  if(VIEW && isSystemView(VIEW)) return showSystem500Screen(systemOfView(VIEW));
   const region = NAV_REGION ? regionOfKey(NAV_REGION) : null;
   if(!region) return showUp2bScreen();
   openRegion(region);
@@ -814,40 +923,84 @@ function riskChips(risk){
   if (rest) h += `<span class="risk-chip">lainnya &middot; ${rest}</span>`;
   return h;
 }
-function renderHub(){
-  $('#jamali-total').textContent = SUMMARY.risk.total;
-  const ssTotal = SUMMARY.regions.reduce((n,r)=>n+r.subsystems.length, 0);
-  $('#hub-up2b-ss').textContent = ssTotal;
-  $('#hub-up2b-risk').textContent = SUMMARY.local_risk.total;
-  const viewTotal = SUMMARY.system_500.transmission.views.length + SUMMARY.system_500.ibt.views.length;
-  $('#hub-500-views').textContent = viewTotal;
-  $('#hub-500-risk').textContent = SUMMARY.system_risk.total;
-  const hub500 = $('#hub-system500');
-  hub500.disabled = viewTotal === 0;
-  hub500.title = viewTotal === 0 ? 'Belum ada snapshot Sistem 500 kV' : '';
-  $$('#topnav button[data-dest="system500"]').forEach(b => b.disabled = viewTotal === 0);
-  // the landing map: same five pins, drawn into the hub's own surface
-  $('#hub-cats').innerHTML = riskChips(SUMMARY.local_risk);
-  MAP_REGION = null;
-  MAP_HOST = {map: '#hub-map', coast: '#hub-coast'};
-  loadCoast().then(drawRegionMap);
+
+// ---------- landing: one card per system ----------
+// Built once from SYSTEMS; renderHub() only fills in the numbers and maps.
+function buildHubCards(){
+  $('#hub-systems').innerHTML = Object.values(SYSTEMS).map(c => `
+    <div class="portal-card sys-card" data-sys="${c.key}">
+      <div class="sys-head"><h2>Sistem ${esc(c.name)}</h2>
+        <span class="sys-total"><b id="hub-total-${c.key}">&ndash;</b> kerawanan</span></div>
+      <div class="lead">${esc(c.regionsLead)}</div>
+      <div class="jamali-map" id="hub-map-${c.key}">
+        <svg id="hub-coast-${c.key}" aria-hidden="true" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="risk-chips" id="hub-cats-${c.key}"></div>
+      <div class="sys-actions">
+        <button class="hub-card hub-up2b" id="hub-regions-${c.key}" type="button">
+          <span class="hub-head"><span class="hub-icon">&#128506;</span><h2>${esc(c.regionsLabel)}</h2></span>
+          <p class="lead">${esc(c.regionsDoor)}</p>
+          <div class="hub-stats">
+            <div class="hub-stat"><b id="hub-ss-${c.key}">&ndash;</b><span>subsistem</span></div>
+            <div class="hub-stat"><b id="hub-lrisk-${c.key}">&ndash;</b><span>kerawanan</span></div>
+          </div>
+        </button>
+        <button class="hub-card hub-500" id="hub-system-${c.key}" type="button">
+          <span class="hub-head"><span class="hub-icon">&#9889;</span><h2>${esc(c.systemLabel)}</h2></span>
+          <p class="lead">${esc(c.systemDoor)}</p>
+          <div class="hub-stats">
+            <div class="hub-stat"><b id="hub-sviews-${c.key}">&ndash;</b><span>proyeksi</span></div>
+            <div class="hub-stat"><b id="hub-srisk-${c.key}">&ndash;</b><span>kerawanan</span></div>
+          </div>
+        </button>
+      </div>
+    </div>`).join('');
+  Object.keys(SYSTEMS).forEach(k => {
+    $(`#hub-regions-${k}`).onclick = () => { NAV_REGION = ''; showUp2bScreen(k); };
+    $(`#hub-system-${k}`).onclick = () => showSystem500Screen(k);
+  });
 }
-// Which UP2B the map is currently zoomed into (null = all five pins).
+function renderHub(){
+  let all = 0;
+  Object.keys(SYSTEMS).forEach(k => {
+    const S = SUMMARIES[k];
+    if (!S) return;
+    all += S.risk.total;
+    $(`#hub-total-${k}`).textContent = S.risk.total;
+    $(`#hub-ss-${k}`).textContent = S.regions.reduce((n, r) => n + r.subsystems.length, 0);
+    $(`#hub-lrisk-${k}`).textContent = S.local_risk.total;
+    const viewTotal = S.system.groups.reduce((n, g) => n + g.views.length, 0);
+    $(`#hub-sviews-${k}`).textContent = viewTotal;
+    $(`#hub-srisk-${k}`).textContent = S.system_risk.total;
+    const door = $(`#hub-system-${k}`);
+    door.disabled = viewTotal === 0;
+    door.title = viewTotal === 0 ? `Belum ada snapshot ${SYSTEMS[k].systemLabel}` : '';
+    $$(`#topnav button[data-dest="system500"][data-sys="${k}"]`).forEach(b => b.disabled = viewTotal === 0);
+    $(`#hub-cats-${k}`).innerHTML = riskChips(S.local_risk);
+  });
+  $('#all-total').textContent = all;
+  MAP_REGION = null;
+  drawHubMaps();
+}
+function drawHubMaps(){
+  Object.keys(SYSTEMS).forEach(k => {
+    if (!SUMMARIES[k]) return;
+    const host = {map: `#hub-map-${k}`, coast: `#hub-coast-${k}`};
+    loadCoast(k).then(() => drawRegionMap(k, host));
+  });
+}
+// Which region the region screen's map is zoomed into (null = all its pins).
 let MAP_REGION = null;
-let COAST = null;          // Java/Madura/Bali rings, loaded once
+const COASTS = {};         // system key -> coastline rings, loaded once each
 
-// Whole Jamali extent. Fixed rather than derived, so the overview always shows
-// the same familiar island shape no matter which fixtures happen to be loaded.
-const JAMALI_VIEW = {lon0: 104.9, lon1: 116.1, lat0: -9.2, lat1: -5.6};
-
-async function loadCoast(){
-  if(COAST !== null) return COAST;
+async function loadCoast(key){
+  if(COASTS[key] !== undefined) return COASTS[key];
   try {
-    COAST = (await j('jamali_outline.json')).rings || [];
+    COASTS[key] = (await j(SYSTEMS[key].coast)).rings || [];
   } catch(_) {
-    COAST = [];        // no backdrop is fine; the pins still carry the meaning
+    COASTS[key] = [];      // no backdrop is fine; the pins still carry the meaning
   }
-  return COAST;
+  return COASTS[key];
 }
 
 // One projection for both the coastline and the markers, so a pin always lands
@@ -878,24 +1031,22 @@ function fitView(lons, lats, W, H, marginDeg, minSpan){
           lat0: cLat - spanLat/2, lat1: cLat + spanLat/2};
 }
 
-// Which map surface the region renderer is drawing into. The hub and the UP2B
-// screen show the same five pins, so they share one renderer rather than two
-// copies that can drift apart.
-let MAP_HOST = {map: '#jamali-map', coast: '#jamali-coast'};
+// The region screen draws into one fixed surface; the hub has one per system.
+const REGION_HOST = {map: '#jamali-map', coast: '#jamali-coast'};
 
-function drawCoast(proj, W, H){
-  const svg = $(MAP_HOST.coast);
+function drawCoast(key, host, proj, W, H){
+  const svg = $(host.coast);
   if (!svg) return;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.innerHTML = (COAST || []).map(ring => {
+  svg.innerHTML = (COASTS[key] || []).map(ring => {
     const d = ring.map(([lon, lat], i) =>
       `${i ? 'L' : 'M'}${proj.x(lon).toFixed(1)},${proj.y(lat).toFixed(1)}`).join('') + 'Z';
     return `<path class="coast" d="${d}"/>`;
   }).join('');
 }
 
-function mapBox(){
-  const map = $(MAP_HOST.map);
+function mapBox(host){
+  const map = $(host.map);
   if (!map) return {map: null, W: 700, H: 245};
   const rect = map.getBoundingClientRect();
   return {map, W: Math.round(rect.width) || 700, H: Math.round(rect.height) || 245};
@@ -906,69 +1057,70 @@ function clearMap(map){
   map.querySelectorAll('.region-pin,.ss-pin,.ss-leader,.map-note').forEach(x => x.remove());
 }
 
+function setRegionHeadings(){
+  const c = sysCfg();
+  $('#regions-title').textContent = `Peta ${c.regionsLabel}`;
+  $('#regions-card-title').textContent = `${c.regionsLabel} — Sistem ${c.name}`;
+  $(REGION_HOST.map).style.height = c.regionMapHeight;
+}
 function renderUp2bScreen(){
+  setRegionHeadings();
   $('#jamali-cats').innerHTML = riskChips(SUMMARY.local_risk);
   MAP_REGION = null;
-  MAP_HOST = {map: '#jamali-map', coast: '#jamali-coast'};
-  loadCoast().then(drawRegionMap);
+  loadCoast(SYS).then(() => drawRegionMap(SYS, REGION_HOST));
   renderSubsystems(null);
 }
 
-// ---------- UP2B overview: the five region pins over the whole of Jamali ----
-function drawRegionMap(){
-  const {map, W, H} = mapBox();
+// The whole island with one pin per region. The same map fills the landing
+// card and the region screen; only the surface it draws into differs.
+function drawRegionMap(key, host){
+  const {map, W, H} = mapBox(host);
   if (!map) return;
   clearMap(map);
-  const proj = makeProjection(JAMALI_VIEW, W, H, {l:8, r:8, t:8, b:8});
-  drawCoast(proj, W, H);
-
-  // Approximate centre of each UP2B's service area - these label the island,
-  // they are not derived from the fixtures, so the five pins stay put even
-  // before any subsystem for that region exists.
-  const REGION_AT = {
-    JAKARTA_BANTEN:  [-6.25, 106.20],
-    JAWA_BARAT:      [-6.95, 107.60],
-    JAWA_TENGAH_DIY: [-7.30, 110.10],
-    JAWA_TIMUR:      [-7.60, 112.60],
-    BALI:            [-8.40, 115.15],
-  };
-  SUMMARY.regions.filter(r => r.key !== 'BELUM_DIPETAKAN').forEach(r => {
-    const at = REGION_AT[r.key];
-    if(!at) return;
+  const cfg = SYSTEMS[key];
+  const proj = makeProjection(fitView([cfg.view.lon0, cfg.view.lon1], [cfg.view.lat0, cfg.view.lat1],
+                                      W, H, 0, 0), W, H, {l:8, r:8, t:8, b:8});
+  drawCoast(key, host, proj, W, H);
+  SUMMARIES[key].regions.forEach(r => {
+    const at = cfg.regionAt[r.key];
+    if(!at) return;                      // the "belum dipetakan" bucket has no place
     const b=document.createElement('button'); b.className='region-pin'+(r.subsystems.length?'':' empty');
     b.style.left=proj.x(at[1])+'px'; b.style.top=proj.y(at[0])+'px';
     b.innerHTML=`<i>${r.risk.total}</i><span>${esc(r.name)}</span>`;
-    b.title=`${r.name}: ${r.subsystems.length} SS, ${r.risk.total} kerawanan`;
-    // From the hub the same pin means "take me into this region"; on the UP2B
+    const full = cfg.regionFull[r.key];
+    b.title=`${r.name}${full ? ' — ' + full : ''}: ${r.subsystems.length} SS, ${r.risk.total} kerawanan`;
+    // From the hub the pin means "take me into this region"; on the region
     // screen it means "zoom this region", which is where the user already is.
     b.onclick=()=>{ openRegion(r); };
     map.appendChild(b);
   });
 }
 
-// ---------- one UP2B: its subsystems placed by real coordinates ----------
+// ---------- one region: its subsystems placed by real coordinates ----------
 // Anchors are approximate demo data (samples/ss_anchors.json). Subsystems can
 // share or nearly share a point, so markers are pushed apart and a thin leader
 // line is drawn back to the true position rather than silently relocating them.
-function drawSubsystemMap(region){
-  const {map, W, H} = mapBox();
+function drawSubsystemMap(key, host, region){
+  const {map, W, H} = mapBox(host);
   clearMap(map);
+  const cfg = SYSTEMS[key];
 
   const withPos = region.subsystems.filter(s => s.anchor);
   if(!withPos.length){
-    drawCoast(makeProjection(JAMALI_VIEW, W, H, {l:8, r:8, t:8, b:8}), W, H);
+    drawCoast(key, host, makeProjection(fitView([cfg.view.lon0, cfg.view.lon1],
+      [cfg.view.lat0, cfg.view.lat1], W, H, 0, 0), W, H, {l:8, r:8, t:8, b:8}), W, H);
     const n=document.createElement('div'); n.className='map-note';
     n.textContent = `${region.name} — belum ada koordinat subsistem`;
     map.appendChild(n);
     return;
   }
 
-  // Zoom to this UP2B's own subsystems, keeping the coastline in the same
+  // Zoom to this region's own subsystems, keeping the coastline in the same
   // projection so the dots visibly sit on their part of the island.
   const view = fitView(withPos.map(s => s.anchor.lon), withPos.map(s => s.anchor.lat),
                        W, H, 0.35, 0.9);
   const proj = makeProjection(view, W, H, {l:34, r:34, t:24, b:28});
-  drawCoast(proj, W, H);
+  drawCoast(key, host, proj, W, H);
 
   const placed = withPos.map(s => {
     const x = proj.x(s.anchor.lon), y = proj.y(s.anchor.lat);
@@ -1021,30 +1173,36 @@ function drawSubsystemMap(region){
   map.appendChild(n);
 }
 function renderSystem500Screen(){
-  const groups=[['Transmisi','transmission'],['IBT','ibt']];
-  $('#system500').innerHTML=groups.map(([label,key])=>{const g=SUMMARY.system_500[key];return `<button class="system-tile" data-system="${key}" ${g.views.length?'':'disabled'}><b>${label}</b><small>${g.views.length} view &middot; ${g.risk.total} risiko</small><div class="risk-chips">${riskChips(g.risk)}</div></button>`}).join('');
-  $$('#system500 [data-system]').forEach(b=>b.onclick=()=>{const g=SUMMARY.system_500[b.dataset.system];if(g.views.length)selectView(g.views[0].id)});
+  const c = sysCfg();
+  $('#system-title').textContent = c.systemLabel;
+  $('#system-lead').textContent = c.systemLead;
+  const groups = SUMMARY.system.groups;
+  $('#system500').innerHTML=groups.map(g=>`<button class="system-tile" data-system="${esc(g.key)}" ${g.views.length?'':'disabled'}><b>${esc(g.label)}</b><small>${g.views.length} view &middot; ${g.risk.total} risiko</small><div class="risk-chips">${riskChips(g.risk)}</div></button>`).join('')
+    || '<div class="empty-state" style="grid-column:1/-1">Belum ada proyeksi sistem.</div>';
+  $$('#system500 [data-system]').forEach(b=>b.onclick=()=>{const g=groups.find(x=>x.key===b.dataset.system);if(g?.views.length)selectView(g.views[0].id)});
 }
 function renderSubsystems(region){
-  const regions=SUMMARY.regions;
-  const list=region ? region.subsystems : regions.flatMap(r=>r.subsystems);
-  $('#ss-heading').textContent=region ? `SS ${region.name}` : 'Subsistem tersedia';
+  const c = sysCfg();
+  const list=region ? region.subsystems : SUMMARY.regions.flatMap(r=>r.subsystems);
+  $('#ss-heading').textContent=region ? `SS ${region.name}` : `Subsistem ${c.name}`;
+  const full = region && c.regionFull[region.key];
   $('#ss-lead').innerHTML = region
-    ? `${list.length} SS &middot; ${region.risk.total} kerawanan &nbsp; ${riskChips(region.risk)}`
+    ? (full ? `${esc(full)}<br>` : '')
+      + `${list.length} SS &middot; ${region.risk.total} kerawanan &nbsp; ${riskChips(region.risk)}`
       + ` &nbsp;<button class="linkish" id="ss-allregions" type="button">semua wilayah</button>`
-    : 'Pilih pin UP2B pada peta untuk menyaring daftar.';
+    : `Pilih pin ${esc(c.regionWord)} pada peta untuk menyaring daftar.`;
   $('#portal-ss').innerHTML=list.length ? list.map(s=>`<div class="ss-card" data-sid="${s.id}"><b>${esc(s.name)}</b><small>${esc(s.code)} &middot; ${s.views.length} view &middot; ${s.risk.total} risiko</small><div class="risk-chips">${riskChips(s.risk)}</div></div>`).join('') : '<div class="empty-state">Belum ada snapshot SS untuk wilayah ini.</div>';
-  $$('#portal-ss [data-sid]').forEach(c=>{
-    c.onclick=()=>{const s=list.find(x=>x.id===+c.dataset.sid);if(s?.views.length)selectView(s.views[0].id)};
+  $$('#portal-ss [data-sid]').forEach(el=>{
+    el.onclick=()=>{const s=list.find(x=>x.id===+el.dataset.sid);if(s?.views.length)selectView(s.views[0].id)};
     // hovering a card highlights its dot on the map, so the two views read as one
-    c.onmouseenter=()=>{const p=$(`.ss-pin[data-sid="${c.dataset.sid}"]`); if(p) p.classList.add('active');};
-    c.onmouseleave=()=>{const p=$(`.ss-pin[data-sid="${c.dataset.sid}"]`); if(p) p.classList.remove('active');};
+    el.onmouseenter=()=>{const p=$(`.ss-pin[data-sid="${el.dataset.sid}"]`); if(p) p.classList.add('active');};
+    el.onmouseleave=()=>{const p=$(`.ss-pin[data-sid="${el.dataset.sid}"]`); if(p) p.classList.remove('active');};
   });
   const back = $('#ss-allregions');
   if(back) back.onclick = () => {
     MAP_REGION = null; NAV_REGION = '';
-    setCrumb([{label: 'Jamali', go: showHub}, {label: 'Wilayah UP2B'}]);
-    drawRegionMap(); renderSubsystems(null);
+    setCrumb([homeCrumb(), {label: `${c.name} · ${c.regionsLabel}`}]);
+    drawRegionMap(SYS, REGION_HOST); renderSubsystems(null);
   };
 }
 
@@ -1053,10 +1211,22 @@ function ssOf(id){ return SUBS.find(s => s.id === id) || null; }
 function ssName(id){ const s = ssOf(id); return s ? s.name : 'Lain-lain'; }
 function apbOf(id){ const s = ssOf(id); return (s && s.apb) || 'UP2B lain'; }
 
-// Same bucketing as the dashboard's region_key() in app/api/routes.py, so a
+// Same bucketing as system_of_apb() / region_key() in app/api/routes.py, so a
 // subsystem's raw `apb` string and a map region resolve to the same region.
+// Sumatera is checked first: "Sumbagteng" must never be read as "Tengah".
+function systemOfApb(apb){
+  const v = (apb || '').toUpperCase();
+  return (v.includes('SUMBAG') || v.includes('SUMATERA') || ['SBU','SBT','SBS'].includes(v))
+    ? 'SUMATERA' : 'JAMALI';
+}
 function regionKeyOf(apb){
   const v = (apb || '').toUpperCase();
+  if(systemOfApb(apb) === 'SUMATERA'){
+    if(v.includes('SUMBAGUT') || v === 'SBU') return 'SUMBAGUT';
+    if(v.includes('SUMBAGTENG') || v === 'SBT') return 'SUMBAGTENG';
+    if(v.includes('SUMBAGSEL') || v === 'SBS') return 'SUMBAGSEL';
+    return 'SUMATERA_LAIN';
+  }
   if(v.includes('JAKARTA') || v.includes('BANTEN') || v === 'JBB') return 'JAKARTA_BANTEN';
   if(v.includes('BARAT') || v.includes('JABAR')) return 'JAWA_BARAT';
   if(v.includes('TENGAH') || v.includes('DIY') || v.includes('JATENG')) return 'JAWA_TENGAH_DIY';
@@ -1064,11 +1234,22 @@ function regionKeyOf(apb){
   if(v.includes('BALI')) return 'BALI';
   return 'BELUM_DIPETAKAN';
 }
+// Region keys are unique across systems, so a key alone finds its system.
+function systemOfRegionKey(key){
+  return Object.keys(SUMMARIES).find(k => SUMMARIES[k].regions.some(r => r.key === key)) || SYS;
+}
 function regionOfKey(key){
-  return (SUMMARY?.regions || []).find(r => r.key === key) || null;
+  for (const S of Object.values(SUMMARIES)) {
+    const r = S.regions.find(r => r.key === key);
+    if (r) return r;
+  }
+  return null;
 }
 
-function isSystemView(v){ return ['BACKBONE_500','IBT_500_150'].includes(v?.rule_profile); }
+function isSystemView(v){ return !!SYSTEM_PROFILES[v?.rule_profile]; }
+function systemOfView(v){
+  return SYSTEM_PROFILES[v?.rule_profile] || systemOfApb(apbOf(v?.subsystem_id));
+}
 
 // The sidebar follows the drill-down the user already made: having picked a
 // UP2B on the map, they are inside that region, so listing all 32 subsystems
@@ -1079,10 +1260,12 @@ function navRegionName(){ return regionOfKey(NAV_REGION)?.name || ''; }
 function buildTree(scope='subsystem'){
   const box = $('#sstree');
   box.innerHTML = '';
-  $('#nav-heading').textContent = scope === 'system' ? 'Sistem 500 kV'
-    : (NAV_REGION ? `UP2B ${navRegionName()}` : 'UP2B & subsistem');
+  const c = sysCfg();
+  $('#nav-heading').textContent = scope === 'system' ? c.systemLabel
+    : (NAV_REGION ? regionTitle(regionOfKey(NAV_REGION))
+                  : `${c.regionTerm} & subsistem ${c.name}`);
   if(scope === 'system'){
-    [['Transmisi','BACKBONE_500'],['IBT','IBT_500_150']].forEach(([label,profile])=>{
+    (SUMMARY?.system.groups || []).forEach(({label, profile})=>{
       const matches=VIEWS.filter(v=>v.rule_profile===profile);
       const ah=document.createElement('div'); ah.className='apb'; ah.textContent=label; box.appendChild(ah);
       if(!matches.length){const e=document.createElement('div');e.className='muted';e.style.cssText='font-size:12px;padding:7px 4px';e.textContent='Belum ada snapshot';box.appendChild(e);return;}
@@ -1090,9 +1273,9 @@ function buildTree(scope='subsystem'){
     });
     return;
   }
-  // UP2B -> SS -> views
+  // region -> SS -> views, within the current system only
   const apbs = [];
-  VIEWS.filter(v => !isSystemView(v))
+  VIEWS.filter(v => !isSystemView(v) && systemOfApb(apbOf(v.subsystem_id)) === SYS)
        .filter(v => !NAV_REGION || regionKeyOf(apbOf(v.subsystem_id)) === NAV_REGION)
        .forEach(v => {
     const apb = apbOf(v.subsystem_id);
@@ -1109,8 +1292,8 @@ function buildTree(scope='subsystem'){
   up.className = 'tree-up';
   up.type = 'button';
   up.innerHTML = NAV_REGION
-    ? `&larr; Peta UP2B ${esc(navRegionName())}`
-    : '&larr; Peta Wilayah UP2B';
+    ? `&larr; Peta ${esc(regionTitle(regionOfKey(NAV_REGION)))}`
+    : `&larr; Peta ${esc(c.regionsLabel)}`;
   up.onclick = () => backToMap();
   box.appendChild(up);
 
@@ -1170,13 +1353,13 @@ function buildTree(scope='subsystem'){
   all.type = 'button';
   all.setAttribute('aria-expanded', NAV_REGION ? 'false' : 'true');
   if (NAV_REGION) {
-    all.textContent = 'Tampilkan semua UP2B';
+    all.textContent = `Tampilkan semua ${c.regionWord} ${c.name}`;
     all.onclick = () => { NAV_REGION = ''; buildTree('subsystem'); if(VIEW) markTree(VIEW.id); };
     box.appendChild(all);
   } else if (home) {
     // Only offered when there is a region to collapse back to - the one the
     // open view belongs to.
-    all.textContent = `Ciutkan ke UP2B ${regionOfKey(home)?.name || ''}`.trim();
+    all.textContent = `Ciutkan ke ${regionTitle(regionOfKey(home))}`.trim();
     all.onclick = () => { NAV_REGION = home; buildTree('subsystem'); if(VIEW) markTree(VIEW.id); };
     box.appendChild(all);
   }
@@ -1184,24 +1367,26 @@ function buildTree(scope='subsystem'){
 function markTree(id){
   $$('#sstree .pov').forEach(b => b.classList.toggle('active', +b.dataset.viewId === id));
   const v = VIEWS.find(v => v.id === id);
+  const c = sysCfg();
   if (v && isSystemView(v)) {
-    setCrumb([{label: 'Jamali', go: showHub},
-              {label: 'Sistem 500 kV', go: showSystem500Screen},
-              {label: v.rule_profile === 'BACKBONE_500' ? 'Transmisi' : 'IBT'},
+    const group = (SUMMARY?.system.groups || []).find(g => g.profile === v.rule_profile);
+    setCrumb([homeCrumb(),
+              {label: c.systemLabel, go: () => showSystem500Screen()},
+              {label: group ? group.label : v.rule_profile},
               {label: v.name}]);
   } else if (v) {
     const reg = regionOfKey(NAV_REGION);
-    setCrumb([{label: 'Jamali', go: showHub},
-              {label: 'Wilayah UP2B', go: () => { NAV_REGION = ''; showUp2bScreen(); }},
+    setCrumb([homeCrumb(),
+              {label: `${c.name} · ${c.regionsLabel}`, go: () => { NAV_REGION = ''; showUp2bScreen(); }},
               ...(reg ? [{label: reg.name, go: () => openRegion(reg)}] : []),
               {label: 'SS ' + ssName(v.subsystem_id)},
               {label: v.name}]);
   }
   markTopnav('viewer');
   // The header button names the step it takes, so "back" is never a surprise
-  // jump past the map the user was just on.
-  $('#homebtn').textContent = v && !isSystemView(v) && NAV_REGION
-    ? `← Peta UP2B ${navRegionName()}` : '← Peta Jamali';
+  // jump past the map the user was just on. (The arrow comes from CSS.)
+  $('#homebtn').textContent = v && isSystemView(v) ? c.systemLabel
+    : NAV_REGION ? `Peta ${regionTitle(regionOfKey(NAV_REGION))}` : `Peta ${c.regionsLabel}`;
 }
 
 // ---------- view load ----------
@@ -1210,7 +1395,9 @@ async function selectView(id){
   document.body.classList.add('mode-viewer');
   $('#scensel').style.display = '';
   VIEW = VIEWS.find(v => v.id === id);
-  // Opening a subsystem scopes the sidebar to its UP2B, whether it was reached
+  // A view always opens inside its own system, whichever door it came through.
+  setSys(systemOfView(VIEW));
+  // Opening a subsystem scopes the sidebar to its region, whether it was reached
   // from the region map or from a neighbouring SS in the tree.
   if(!isSystemView(VIEW)) NAV_REGION = regionKeyOf(apbOf(VIEW.subsystem_id));
   buildTree(isSystemView(VIEW) ? 'system' : 'subsystem');
@@ -1943,7 +2130,10 @@ function highlightRiskScope(seqs){
   // would strand, is drawn as exposure rather than as the selection itself
   const extra = new Set();
   risks.slice(1).forEach(r => { const t = riskTarget(svg, r); if (t) extra.add(t); });
-  risks.forEach(r => exposedBy(svg, r).forEach(t => extra.add(t)));
+  // a finding pinned to several objects: every further pin is part of its scope
+  const pinned = risks.flatMap(r => r.attachments || []);
+  pinned.forEach(a => { const t = riskTarget(svg, a); if (t) extra.add(t); });
+  [...risks, ...pinned].forEach(r => exposedBy(svg, r).forEach(t => extra.add(t)));
   extra.delete(main);
   markExposed([...extra]);
 }

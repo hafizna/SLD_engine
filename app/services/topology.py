@@ -50,6 +50,14 @@ RULE_PROFILES = {
         "tier_mode": "GI_HOPS",
         "downstream_roles": {"DOWNSTREAM_CONTEXT"},
     },
+    # Kerawanan Backbone Sumatera (500 + 275 kV). Same tiering as the Jawa-Bali
+    # backbone, but its own profile so the Jamali "Sistem 500 kV" page, which
+    # groups by BACKBONE_500, never picks up another island's backbone.
+    "BACKBONE_SUMATERA": {
+        "seed_roles": {"SOURCE"},
+        "tier_mode": "GI_HOPS",
+        "downstream_roles": {"DOWNSTREAM_CONTEXT"},
+    },
     "IBT_500_150": {
         "seed_roles": {"SOURCE"},
         "tier_mode": "NONE",  # inherits upstream 500 kV tier + IBT identity
@@ -338,10 +346,20 @@ def classify_layout(db: Session, view: AnalyticalView):
     members = {(m.node_kind, m.node_id): m for m in _members(db, view)}
 
     neigh: dict[int, set[int]] = defaultdict(set)
+    # The LV bus of an IBT whose transformer is its only link is a busbar in
+    # its own right (a GITET feeding a load bus, e.g. Sumsel's Sungai Lilin once
+    # its SUTET lives on the backbone sheet), never a bay of that GITET.
+    ibt_lv: set[tuple[int, int]] = set()
     for c in edges:
         # Parallel circuit records still represent one neighbouring bus.
         neigh[c.from_substation_id].add(c.to_substation_id)
         neigh[c.to_substation_id].add(c.from_substation_id)
+        if c.circuit_type == "IBT_LINK":
+            a = nodes.get(("SUBSTATION", c.from_substation_id))
+            b = nodes.get(("SUBSTATION", c.to_substation_id))
+            if a is not None and b is not None:
+                lv, hv = sorted((a, b), key=lambda s: s.voltage_kv or 0)
+                ibt_lv.add((lv.id, hv.id))
 
     # A BOUNDARY with its own book Tier is still a real busbar on this view
     # (for example DKSBI on LBK-Balaraja). Explicit Bay rows decide when the
@@ -353,6 +371,8 @@ def classify_layout(db: Session, view: AnalyticalView):
             continue
         role = roles.get(("SUBSTATION", sid), "")
         feeder = next(iter(neigh[sid]))
+        if (sid, feeder) in ibt_lv:
+            continue
         m = members.get(("SUBSTATION", sid))
         book_t = (m.tier_seed if m and m.tier_seed else
                   (m.display_order if m and m.display_order else None))

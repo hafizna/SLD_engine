@@ -9,6 +9,22 @@ with the section's Peta Kerawanan at high zoom. The tool also prints the tier
 from the Excel beside the tier the renderer used, which separates a workbook
 fault from an engine fault.
 
+## Line style in this book -- read this before judging a dashed circuit
+
+Corrected by the user after I got it backwards on four sheets:
+
+| Drawn | Means |
+|---|---|
+| **solid red** + red CBs | SUTT, overhead, energised |
+| **red dashed** + red CBs | **SKTT, cable, energised** |
+| **grey dashed** + grey CBs | rencana, not yet energised |
+| grey solid arrows with an SS name underneath | boundary to a neighbouring subsystem |
+
+Dashed alone does NOT mean planned. It is the **colour** that carries status:
+red is live, grey is future. A grey dashed circuit is a planned cable. Compare
+SNYAN (grey dashed, grey CBs, rencana) with Bintaro - Bintaro Baru (red dashed,
+red CBs, an energised cable) on the same page of Sec 2.9.
+
 ---
 
 ## SS_GNDUL24 -- Gandul 2,4 (Sec 2.13, Gambar 2.12) -- FIXED

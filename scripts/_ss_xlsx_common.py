@@ -62,6 +62,9 @@ def build_workbook(spec: dict) -> Path:
         rule_profile: optional analytical profile (e.g. "IBT_500_150"). Leave
             unset for an ordinary subsystem; set it on a system-scope fixture
             so the dashboard groups it under Sistem 500 kV rather than a UP2B.
+        multi_pin: True when every `kerawanan` number in the sheet marks the
+            finding's LOCATION (objects its Kondisi names), so each one gets a
+            pin. Leave unset where numbers also flag affected GIs.
         views:   [ (view_key, view_name, "GI;GI;..", page) ]   (optional; omit -> single SLD)
         assets:  [ dict(code, name, type, tier, kv=150, ibt=None,
                         bus_hv=None, bus_lv=None, bus150=None,
@@ -103,6 +106,10 @@ def build_workbook(spec: dict) -> Path:
     # dashboard files it under a UP2B region instead of Sistem 500 kV.
     if spec.get("rule_profile"):
         ws.append(["Rule Profile", spec["rule_profile"]])
+    # A sheet whose "No Kerawanan" marks only where each finding sits (never
+    # the GIs it knocks out) may pin a finding on every object it names.
+    if spec.get("multi_pin"):
+        ws.append(["Multi Pin", "Ya"])
     if spec.get("source_ref"):
         ws.append(["Sumber", spec["source_ref"]])
 

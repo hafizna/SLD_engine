@@ -6,12 +6,15 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.sld_layout import offset_path, layered_positions
-from app.services.sld_renderer import _circuit_style, _sym_solar
+from app.services.sld_renderer import (_circuit_style, _generator_color,
+                                       _place_gitets, _sym_solar,
+                                       _sym_two_winding_inline, _vcol)
 
 
 @pytest.mark.parametrize('filename', [
     'ss_gucl_ingest.xlsx', 'ss_plbratu_ingest.xlsx',
-    'backbone_500_ingest.xlsx', 'system_ibt_500_ingest.xlsx',
+    'ss_cirata_ingest.xlsx', 'backbone_500_ingest.xlsx',
+    'system_ibt_500_ingest.xlsx',
 ])
 def test_reviewed_near_continuation_fixtures_pass_full_geometry(filename):
     from pathlib import Path
@@ -57,6 +60,22 @@ def test_plts_uses_panel_inverter_symbol():
     symbol = _sym_solar(20, 30, '#0a8a3a')
     assert '<rect ' in symbol and '<path d="M' in symbol
     assert '<circle ' not in symbol
+
+
+def test_low_voltage_generator_and_two_winding_transformer_use_endpoint_colours():
+    generator = SimpleNamespace(status='ENERGIZED', voltage_kv=11)
+    assert _generator_color(generator) == '#39C96B'
+    assert _vcol(70) == '#E6B800' and _vcol(20) == '#E67300'
+    symbol = _sym_two_winding_inline(20, 30, _vcol(150), _vcol(70))
+    assert symbol.count('<circle ') == 2
+    assert '#C00000' in symbol and '#E6B800' in symbol
+
+
+def test_one_gitet_can_feed_two_lv_bus_sections():
+    pos = {2: (100.0, 210.0), 3: (300.0, 210.0)}
+    subs = {1: SimpleNamespace(code='CRATA7')}
+    _place_gitets(pos, {1: [2, 3]}, subs, lambda _: 55, only={1})
+    assert pos[1] == (200.0, 80.0)
 
 
 def intersection(a, b, c, d):

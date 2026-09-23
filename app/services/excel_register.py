@@ -31,6 +31,7 @@ from app.models import (
     DefenseScheme,
     DSRelation,
     GeneratingUnit,
+    RiskAttachment,
     RiskRecord,
     Substation,
     Subsystem,
@@ -139,12 +140,17 @@ def export_register(db: Session, path: str | Path) -> Path:
             m.role, m.external_subsystem, m.display_order)
            for m in db.query(SubsystemMembership).all()])
 
+    # further objects one finding is pinned to, beyond Attach_Label
+    extra_pins: dict[int, list[str]] = {}
+    for a in db.query(RiskAttachment).order_by(RiskAttachment.id).all():
+        extra_pins.setdefault(a.risk_id, []).append(f"{a.attach_kind}:{a.attach_label}")
     sheet("07_RISK",
           ["Risk_Key", "Subsystem", "Seq_No", "UIT", "Attach_Kind", "Attach_Label", "Title",
-           "Kondisi", "Dampak", "Mitigasi", "Usulan_Solusi", "Priority", "Status"],
+           "Kondisi", "Dampak", "Mitigasi", "Usulan_Solusi", "Priority", "Status",
+           "Attach_Tambahan"],
           [(r.risk_key, ss_code.get(r.subsystem_id, ""), r.seq_no, r.uit, r.attach_kind,
             r.attach_label, r.title, r.condition, r.impact, r.mitigation, r.follow_up,
-            r.priority, r.status)
+            r.priority, r.status, "; ".join(extra_pins.get(r.id, [])))
            for r in db.query(RiskRecord).order_by(RiskRecord.seq_no).all()])
 
     sheet("08_DEFENSE_SCHEME",

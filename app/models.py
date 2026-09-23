@@ -449,6 +449,25 @@ class RiskRecord(Base):
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
 
 
+class RiskAttachment(Base):
+    """A further object one kerawanan is pinned to, beyond RiskRecord's own attach.
+
+    The book draws the same numbered starburst on several objects when a finding
+    covers a chain of ruas or more than one GI. RiskRecord keeps the primary
+    attach, which the risk list, the editor and the exposure logic key on; these
+    rows carry the rest so the SLD can mark every one of them. A separate table
+    rather than new columns, so `create_all` adds it to an existing database.
+    """
+
+    __tablename__ = "risk_attachment"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    risk_id: Mapped[int] = mapped_column(ForeignKey("risk_record.id"))
+    attach_kind: Mapped[str] = mapped_column(String(20))  # SUBSTATION / CIRCUIT / TRANSFORMER
+    attach_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attach_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
 class AhiRecord(Base):
     __tablename__ = "ahi_record"
 

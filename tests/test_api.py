@@ -54,6 +54,51 @@ def test_dashboard_summary_deduplicates_multiview_risks(client):
     assert lbk["risk"]["total"] == 6
 
 
+def test_region_keys_never_mix_the_two_islands():
+    from app.api.routes import region_key, system_of_apb
+    # "Sumbagteng" must not be read as "Tengah", nor Sumatera Barat as Jawa Barat
+    assert region_key("Sumbagteng") == "SUMBAGTENG"
+    assert region_key("Sumbagsel") == "SUMBAGSEL"
+    assert region_key("SBU") == "SUMBAGUT"
+    assert system_of_apb("Sumatera Barat") == "SUMATERA"
+    assert region_key("UP2B Jawa Tengah & DIY") == "JAWA_TENGAH_DIY"
+    assert region_key("UP2B Jawa Barat") == "JAWA_BARAT"
+    assert system_of_apb("UP2B Jakarta & Banten") == "JAMALI"
+
+
+def test_dashboard_summary_keeps_each_system_to_itself(client):
+    payload = {
+        "subsystem": {"code": "SS_SUMTEST", "name": "Uji Sumatera", "apb": "Sumbagteng"},
+        "objects": [{"external_key": "AAA", "object_type": "GI", "tier_hint": 1},
+                    {"external_key": "BBB", "object_type": "GI", "tier_hint": 2}],
+        "connections": [{"from_external_key": "AAA", "to_external_key": "BBB"}],
+        "risks": [{"seq_no": 1, "category": "N-2", "condition": "Trip 2 sirkit AAA-BBB",
+                   "pin_kind": "CIRCUIT", "pin_key": "AAA-BBB"}],
+    }
+    draft = client.post("/api/ingest/parse", json={"payload": payload}).json()
+    for n in draft["nodes"]:
+        n["resolution"] = "NEW"
+    r = client.post("/api/ingest/publish", json={
+        "draft": draft, "subsystem_code": "SS_SUMTEST", "subsystem_name": "Uji Sumatera"})
+    assert r.status_code == 200, r.text
+
+    jam = client.get("/api/dashboard/summary").json()
+    sumatera = client.get("/api/dashboard/summary", params={"scope": "SUMATERA"}).json()
+    jam_codes = {s["code"] for reg in jam["regions"] for s in reg["subsystems"]}
+    assert "SS_SUMTEST" not in jam_codes          # not in Jawa Tengah, not "Belum dipetakan"
+    assert sumatera["scope"] == "SUMATERA"
+    assert [r["key"] for r in sumatera["regions"]] == ["SUMBAGUT", "SUMBAGTENG", "SUMBAGSEL"]
+    teng = next(r for r in sumatera["regions"] if r["key"] == "SUMBAGTENG")
+    assert [s["code"] for s in teng["subsystems"]] == ["SS_SUMTEST"]
+    assert sumatera["risk"]["total"] == sumatera["local_risk"]["total"] == 1
+    assert jam["risk"]["total"] == jam["local_risk"]["total"] + jam["system_risk"]["total"]
+    assert sumatera["system"]["title"] == "Backbone Sumatera"
+    assert [g["profile"] for g in sumatera["system"]["groups"]] == ["BACKBONE_SUMATERA"]
+    # the Jamali page keeps its legacy two-tile shape
+    assert set(jam["system_500"]) == {"transmission", "ibt"}
+    assert client.get("/api/dashboard/summary", params={"scope": "KALIMANTAN"}).status_code == 404
+
+
 def test_two_views_no_merged(client):
     keys = {v["view_key"] for v in client.get("/api/views").json()}
     # SS_LBK spans two book SLDs -> two per-side views, and no force-merged

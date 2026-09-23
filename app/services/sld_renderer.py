@@ -35,7 +35,8 @@ from collections import defaultdict
 
 from sqlalchemy.orm import Session
 
-from app.models import AnalyticalView, Bay, Circuit, DiagramNodePosition, RiskRecord, Subsystem, Transformer
+from app.models import (AnalyticalView, Bay, Circuit, DiagramNodePosition, RiskAttachment,
+                        RiskRecord, Subsystem, Transformer)
 from app.services.sld_layout import (layered_positions, route_bundles, offset_path,
                                       path_d, WIRE_PITCH, BUS_TOP, BUS_BOTTOM)
 from app.services.topology import _is_live, calculate_tier, classify_layout, get_view_graph
@@ -58,6 +59,7 @@ def _view_title(db: Session, view: AnalyticalView) -> str:
 VOLT_COLOR = {
     500: "#0047AB", 275: "#00A6D6", 150: "#C00000",
     70: "#E6B800", 66: "#E6B800", 30: "#39C96B", 20: "#E67300",
+    15: "#39C96B", 13: "#39C96B", 11: "#39C96B", 10: "#39C96B",
 }
 
 # busbar styling by status (colour, dash)
@@ -111,20 +113,38 @@ GITET_SIBLING_GAP = 40 # clear space between two GITETs feeding the same bus
 def _place_gitets(pos, gitet_feeds, subs, bus_half, only=None, skip=()):
     """Float each GITET above the LV bus it feeds.
 
-    Several GITETs can feed one bus -- Suralaya and Suralaya Baru both feed the
-    150 kV SRLYA bus, Cirata and Cirata 3 both feed Cirata. Centring each on
-    that bus drew them at the same point, so busbars and labels landed on top
-    of one another. Siblings are spread along the bus instead, in code order so
-    the drawing is stable between renders.
+    Several GITETs can feed one bus, and one GITET can feed several LV bus
+    sections. Siblings are spread along their shared landing span; a single HV
+    bus is centred across all of the LV sections it feeds.
 
     `only` restricts placement to GITETs in that container; `skip` protects
     GITETs the user has positioned by hand.
+
+    A GITET can feed another GITET (Sumatera: Perawang 500 -> 275 -> 150), so
+    placement runs depth by depth: the one over the 150 kV bus first, then the
+    one over it. A single pass left the upper GITET unplaced, because its LV
+    side had no position yet when the pass looked.
     """
-    siblings: dict[int, list[int]] = defaultdict(list)
-    for hv, lv in gitet_feeds.items():
-        siblings[lv].append(hv)
-    for lv, hvs in siblings.items():
-        if lv not in pos:
+    for depth in sorted({_gitet_depth(hv, gitet_feeds) for hv in gitet_feeds}):
+        _place_gitet_level(pos, {hv: lvs for hv, lvs in gitet_feeds.items()
+                                 if _gitet_depth(hv, gitet_feeds) == depth},
+                           subs, bus_half, only, skip)
+
+
+def _gitet_depth(hv, gitet_feeds, seen=()) -> int:
+    """1 for a GITET feeding ordinary buses, 1 + n over a GITET of depth n."""
+    upper = [lv for lv in gitet_feeds.get(hv, ()) if lv in gitet_feeds and lv not in seen]
+    return 1 + max((_gitet_depth(lv, gitet_feeds, seen + (hv,)) for lv in upper), default=0)
+
+
+def _place_gitet_level(pos, gitet_feeds, subs, bus_half, only, skip):
+    siblings: dict[tuple[int, ...], list[int]] = defaultdict(list)
+    for hv, lvs in gitet_feeds.items():
+        signature = tuple(sorted(lv for lv in lvs if lv in pos))
+        if signature:
+            siblings[signature].append(hv)
+    for lvs, hvs in siblings.items():
+        if not lvs:
             continue
         # `only` is the set a GITET must belong to; where it is given the GITET
         # may still be absent from `pos` (this pass is what places it), so
@@ -134,7 +154,8 @@ def _place_gitets(pos, gitet_feeds, subs, bus_half, only=None, skip=()):
                      key=lambda h: (subs[h].code or "", h))
         if not hvs:
             continue
-        cx, cy = pos[lv]
+        cx = sum(pos[lv][0] for lv in lvs) / len(lvs)
+        cy = min(pos[lv][1] for lv in lvs)
         top = cy - GITET_RISE
         if len(hvs) == 1:
             pos[hvs[0]] = (cx, top)
@@ -142,7 +163,9 @@ def _place_gitets(pos, gitet_feeds, subs, bus_half, only=None, skip=()):
         # Never closer than the widest sibling needs, so two cannot touch, but
         # otherwise spread across the bus they feed.
         need = max(bus_half(h) for h in hvs) * 2 + GITET_SIBLING_GAP
-        step = max(need, (bus_half(lv) * 2) / len(hvs))
+        target_span = max(pos[lv][0] + bus_half(lv) for lv in lvs) - min(
+            pos[lv][0] - bus_half(lv) for lv in lvs)
+        step = max(need, target_span / len(hvs))
         span = step * (len(hvs) - 1)
         for i, hv in enumerate(hvs):
             pos[hv] = (cx - span / 2 + i * step, top)
@@ -154,6 +177,20 @@ def esc(v) -> str:
 
 def _vcol(kv) -> str:
     return VOLT_COLOR.get(int(kv or 150), "#C00000")
+
+
+def _display_code(code: str) -> str:
+    """Hide the voltage suffix used only to keep canonical bus identities apart.
+
+    Three spellings exist: the ingest guards' `CURUG_70KV` and
+    `KRSAN@SUMATERA` (the same short code on another island), and the Sumatera
+    workbooks' `PKLNG_70` / `LBGAU_275`. The book labels both buses of a site
+    with the bare code and lets the colour carry the voltage. Only a voltage
+    number is stripped -- Cirata's bus sections `CRATA5_12` / `CRATA5_3` keep
+    their suffix."""
+    code = re.sub(r"_\d+(?:P\d+)?KV$", "", code or "")
+    code = re.sub(r"@[A-Z]+$", "", code)
+    return re.sub(r"_(?:500|275|150|70|66|30|20)$", "", code)
 
 
 def _cb(x, y, color):
@@ -183,6 +220,25 @@ def _sym_transformer(x, y, hv_color, lv_color="#E67300"):
         f'<circle cx="{x:.1f}" cy="{y + 7 + r + 8:.1f}" r="{r}" stroke="{lv_color}"/>'
         f"</g>"
     )
+
+
+def _sym_two_winding_inline(x, y, hv_color, lv_color):
+    """Two-winding network transformer, coloured by its actual endpoint buses."""
+    r = 7.5
+    return (
+        f'<g fill="#ffffff" stroke-width="1.7">'
+        f'<circle cx="{x:.1f}" cy="{y - 4:.1f}" r="{r}" stroke="{hv_color}"/>'
+        f'<circle cx="{x:.1f}" cy="{y + 4:.1f}" r="{r}" stroke="{lv_color}"/>'
+        f'</g>'
+    )
+
+
+def _generator_color(generator, outlet=None):
+    """Generator lead colour represents its electrical terminal voltage."""
+    status = (generator.status or "").upper()
+    if status in ("STANDBY", "OFF"):
+        return "#7c9a6a"
+    return _vcol(generator.voltage_kv or (outlet.voltage_kv if outlet else 150))
 
 
 def _sym_capacitor(x, y, color):
@@ -305,15 +361,23 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
     risk_on: dict[tuple[str, int], list[int]] = defaultdict(list)
     if view.subsystem_id:
-        for r in db.query(RiskRecord).filter(RiskRecord.subsystem_id == view.subsystem_id).all():
+        view_risks = (db.query(RiskRecord)
+                      .filter(RiskRecord.subsystem_id == view.subsystem_id).all())
+        for r in view_risks:
             if r.attach_kind and r.attach_id:
                 risk_on[(r.attach_kind, r.attach_id)].append(r.seq_no or 0)
+        # A finding drawn on several objects in the book gets a pin on each.
+        seq_of = {r.id: r.seq_no or 0 for r in view_risks}
+        for a in (db.query(RiskAttachment)
+                  .filter(RiskAttachment.risk_id.in_(seq_of or [-1])).all()):
+            if a.attach_id is not None and seq_of[a.risk_id] not in risk_on[(a.attach_kind, a.attach_id)]:
+                risk_on[(a.attach_kind, a.attach_id)].append(seq_of[a.risk_id])
 
     # ---- IBT structure --------------------------------------------------
     # An IBT chain (triple circle + CBs) is only drawn for a LIVE GITET feeding
     # a LIVE bus. A planned GITET's link is drawn as a plain black dashed line
     # and the GITET as a plain black busbar.
-    gitet_feeds: dict[int, int] = {}
+    gitet_feeds: dict[int, list[int]] = defaultdict(list)
     # (hv, lv) -> circuit, for IBTs whose HV side is a normal bus rather than a
     # GITET (150/70, 150/30). Both buses keep their own rows; only the chain is
     # drawn between them.
@@ -337,7 +401,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if subs[hv].substation_type == "GITET":
             # A GITET is drawn floating directly above the LV bus it feeds; it
             # has no row of its own. `gitet_feeds` drives that placement.
-            gitet_feeds[hv] = lv
+            if lv not in gitet_feeds[hv]:
+                gitet_feeds[hv].append(lv)
         else:
             # A step-down inside the 150 kV network (150/70 at Cibinong,
             # Driyorejo, Kertosono; 150/30 further east) is the same transformer
@@ -346,6 +411,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             # bus -- previously these links matched no branch at all, so the
             # lower-voltage network rendered as a floating island.
             _ibt_step_down[(hv, lv)] = c
+
+    def _ibt_unit_count(links) -> int:
+        return sum(max(1, c.circuit_count or 1) for c in links)
 
     line_edges = [c for c in edges
                   if (c.circuit_type != "IBT_LINK" or c.id in _ibt_as_line)
@@ -389,8 +457,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # a GITET that feeds a drawn bus must be drawn too, even when classify_layout
     # filed it as a spur (happens when it has a single IBT link). Its IBT chain
     # is anchored to that GITET's own layout position.
-    for _hv, _lv in gitet_feeds.items():
-        if _hv not in drawn_ids and _lv in drawn_ids and _row_tier(_hv) is not None:
+    for _hv, _lvs in gitet_feeds.items():
+        if (_hv not in drawn_ids and any(lv in drawn_ids for lv in _lvs)
+                and _row_tier(_hv) is not None):
             drawn_ids.append(_hv)
 
     # count attachments -> busbar width. Every distinct thing that touches the
@@ -405,7 +474,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                  for c in edges if fd == sid and spr not in bay_gi_ids and spr not in gitet_feeds
                  and {c.from_substation_id, c.to_substation_id} == {spr, fd})
         n += sum(1 for c in line_edges if sid in (c.from_substation_id, c.to_substation_id))
-        n += sum(len(ls) for (hv, lv), ls in ibt_links_by_pair.items() if lv == sid)
+        n += sum(_ibt_unit_count(ls) for (hv, lv), ls in ibt_links_by_pair.items()
+                 if lv == sid)
         n += sum(1 for g in gens.values() if g.outlet_substation_id == sid)
         att[sid] = max(n, 2)
 
@@ -417,9 +487,16 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # GITET that is only planning info (NCKUPA, black bus) keeps its own book
     # band -- it is not really feeding anything yet.
     row_of: dict[int, float] = {}
-    for sid in drawn_ids:
-        if sid in gitet_feeds and _is_live(subs[sid].status) and _is_live(subs[gitet_feeds[sid]].status):
-            ft = _row_tier(gitet_feeds[sid])
+    # A GITET over another GITET (500 -> 275 -> 150) takes its row from the one
+    # below it, so the lower GITET's row must exist first.
+    for sid in sorted(drawn_ids, key=lambda s: _gitet_depth(s, gitet_feeds)
+                      if s in gitet_feeds else 0):
+        if (sid in gitet_feeds and _is_live(subs[sid].status)
+                and any(_is_live(subs[lv].status) for lv in gitet_feeds[sid])):
+            ft = min((row_of[lv] if lv in gitet_feeds and lv in row_of else _row_tier(lv)
+                      for lv in gitet_feeds[sid]
+                      if (lv in row_of if lv in gitet_feeds else _row_tier(lv) is not None)),
+                     default=None)
             row_of[sid] = (ft - 0.78) if ft else 0.35
         else:
             row_of[sid] = float(_row_tier(sid))
@@ -428,9 +505,18 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # (150 kV Semen Baru on Tier-2, 70 kV Semen Baru on Tier-3 beside Cileungsi).
     # Only force the LV bus down when the tiers would otherwise put it level with
     # or above its HV parent, which the chain cannot draw.
+    # An LV bus that still feeds a lower tier (Bengkulu: Pekalongan 70 ->
+    # Sukamerindu) goes only 0.4 down, so it stays above the mid-gap Tier rule
+    # and does not read as a member of the next tier; the gap is widened below
+    # to give its own penghantar room.
     for (_hv, _lv) in _ibt_step_down:
         if _hv in row_of and _lv in row_of and row_of[_lv] <= row_of[_hv]:
-            row_of[_lv] = row_of[_hv] + 0.55
+            feeds_below = any(
+                _lv in (c.from_substation_id, c.to_substation_id)
+                and row_of.get(c.to_substation_id if c.from_substation_id == _lv
+                               else c.from_substation_id, 0) > row_of[_hv]
+                for c in line_edges)
+            row_of[_lv] = row_of[_hv] + (0.4 if feeds_below else 0.55)
     gen_row: dict[int, float] = {}
     for g in gens.values():
         if not g.outlet_substation_id:
@@ -445,6 +531,20 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # Use all connections, not the first encountered feeder as a parent.
     layout_links = [(c.from_substation_id, c.to_substation_id) for c in line_edges
                     if c.from_substation_id in row_of and c.to_substation_id in row_of]
+    # In a meshed multi-voltage site, the LV bus can have a transmission parent
+    # on the same row as its own HV bus (Cirata 70 -> Purwakarta 70 while
+    # Purwakarta 150 -> 70 is the transformer). Add the transformer as an
+    # ordering constraint only for that shape; applying it to every radial
+    # step-down needlessly reorders established subsystem layouts.
+    for hv, lv in _ibt_step_down:
+        if hv not in row_of or lv not in row_of:
+            continue
+        competing_same_row_parent = any(
+            lv in (a, b) and row_of[b if a == lv else a] == row_of[hv]
+            for a, b in layout_links
+        )
+        if competing_same_row_parent:
+            layout_links.append((hv, lv))
     # Allocate routing capacity per tier gap. A dense boundary can grow without
     # forcing every other pair of tiers to inherit its height.
     integer_tiers = list(range(1, max(1, int(max(row_of.values(), default=1))) + 1))
@@ -452,9 +552,39 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     for t in integer_tiers[:-1]:
         crossing = sum(min(row_of[a], row_of[b]) <= t < max(row_of[a], row_of[b])
                        for a, b in layout_links)
-        gap_height[t] = (max(210, 120 + crossing * 20) if compact_500
-                         else max(220, 130 + crossing * 24))
-    tier_y = {1: 210.0}
+        # Transformer corridors consume real routing width too. Previously an
+        # in-site 150/70 pair did not contribute because IBT_LINK is excluded
+        # from `layout_links`; a normal 70 kV line could then be allocated in
+        # the same narrow gap and the router had no exit from the LV bus. Count
+        # each physical unit so multi-voltage sites scale across all regions.
+        transformer_lanes = sum(
+            max(1, sum(max(1, c.circuit_count or 1) for c in links))
+            for (hv, lv), links in ibt_links_by_pair.items()
+            if hv in row_of and lv in row_of
+            and min(row_of[hv], row_of[lv]) <= t < max(row_of[hv], row_of[lv])
+        )
+        gap_height[t] = (max(210, 120 + crossing * 20 + transformer_lanes * 30)
+                         if compact_500 else
+                         max(220, 130 + crossing * 24 + transformer_lanes * 42))
+    # A step-down LV bus pushed to a fractional row can still carry its own
+    # penghantar to the tier below (Bengkulu: Pekalongan 70, level with its
+    # 150 kV bus in the deck, feeds Sukamerindu on Tier-3). Only the rest of the
+    # gap is left for that line, and it must hold the LV exit stub, the child's
+    # entry stub and a channel -- the same room a whole tier gap normally gives.
+    # Without this the two stubs overlap and the router finds no channel at all.
+    for (_hv, _lv) in _ibt_step_down:
+        rk = row_of.get(_lv)
+        if rk is None or rk == int(rk) or int(rk) not in gap_height:
+            continue
+        if any(_lv in (a, b) and row_of[b if a == _lv else a] > rk for a, b in layout_links):
+            floor = 210 if compact_500 else 220
+            need = floor / (1 - (rk - int(rk)))
+            gap_height[int(rk)] = max(gap_height[int(rk)], int(need + 0.999))
+    # Each GITET stacked over another floats one more GITET_RISE above Tier-1;
+    # push the whole sheet down by that much so the top one stays on the page.
+    stack_rise = GITET_RISE * (max((_gitet_depth(hv, gitet_feeds) for hv in gitet_feeds
+                                    if hv in row_of), default=1) - 1)
+    tier_y = {1: 210.0 + stack_rise}
     for t in integer_tiers[:-1]:
         tier_y[t + 1] = tier_y[t] + gap_height[t]
 
@@ -462,11 +592,14 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # Tier-0 is a compact, fixed source strip above the first GI row.
         # It is not routing space for inter-GI conductors.
         if rk <= 0:
-            return 70.0
+            return 70.0 + stack_rise
         lo = max(1, int(rk))
         if rk == lo or lo not in gap_height:
             return tier_y.get(lo, 210.0)
-        return tier_y[lo] + (rk - lo) * gap_height[lo]
+        # Whole pixels: a fractional y prints as 728.9 on the busbar but 729.0
+        # at a wire's end, and that 0.1 overshoot reads as the wire crossing
+        # its own bus.
+        return float(round(tier_y[lo] + (rk - lo) * gap_height[lo]))
     regular_rows = {sid: rk for sid, rk in row_of.items() if sid not in gitet_feeds}
     regular_links = [(a, b) for a, b in layout_links if a in regular_rows and b in regular_rows]
     pos = layered_positions(regular_rows, regular_links, bus_half,
@@ -675,9 +808,16 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # One port per GITET, not one shared "ibt" port: two GITETs feeding the
     # same bus (Suralaya + Suralaya Baru, Cirata + Cirata 3) would otherwise
     # resolve to the same slot and be drawn on top of each other.
-    for hv, lv in gitet_feeds.items():
+    for hv, lvs in gitet_feeds.items():
+        for lv in lvs:
+            if lv in pos and hv in pos:
+                bus_attach[lv].append((f"ibt{hv}", "ibt", pos[hv][0]))
+    # In-network step-downs need their own LV landing port as well. Falling
+    # back to the bus centre puts the transformer obstacle on top of a normal
+    # incoming circuit port, making an otherwise valid route impossible.
+    for hv, lv in _ibt_step_down:
         if lv in pos and hv in pos:
-            bus_attach[lv].append((f"ibt{hv}", "ibt", pos[hv][0]))
+            bus_attach[lv].append(("ibt", "ibt", pos[hv][0]))
     for g in gens.values():
         if g.outlet_substation_id in pos:
             bus_attach[g.outlet_substation_id].append((f"gen{g.id}", "gen", None))
@@ -690,8 +830,11 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             bus_attach[sid].append((f"cap{unit}", "cap", None))
     for feeder_id, blist in bays_by_feeder.items():
         if feeder_id in pos:
+            # Under a GITET hang its IBT chains, so a bay there (a SUTET arrow
+            # to the next GITET) leaves from the top of the bar instead.
+            kind = "up" if feeder_id in gitet_feeds else "bay"
             for b in blist:
-                bus_attach[feeder_id].append((f"bay{b.id}", "bay", None))
+                bus_attach[feeder_id].append((f"bay{b.id}", kind, None))
     for spur_id, feeder_id in spur.items():
         if spur_id not in bay_gi_ids and spur_id not in gitet_feeds and feeder_id in pos:
             bus_attach[feeder_id].append((f"spur{spur_id}", "bay", None))
@@ -704,7 +847,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # keeps siblings in the same order at both ends; sources do not consume
         # all left-hand slots and force unrelated children to cross them.
         for top in (True, False):
-            group = [it for it in items if (it[1] in ("in", "ibt", "gen")) == top]
+            group = [it for it in items if (it[1] in ("in", "ibt", "gen", "up")) == top]
             # Load transformers conventionally sit at the left edge of a bus;
             # this keeps the equipment symbol out of the middle of a dense bay row.
             rank = {"load": 0, "cap": 1, "ibt": 2, "gen": 3, "in": 4, "out": 5}
@@ -715,7 +858,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                     # a per-GITET port carries only that GITET's chains; the
                     # bare "ibt" key still covers every IBT landing on this bus
                     _hv = int(key[3:]) if key[3:].isdigit() else None
-                    weight = max(1, sum(len(ls) for (hv, lv), ls in ibt_links_by_pair.items()
+                    weight = max(1, sum(_ibt_unit_count(ls)
+                                        for (hv, lv), ls in ibt_links_by_pair.items()
                                         if lv == sid and (_hv is None or hv == _hv)))
                     # The GITET busbar is drawn centred on this port, so the
                     # slot has to be as wide as the bar. Sized by chain count
@@ -816,12 +960,37 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         start = (ax, ay + (BUS_BOTTOM if da > 0 else -BUS_TOP))
         end = (bx, by + (BUS_BOTTOM if db_ > 0 else -BUS_TOP))
         specs.append((c, (ax, ay), start, end, (bx, by)))
+    # Separate the horizontal shoulders of unrelated step-down groups sharing
+    # the same pair of tier rows. Without distinct lanes, Cirata and Jatiluhur
+    # 150/70 links become one continuous brown conductor visually.
+    step_mid_y = {}
+    step_groups = defaultdict(list)
+    for pair in _ibt_step_down:
+        hv, lv = pair
+        if hv in pos and lv in pos:
+            step_groups[(round(pos[hv][1], 1), round(pos[lv][1], 1))].append(pair)
+    for pairs in step_groups.values():
+        ordered = sorted(pairs, key=lambda pair: (pos[pair[0]][0], pos[pair[1]][0]))
+        for index, pair in enumerate(ordered):
+            hv, lv = pair
+            centre = (pos[hv][1] + pos[lv][1]) / 2
+            step_mid_y[pair] = centre + (index - (len(ordered) - 1) / 2) * 32
+
     symbol_obstacles = []
     for (hv, lv), links in ibt_links_by_pair.items():
         if hv in pos and lv in pos:
             base = port(lv, f"ibt{hv}" if hv in gitet_feeds else "ibt")
-            radius = (len(links) - 1) * 46 / 2 + 20
-            symbol_obstacles.append((base - radius, pos[hv][1], base + radius, pos[lv][1] - 20))
+            radius = (_ibt_unit_count(links) - 1) * 46 / 2 + 20
+            top = pos[hv][1]
+            # A step-down whose LV port is not under its HV bar is drawn down,
+            # across at its shoulder, then down (see the chain below), so above
+            # the shoulder its column is empty. Blocking it from the HV row down
+            # sealed the exit of whatever bus happens to sit over the LV port --
+            # in Sumsel, PLTU Sumbagsel-1 above the pushed Palembang 70 kV bus.
+            if hv not in gitet_feeds and not (
+                    pos[hv][0] - bus_half(hv) + 6 <= base <= pos[hv][0] + bus_half(hv) - 6):
+                top = step_mid_y.get((hv, lv), (pos[hv][1] + pos[lv][1]) / 2) - 40
+            symbol_obstacles.append((base - radius, top, base + radius, pos[lv][1] - 20))
     for gid, (gx, gy) in gen_pos.items():
         outlet = gens[gid].outlet_substation_id
         if outlet in pos:
@@ -912,10 +1081,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         for t in db.query(Transformer).filter(Transformer.id.in_(_ibt_tx_ids)).all():
             _ibt_unit[t.id] = t.unit_no or ""
 
-    def _ibt_label(c) -> str:
+    def _ibt_label(c, instance=0, total=1) -> str:
         u = _ibt_unit.get(c.transformer_id, "")
         if u:
-            return f"IBT {u}"
+            return f"IBT {u}" if total == 1 else f"IBT {instance + 1}"
         # fall back to a trailing number in the circuit name / code
         m = re.search(r"(\d+)", (c.name or c.code).split("-")[0])
         return f"IBT {m.group(1)}" if m else "IBT"
@@ -927,18 +1096,20 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             continue
         hv_col, lv_col = _vcol(subs[hv].voltage_kv), _vcol(subs[lv].voltage_kv)
         base = port(lv, f"ibt{hv}" if hv in gitet_feeds else "ibt")
-        n = len(links)
-        slinks = sorted(links, key=lambda z: (_ibt_unit.get(z.transformer_id, ""), z.code))
+        slinks = [(c, unit) for c in sorted(
+            links, key=lambda z: (_ibt_unit.get(z.transformer_id, ""), z.code))
+            for unit in range(max(1, c.circuit_count or 1))]
+        n = len(slinks)
         IBT_DX = 46   # room for the inline symbol + a unit label per chain
         # A GITET sits directly above the bus it feeds, so its chain is a plain
         # vertical drop. An in-network step-down (150/70) keeps both buses on
         # their own rows and they are usually offset horizontally, so the chain
         # has to step across to the HV busbar instead of hanging in mid-air.
         hv_x_span = (hp[0] - bus_half(hv), hp[0] + bus_half(hv))
-        for i, c in enumerate(slinks):
+        for i, (c, unit) in enumerate(slinks):
             cx = base + (i - (n - 1) / 2) * IBT_DX
             hy, ly = hp[1], lp[1]
-            mid = (hy + ly) / 2
+            mid = step_mid_y.get((hv, lv), (hy + ly) / 2)
             hx = min(max(cx, hv_x_span[0] + 6), hv_x_span[1] - 6)
             da = f' stroke-dasharray="{STATUS_DASH.get(c.status, "none")}"' if c.status != "ENERGIZED" else ""
             p.append(f'<g data-circuit-id="{c.id}" data-circuit-code="{esc(c.code)}" '
@@ -952,12 +1123,20 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             p.append(f'<path d="{d}" fill="none" stroke="#8a6a3a" '
                      f'stroke-width="1.6"{da}><title>{esc(c.name)} - {esc(c.status)}</title></path>')
             p.append(_cb(hx, hy + CB_GAP, hv_col))
-            p.append(_sym_ibt_inline(cx, mid - 4))
+            # The Sumatera deck draws its 500/275 kV IBTs (Perawang, New
+            # Aurduri) as two circles, like its 275/150 ones.
+            if (max(subs[hv].voltage_kv, subs[lv].voltage_kv) < 500
+                    or min(subs[hv].voltage_kv, subs[lv].voltage_kv) >= 275):
+                p.append(_sym_two_winding_inline(cx, mid - 4, hv_col, lv_col))
+            else:
+                # The book uses the three-circle IBT convention on the 500 kV
+                # projection; its tertiary is the 70/66 kV colour.
+                p.append(_sym_ibt_inline(cx, mid - 4, hv_col, lv_col, _vcol(70)))
             p.append(_cb(cx, ly - CB_GAP, lv_col))
             # unit label below the inline symbol (clear of both the circles and
             # the neighbouring chain)
             p.append(f'<text x="{cx:.1f}" y="{mid + 20:.1f}" font-size="8.5" '
-                     f'fill="#8a6a3a" font-weight="700" text-anchor="middle">{esc(_ibt_label(c))}</text>')
+                     f'fill="#8a6a3a" font-weight="700" text-anchor="middle">{esc(_ibt_label(c, unit, max(1, c.circuit_count or 1)))}</text>')
             p.append('</g>')
     p.append('</g>')
 
@@ -967,7 +1146,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if not g.tap_circuit_id and gid not in gen_pos:
             continue
         standby = (g.status or "").upper() in ("STANDBY", "OFF")
-        col = "#7c9a6a" if standby else "#0a8a3a"
+        outlet_obj = subs.get(g.outlet_substation_id)
+        col = _generator_color(g, outlet_obj)
         is_solar = "PLTS" in f"{g.unit_type or ''} {g.name or ''}".upper()
         if g.tap_circuit_id:
             # a small plant that is NOT a GI (no in/out busbar) -- it sits ON an
@@ -1026,8 +1206,13 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         p.append(f'<g class="sld-node" data-node-kind="GENERATING_UNIT" data-node-id="{gid}" '
                  f'data-code="{esc(g.code)}" data-x="{gx:.1f}" data-y="{gy:.1f}" data-pinned="{_gp}">')
         p.append(_sym_solar(gx, gy - 30, col) if is_solar else _sym_generator(gx, gy - 30, col))
-        p.append(f'<text x="{gx:.1f}" y="{gy - 42:.1f}" font-size="10" text-anchor="middle" '
-                 f'fill="{col}">{esc(g.name)}</text>')
+        if is_solar:
+            p.append(f'<text x="{gx + 16:.1f}" y="{gy - 14:.1f}" font-size="12" font-weight="700" text-anchor="start" '
+                     f'fill="{col}" stroke="#ffffff" stroke-width="4" paint-order="stroke" '
+                     f'stroke-linejoin="round">{esc(g.name)}</text>')
+        else:
+            p.append(f'<text x="{gx:.1f}" y="{gy - 42:.1f}" font-size="10" text-anchor="middle" '
+                     f'fill="{col}">{esc(g.name)}</text>')
         if outlet:
             p.append(f'<path d="M{gx:.1f},{gy:.1f} V{outlet[1] - CB_GAP:.1f}" fill="none" '
                      f'stroke="{col}" stroke-width="2"/>')
@@ -1044,11 +1229,20 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # a GITET busbar is centred exactly over its IBT chains (nothing else
         # attaches to it here), so it can't overrun the rest of the diagram
         if sid in gitet_feeds:
-            lv = gitet_feeds[sid]
-            base = port(lv, f"ibt{sid}")
-            n = len(ibt_links_by_pair.get((sid, lv), [1]))
-            x = base
-            bh = max((n - 1) * 46 / 2 + 26, 40)
+            landings = []
+            for lv in gitet_feeds[sid]:
+                base = port(lv, f"ibt{sid}")
+                n = _ibt_unit_count(ibt_links_by_pair.get((sid, lv), [1]))
+                radius = (n - 1) * 46 / 2 + 26
+                landings.extend((base - radius, base + radius))
+            # its upward bays must stand on the bar too
+            for b in bays_by_feeder.get(sid, []):
+                bx = PORT.get((sid, f"bay{b.id}"))
+                if bx is not None:
+                    landings.extend((bx - 18, bx + 18))
+            if landings:
+                x = (min(landings) + max(landings)) / 2
+                bh = max((max(landings) - min(landings)) / 2, 40)
         vcol = _vcol(s.voltage_kv)
         bstroke = STATUS_STROKE.get(s.status) or vcol
         bdash = STATUS_DASH.get(s.status, "none")
@@ -1079,7 +1273,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         gap_right = (pos[row_order[idx + 1]][0] - pos[sid][0]) if idx < len(row_order) - 1 else 9e9
         # the label on the diagram is the SLD CODE (singkatan), like the book;
         # the full name lives in the <title> tooltip and the Excel register.
-        display_code = s.code.removeprefix("GITET_") if compact_500 else s.code
+        display_code = _display_code(
+            s.code.removeprefix("GITET_") if compact_500 else s.code)
         blabel = esc(display_code)
         est_w = 7 * len(display_code) + 12          # rough label width
         left_room = gap_left - bh - bus_half(row_order[idx - 1] if idx > 0 else sid) > est_w
@@ -1090,7 +1285,13 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
         label_size = 10.5 if compact_500 else 12.5
         label_halo = 'paint-order="stroke" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"'
-        if is_gitet:
+        if is_gitet and (bays_by_feeder.get(sid)
+                         or any(sid in lvs for lvs in gitet_feeds.values())):
+            # the top of the bar carries SUTET arrows or the chain from the
+            # GITET above; name it off the right end (its pins sit at the left)
+            p.append(f'<text x="{x + bh + 6:.1f}" y="{y + 4:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
+                     f'text-anchor="start" fill="#0f274a">{blabel}</text>')
+        elif is_gitet:
             p.append(f'<text x="{x:.1f}" y="{y - 12:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
                      f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         elif centre_clear:
@@ -1162,7 +1363,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         fx, fy = pos[feeder_id]
         sx = port(feeder_id, key, fx)
         source_boundary = meta == "SOURCE_BOUNDARY"
-        direction = -1 if source_boundary else 1
+        direction = -1 if source_boundary or feeder_id in gitet_feeds else 1
         sy = fy + direction * STUB_LEN
         # A bay with a real circuit is drawn in that circuit's style. Otherwise
         # the workbook's `Jenis` decides: SKTT is a cable and draws dashed,
@@ -1202,10 +1403,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # (singkatan) is written below the dot, exactly as the book does it.
         for off in offsets:
             p.append(f'<circle cx="{sx + off:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
-        label_y = sy - 10 if source_boundary else sy + 15
+        label_y = sy - 10 if direction < 0 else sy + 15
         p.append(f'<text x="{sx:.1f}" y="{label_y:.1f}" font-size="10" font-weight="700" '
                  f'paint-order="stroke" stroke="#ffffff" stroke-width="3" '
-                 f'text-anchor="middle" fill="#334155">{esc(gi.code)}</text>')
+                 f'text-anchor="middle" fill="#334155">{esc(_display_code(gi.code))}</text>')
         p.append('</g>')
     p.append('</g>')
 
@@ -1265,11 +1466,13 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if seqs:
             p.append(_pin(px, py, seqs))
     for sid, tx_list in tx_by_sub.items():
-        for t in tx_list:
-            seqs = risk_on.get(("TRANSFORMER", t.id))
-            if seqs and sid in pos:
-                x, y = pos[sid]
-                p.append(_pin(x - bus_half(sid) - 12, y, seqs))
+        # Every transformer pin of a GI sits on the same spot, so draw one pin
+        # carrying all their numbers instead of stacking unreadable copies --
+        # IBT 3 and IBT 4 sharing a finding is the common case.
+        seqs = sorted({q for t in tx_list for q in risk_on.get(("TRANSFORMER", t.id), [])})
+        if seqs and sid in pos:
+            x, y = pos[sid]
+            p.append(_pin(x - bus_half(sid) - 12, y, seqs))
     p.append('</g>')
 
     p.append('</svg>')
