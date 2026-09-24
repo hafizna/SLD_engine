@@ -326,6 +326,29 @@ alih-alih diputuskan sepihak oleh agent.
 
 Selesai bila tidak ada dead end dan seluruh halaman memakai data fixture yang sama. Sprint ini tidak mengubah algoritma SLD.
 
+Pembaruan 25 September 2026: landing adalah **satu atlas** yang memperbesar
+Indonesia → sistem (pulau) → wilayah. Tingkat Indonesia tanpa pin (Jamali dan
+Sumatera putih, pulau lain abu-abu, hover pulau = statistik); memilih pulau
+memperbesar peta ke pulau itu lalu baru memunculkan pin UP2B/Sumbag; memilih
+wilayah memperbesar lagi ke pin SS (koordinat OSM). Panel di samping peta
+mengikuti tingkatnya (ringkasan sistem → daftar wilayah + pintu Sistem 500 kV /
+Backbone → daftar SS) dan menggantikan kartu sistem statis serta layar "Wilayah"
+terpisah. Panel sistem membandingkan jumlahnya dengan dokumen sumber
+(`SYSTEMS[k].book`) dan menandai ⚠ bila berbeda. Deep link `#peta=<sys>[/<wilayah>]`;
+Esc naik satu tingkat. **Pencarian GI** di header (`/api/gi-index`,
+snapshot `data/gi-index.json`) menampilkan SS yang memuat GI dan risiko yang
+menyentuhnya (lokasi / ruas / Dampak); detail GI memuat "Juga tercakup di" untuk
+lompat ke SS tetangga. Deep link `#v=<view>&r=<seq>&gi=<kode>`.
+
+Rekonsiliasi jumlah (25 September 2026): 33 tabel subsistem Buku Kerawanan SJB
+2026 = 277 risiko, SUTET 500 kV = 31, IBT 500/150 kV = 38, semuanya sama dengan
+dashboard; Sumatera 65 + 22 = 87 sama dengan deck. Rentang halaman Jakban di
+`scripts/_kerawanan_sections.py` dibaca ulang dari kolom No (GUCL memang 7).
+`tests/test_reference_counts.py` mengunci jumlah per fixture. Belum dipetakan:
+Tabel 1.3 Peralatan (20) dan 1.4 Pembangkit (14). Kategori UI kini memakai
+`N-1-1` (sebelumnya chip mencari `N-1-2` sehingga 33 risiko N-1-1 tampil sebagai
+"lainnya"); BLL/CWD tidak lagi berkategori kosong.
+
 Status: **in progress**. Shell FastAPI dan snapshot statis sekarang memakai
 satu `app/static/index.html`, memiliki landing Jamali, lima titik UP2B, populasi
 risiko per kategori, kartu Sistem 500 kV Transmisi/IBT, daftar SS, serta jalur
@@ -351,6 +374,17 @@ dilengkapi.
 - Terapkan pada Transmisi 500, IBT, dan SS.
 
 Selesai bila satu risiko dapat menyorot banyak objek dengan hitungan tetap satu.
+
+Status 24 September 2026: **mode sorot** di viewer. Memilih risiko (pin, baris
+daftar, tombol ‹ ›, deep link) meredupkan seluruh SLD kecuali objeknya, memberi
+cincin pada **lokasi** (pin utama + `RiskAttachment`), cincin tipis pada GI yang
+**disebut teks Dampak** (`dampak_ids` dari `app/services/risk_scope.py`, dicocokkan
+per nama GI, nama terpanjang menang, judul subsistem diabaikan), dan garis
+putus-putus pada objek yang **terputus secara topologi** (N-1, di viewer). Bidang
+bayangan digambar per kelompok objek yang berdekatan. "Sorot semua" menyorot
+semua risiko hasil filter sekaligus. Hitungan tetap per `RiskRecord`. Belum ada
+daftar affected objects yang direview manusia; Dampak dibaca otomatis dan
+ditandai berbeda dari lokasi.
 
 ### C. Halaman UP2B dan SS
 

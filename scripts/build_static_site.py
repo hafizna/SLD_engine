@@ -105,6 +105,10 @@ def build() -> None:
         (data_dir / "views.json").write_text(json.dumps(views, indent=2), encoding="utf-8")
         subs = client.get("/api/subsystems").json()
         (data_dir / "subsystems.json").write_text(json.dumps(subs, indent=2), encoding="utf-8")
+        # GI search + "also in" jumps; compact, it is fetched on first search
+        gi_index = client.get("/api/gi-index").json()
+        (data_dir / "gi-index.json").write_text(
+            json.dumps(gi_index, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
         # one landing index per transmission system; the shell maps each
         # /api/dashboard/summary?scope=... to its own file
         for scope, fname in (("JAMALI", "dashboard-summary.json"),

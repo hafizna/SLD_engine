@@ -131,15 +131,6 @@
   .portal-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px; }
   .portal-card h2 { margin:0 0 4px; font-size:17px; }
   .portal-card .lead { color:var(--muted); font-size:12px; margin-bottom:14px; }
-  /* Sea tone as the panel background, land painted over it, so the coastline
-     reads as coastline at any zoom instead of a pale shape on pale. */
-  .jamali-map { position:relative; height:245px; overflow:hidden; border-radius:11px;
-    background:#dceefb; border:1px solid #c3ddf1; }
-  /* The coastline is drawn from real geography by the same projection that
-     places the pins, so it stays correct when the map zooms into one UP2B -
-     Jakban's dots then sit on Jawa's western tip, which is the whole point. */
-  .jamali-map svg { position:absolute; inset:0; width:100%; height:100%; }
-  .jamali-map .coast { fill:#f2f8ff; stroke:#94bcd9; stroke-width:1.1; stroke-linejoin:round; }
   .region-pin { position:absolute; transform:translate(-50%,-50%); border:0; background:transparent; cursor:pointer; text-align:center; }
   .region-pin i { display:grid; place-items:center; width:36px; height:36px; margin:auto; border-radius:50%;
     color:#fff; background:var(--blue); border:4px solid #fff; box-shadow:0 2px 8px rgba(15,39,74,.28); font-style:normal; font-weight:800; }
@@ -181,112 +172,114 @@
   .risk-chip.zero { opacity:.42; font-weight:600; }
   .system-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .system-tile { border:1px solid var(--line); border-radius:10px; padding:13px; cursor:pointer; background:#fff; text-align:left; }
-  .system-tile:hover, .ss-card:hover { border-color:var(--blue); box-shadow:0 3px 12px rgba(11,92,171,.09); }
+  .system-tile:hover { border-color:var(--blue); box-shadow:0 3px 12px rgba(11,92,171,.09); }
   .system-tile b { display:block; font-size:14px; }
   .system-tile small { color:var(--muted); }
-  /* The SS list owns a full screen now, so it can run long before scrolling;
-     padding-right keeps the scrollbar off the cards' hover border. */
-  .ss-list { display:grid; gap:8px; max-height:min(62vh, 620px); overflow-y:auto; padding-right:4px; }
-  .ss-card { border:1px solid var(--line); border-radius:10px; padding:11px; cursor:pointer; background:#fff; }
-  .ss-card b { display:block; font-size:13px; }
-  .ss-card small { color:var(--muted); }
   .empty-state { color:var(--muted); font-size:12px; padding:16px; text-align:center; border:1px dashed var(--line); border-radius:9px; }
-  .portal-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(320px,.85fr); gap:16px; }
   @media(max-width:900px){
     #portal{padding:16px}
     .hero{align-items:flex-start;flex-direction:column}
-    .jamali-map{height:220px}
-    .portal-grid{grid-template-columns:1fr}
     .system-grid{grid-template-columns:1fr}
   }
 
-  /* ---- hub: two top-level entry screens, kept fully apart ---- */
-  #hub-screen, #up2b-screen, #system500-screen { display:none; }
+  /* ---- hub: the atlas screen and the system page, kept apart ---- */
+  #hub-screen, #system500-screen { display:none; }
   body.mode-hub #hub-screen { display:block; }
-  body.mode-up2b #up2b-screen { display:block; }
   body.mode-system500 #system500-screen { display:block; }
-  /* The hub leads with the map. Two entry cards on an empty page made the
-     landing screen mostly whitespace and hid the one thing people came to
-     look at; the cards now flank the map as a narrow rail instead. */
-  .hub-main { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(290px,.8fr);
-    gap:16px; align-items:stretch; }
-  /* The landing map should own the viewport, not sit in a letterbox with dead
-     space under it. */
-  .hub-main .jamali-map { height:clamp(300px, 52vh, 560px); }
-  .hub-rail { display:flex; flex-direction:column; gap:12px; }
-  .hub-grid { display:flex; flex-direction:column; gap:12px; }
-  .hub-card {
-    background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px;
-    cursor:pointer; text-align:left; display:flex; flex-direction:column; gap:8px;
-  }
-  .hub-card:hover { border-color:var(--blue); box-shadow:0 4px 16px rgba(11,92,171,.12); }
-  .hub-card .hub-icon {
-    width:44px; height:44px; border-radius:11px; display:grid; place-items:center;
-    background:#eaf3ff; color:var(--blue-d); font-size:20px; font-weight:800;
-  }
-  .hub-card.hub-500 .hub-icon { background:#eef2ff; color:#3730a3; }
-  .hub-card h2 { margin:2px 0 0; font-size:17px; }
-  .hub-card .lead { color:var(--muted); font-size:12px; margin:0; line-height:1.45; }
-  .hub-card .hub-stats { display:flex; gap:16px; margin-top:auto; padding-top:6px; }
-  .hub-card .hub-stat b { display:block; font-size:20px; }
-  .hub-card .hub-stat span { display:block; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; }
-  /* Icon and heading share a row in the rail: the card is narrower now, and a
-     44px block above the title wasted the height the stats need. */
-  .hub-card .hub-head { display:flex; align-items:center; gap:10px; }
-  .hub-card .hub-icon { width:34px; height:34px; border-radius:9px; font-size:16px; flex:none; }
 
-  /* Legend pinned to the map rather than parked in a side card, so the colours
-     are read where they are used. */
-  .map-legend {
-    position:absolute; top:8px; right:8px; z-index:5; background:rgba(255,255,255,.93);
-    border:1px solid var(--line); border-radius:9px; padding:8px 10px;
-    font-size:10px; line-height:1.5; box-shadow:0 2px 8px rgba(15,39,74,.08);
-    -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+  /* ---- landing atlas: one map, three zoom levels ----
+     Indonesia first with no pins at all; picking an island zooms the same map
+     into it and only then shows its wilayah pins; a wilayah zooms again to its
+     subsystems. The panel beside it follows the level instead of repeating a
+     static card per system under the map. */
+  .atlas { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:16px; align-items:stretch; }
+  .atlas-map { position:relative; height:clamp(380px, 64vh, 680px); overflow:hidden;
+    border-radius:14px; background:#dceefb; border:1px solid #c3ddf1; }
+  .atlas-map svg { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  /* land: grey = no data yet, white = a system you can open */
+  .atlas-map .isl { fill:#eef2f6; stroke:#bfccd9; stroke-width:.8; stroke-linejoin:round;
+    vector-effect:non-scaling-stroke; transition:fill .15s; }
+  .atlas-map .isl.sys { fill:#fff; stroke:#2563eb; stroke-width:1.3; cursor:pointer; }
+  .atlas-map .isl.sys.hot { fill:#bfdbfe; }
+  /* Zoomed into a system, every system's own finer coastline takes over from
+     the national rings it covers (rings it lacks, small islands, stay), all in
+     one quiet style. The island you are in is backdrop; a neighbour stays a
+     way across. */
+  .atlas-map .coast-detail { display:none; fill:#fff; stroke:#94bcd9; stroke-width:1.1;
+    stroke-linejoin:round; vector-effect:non-scaling-stroke; pointer-events:none; }
+  .atlas-map.zoomed .coast-detail { display:inline; }
+  .atlas-map.zoomed .isl.sys.cov { display:none; }
+  .atlas-map.zoomed .isl.sys { fill:#fff; stroke:#94bcd9; stroke-width:1.1; }
+  .atlas-map.zoomed .isl.sys.here { pointer-events:none; cursor:default; }
+  .atlas-map.zoomed .coast-detail:not(.here) { pointer-events:auto; cursor:pointer; }
+  .atlas-map.zoomed .isl.sys.hot, .atlas-map.zoomed .coast-detail.hot { fill:#bfdbfe; }
+  .atlas-map .region-pin, .atlas-map .ss-pin, .atlas-map .atlas-label { animation:pinIn .28s ease-out both; }
+  @keyframes pinIn { from { opacity:0; transform:translate(-50%,-50%) scale(.6); }
+                     to   { opacity:1; transform:translate(-50%,-50%) scale(1); } }
+  .atlas-map .ss-leader { animation:fadeIn .28s ease-out both; }
+  @keyframes fadeIn { from { opacity:0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .atlas-map .region-pin, .atlas-map .ss-pin, .atlas-map .atlas-label, .atlas-map .ss-leader { animation:none; }
   }
-  .map-legend b { display:block; font-size:9.5px; text-transform:uppercase;
-    letter-spacing:.05em; color:var(--muted); margin-bottom:4px; font-weight:700; }
-  .map-legend div { display:flex; align-items:center; gap:6px; white-space:nowrap; }
-  .map-legend i { width:8px; height:8px; border-radius:50%; flex:none; }
+  .region-pin.active i, .ss-pin.active i { transform:scale(1.12); }
+  /* system name + total, offshore, at the Indonesia level only */
+  .atlas-label { position:absolute; transform:translate(-50%,-50%); border:0; cursor:pointer;
+    background:rgba(255,255,255,.92); border-radius:10px; padding:5px 10px; text-align:center;
+    box-shadow:0 2px 10px rgba(15,39,74,.14); font:inherit; color:var(--ink); z-index:2; }
+  .atlas-label b { display:block; font-size:12.5px; }
+  .atlas-label small { display:block; font-size:10.5px; color:var(--muted); white-space:nowrap; }
+  .atlas-label:hover, .atlas-label.hot { box-shadow:0 0 0 2px #2563eb, 0 2px 10px rgba(15,39,74,.14); }
+  .atlas-crumb { position:absolute; left:10px; top:10px; z-index:4; display:flex; align-items:center;
+    gap:2px; background:rgba(255,255,255,.94); border:1px solid var(--line); border-radius:9px;
+    padding:3px; box-shadow:0 2px 8px rgba(15,39,74,.1); font-size:12px; }
+  .atlas-crumb:empty { display:none; }
+  .atlas-crumb button { border:0; background:none; font:inherit; color:var(--blue); cursor:pointer;
+    padding:4px 8px; border-radius:6px; }
+  .atlas-crumb button:hover { background:#eaf3ff; }
+  .atlas-crumb .here { padding:4px 8px; font-weight:700; }
+  .atlas-crumb .sep { color:var(--muted); }
+  .atlas-map .map-note { z-index:4; }
 
-  /* The "what do I click next" line, given the weight of an instruction. */
-  .map-hint {
-    display:inline-flex; align-items:center; gap:7px; margin-top:10px;
-    background:#eaf3ff; border:1px solid #cfe2f7; color:var(--blue-d);
-    border-radius:99px; padding:6px 13px; font-size:11.5px;
+  .atlas-panel { display:flex; flex-direction:column; gap:10px; overflow:auto;
+    max-height:clamp(380px, 64vh, 680px); }
+  .atlas-panel h2 { margin:0; font-size:19px; letter-spacing:-.01em; }
+  .ap-sub { color:var(--muted); font-size:12px; line-height:1.45; }
+  .ap-total { display:flex; align-items:baseline; gap:7px; }
+  .ap-total b { font-size:30px; letter-spacing:-.02em; line-height:1; }
+  .ap-total span { color:var(--muted); font-size:12px; }
+  .ap-split { font-size:12px; color:var(--muted); margin-top:-4px; }
+  .ap-k { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+    font-weight:700; margin-top:4px; }
+  .ap-list { display:grid; gap:7px; }
+  .ap-row { display:block; width:100%; border:1px solid var(--line); border-radius:10px; padding:9px 11px;
+    background:#fff; text-align:left; cursor:pointer; font:inherit; color:inherit; }
+  .ap-row:hover, .ap-row.hot { border-color:var(--blue); box-shadow:0 3px 12px rgba(11,92,171,.09); }
+  .ap-row .t { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .ap-row .t b { font-size:13px; }
+  .ap-row .t span { font-weight:800; font-size:15px; }
+  .ap-row small { display:block; color:var(--muted); margin-top:1px; font-size:11px; }
+  .ap-row .risk-chips { margin-top:6px; }
+  .ap-row.door { background:#f5f7ff; border-color:#dde3fb; }
+  .ap-row.door .t b::before { content:"\26A1  "; }
+  .ap-row[disabled] { opacity:.55; cursor:not-allowed; box-shadow:none; }
+  .ap-src { font-size:11px; color:var(--muted); line-height:1.5; border-top:1px dashed var(--line);
+    padding-top:9px; margin-top:auto; }
+  .ap-srcd { font-size:11.5px; color:var(--muted); line-height:1.45; }
+  .ap-srcd summary { cursor:pointer; font-weight:700; width:max-content; max-width:100%; }
+  .ap-srcd div { margin-top:4px; }
+  .ap-srcd .ok { color:#15803d; font-weight:700; }
+  .ap-srcd .off { color:#b45309; font-weight:700; }
+  @media(max-width:1000px){
+    .atlas { grid-template-columns:1fr; }
+    .atlas-map { height:clamp(300px, 56vh, 520px); }
+    .atlas-panel { max-height:none; }
   }
-  .map-hint::before { content:"\25B8"; font-size:10px; }
-  @media(max-width:900px){ .hub-main{grid-template-columns:1fr} }
 
-  /* ---- landing: one card per transmission system, side by side ----
-     Jamali is a wide island and Sumatera a tall one, so Jamali gets the wider
-     column and both maps share one height; each card carries its own two
-     doors (regions, system page) instead of a shared rail. */
-  .hub-systems { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);
-    gap:16px; align-items:stretch; }
-  .sys-card { display:flex; flex-direction:column; }
-  .sys-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
-  .sys-head h2 { margin:0; }
-  .sys-total { font-size:12px; color:var(--muted); white-space:nowrap; }
-  .sys-total b { font-size:18px; color:var(--ink); }
-  .hub-systems .jamali-map { height:clamp(300px, 48vh, 520px); }
-  .sys-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
-  .sys-actions .hub-card { padding:12px 14px; border-radius:12px; gap:6px; }
-  .sys-actions .hub-card h2 { font-size:14px; }
-  .sys-actions .hub-card .hub-stats { gap:12px; padding-top:2px; }
-  .sys-actions .hub-card .hub-stat b { font-size:17px; }
-  .sys-actions .hub-card[disabled] { opacity:.55; cursor:not-allowed; }
-  .sys-actions .hub-card[disabled]:hover { border-color:var(--line); box-shadow:none; }
   .hub-legend { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin-top:14px;
     font-size:11px; color:var(--muted); }
   .hub-legend b { font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
   .hub-legend span { display:inline-flex; align-items:center; gap:6px; }
   .hub-legend i { width:8px; height:8px; border-radius:50%; }
-  @media(max-width:1000px){
-    .hub-systems{grid-template-columns:1fr}
-    /* stacked, Jawa's long thin shape needs width, not height */
-    .sys-card[data-sys="JAMALI"] .jamali-map { height:clamp(200px, 32vh, 340px); }
-  }
-  @media(max-width:520px){ .sys-actions{grid-template-columns:1fr} }
 
   .screen-back {
     display:inline-flex; align-items:center; gap:6px; margin-bottom:16px;
@@ -379,6 +372,84 @@
     fill: #fff; }
   .sel-tag-bg { fill: #a21caf; filter: drop-shadow(0 2px 5px rgba(15,39,74,.35)); }
 
+  /* ---- risk focus: one kerawanan and what it reaches, the rest stepped back.
+     Dimming is per object: an opacity on a whole layer could not be lifted
+     again for the few objects inside it that are in focus. */
+  #stage svg.risk-focus .sld-node:not(.in-focus),
+  #stage svg.risk-focus .sld-bay:not(.in-focus),
+  #stage svg.risk-focus .sld-tap:not(.in-focus),
+  #stage svg.risk-focus [data-circuit-id]:not(.in-focus) { opacity: .16; }
+  #stage svg.risk-focus .risk-pin:not(.in-focus) { opacity: .28; }
+  #stage svg .in-focus { transition: opacity .15s; }
+  /* the soft plane behind each connected group the finding reaches */
+  .focus-shade { fill: rgba(217,70,239,.10); stroke: rgba(162,28,175,.35);
+    stroke-width: 1.2; stroke-dasharray: 3 4; }
+  /* a GI the book's Dampak text names: solid, thinner than the location ring */
+  .dmp-ring { fill: rgba(217,70,239,.05); stroke: #a21caf; stroke-width: 1.8; }
+  /* A viewer's trail (Beranda > system > region > SS > view) is long; below
+     1600px it gets a row of its own rather than folding into four lines. */
+  @media (max-width: 1600px) {
+    body.mode-viewer header { flex-wrap: wrap; row-gap: 4px; }
+    body.mode-viewer .crumbs { order: 4; flex: 1 0 100%; flex-wrap: nowrap; overflow: hidden; }
+  }
+  .focusbar { position: sticky; top: 0; z-index: 3;
+    display: none; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin: 0 0 8px; padding: 7px 8px; border: 1px solid #f0abfc; border-radius: 9px;
+    background: #fdf4ff; font-size: 11.5px; color: #701a75; }
+  .focusbar.on { display: flex; }
+  .focusbar b { font-size: 12px; }
+  .focusbar .fk { display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; }
+  .focusbar .fk i { display: inline-block; width: 14px; height: 9px; border-radius: 3px; }
+  .focusbar .fk .k-loc { border: 2px solid #d946ef; background: rgba(217,70,239,.1); }
+  .focusbar .fk .k-dmp { border: 1.5px solid #a21caf; }
+  .focusbar .fk .k-top { border: 1.5px dashed #d946ef; }
+  .focusbar .spacer { flex: 1; }
+  .focusbar button { border: 1px solid #f0abfc; background: #fff; color: #701a75;
+    border-radius: 7px; padding: 2px 8px; font: inherit; cursor: pointer; }
+  .focusbar button:hover { background: #fae8ff; }
+  .riskfilter .hl-all { border: 1px dashed #d946ef; color: #a21caf; background: #fff; }
+  #pintip { position: fixed; z-index: 60; max-width: 320px; pointer-events: none;
+    background: #0f274a; color: #fff; border-radius: 8px; padding: 7px 9px;
+    font-size: 11.5px; line-height: 1.4; box-shadow: 0 6px 18px rgba(15,39,74,.3); display: none; }
+  #pintip b { color: #fde68a; }
+
+  /* ---- GI search (header) ---- */
+  .gisearch { position: relative; }
+  .gisearch input { width: 130px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 5px 9px; font: inherit; font-size: 12.5px; background: #fff; transition: width .15s; }
+  .gisearch input:focus { outline: 2px solid #bfdbfe; width: 220px; }
+  .gires { position: absolute; right: 0; top: calc(100% + 6px); z-index: 70; width: 420px;
+    color: #0f274a; text-align: left; font-weight: 400;
+    max-height: 70vh; overflow: auto; background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: 0 12px 32px rgba(15,39,74,.18); padding: 6px; display: none; }
+  .gires.on { display: block; }
+  .gires .gi { padding: 8px; border-radius: 8px; }
+  .gires .gi + .gi { border-top: 1px solid #eef2f7; }
+  .gires .gi-head { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+  .gires .gi-head b { font-size: 13px; }
+  .gires .gi-head span { color: var(--muted); font-size: 11px; }
+  .gires .gi-row { margin-top: 5px; display: flex; gap: 5px; flex-wrap: wrap; align-items: center;
+    font-size: 11px; color: var(--muted); }
+  .gires .ssl, .gires .rkl { border: 1px solid var(--line); background: #f8fafc; color: #0f274a;
+    border-radius: 999px; padding: 2px 8px; font: inherit; font-size: 11px; cursor: pointer; }
+  .gires .ssl:hover, .gires .rkl:hover { border-color: var(--blue); background: #eff6ff; }
+  .gires .ssl small { color: var(--muted); }
+  .gires .none { padding: 10px; color: var(--muted); font-size: 12px; }
+  @media (max-width: 700px) { .gisearch input, .gisearch input:focus { width: 140px; }
+    .gires { width: min(420px, 92vw); } }
+  .alsoin { margin-top: 10px; }
+  .alsoin .ssl { border: 1px solid var(--line); background: #f8fafc; border-radius: 999px;
+    padding: 2px 9px; font-size: 11.5px; cursor: pointer; margin: 3px 4px 0 0; }
+  .alsoin .ssl:hover { border-color: var(--blue); background: #eff6ff; }
+
+  /* ---- atlas hover card (Indonesia level) ---- */
+  .indo-tip { position: absolute; z-index: 5; pointer-events: none; display: none;
+    background: #0f274a; color: #fff; border-radius: 10px; padding: 9px 11px; font-size: 12px;
+    line-height: 1.5; min-width: 190px; box-shadow: 0 8px 22px rgba(15,39,74,.3); }
+  .indo-tip b { font-size: 13px; }
+  .indo-tip .row { display: flex; justify-content: space-between; gap: 14px; }
+  .indo-tip .row span:last-child { font-weight: 700; }
+
   .zoomctl {
     position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column;
     background: #fff; border: 1px solid var(--line); border-radius: 9px; overflow: hidden;
@@ -444,6 +515,43 @@
     border-left: 3px solid var(--risk); padding: 7px 10px; margin: 8px 0;
     background: #fffbf3; border-radius: 5px; font-size: 12px;
   }
+  /* ---- kerawanan card (list + object detail) ---- */
+  .rcard { border: 1px solid #fde7c2; border-left: 3px solid var(--risk); background: #fffdf7;
+    border-radius: 9px; padding: 8px 10px; margin: 0 0 8px; }
+  .rcard:hover { border-color: #fcd9a0; }
+  .rc-head { display: flex; align-items: center; gap: 6px; }
+  .rc-no { font-weight: 800; font-size: 12.5px; color: #0f274a; }
+  .rc-head .risk-chip { margin: 0; }
+  .rc-head .offtag { margin-left: auto; font-size: 10.5px; }
+  .rc-go { margin-left: auto; border: 1px solid #f0abfc; background: #fdf4ff; color: #a21caf;
+    border-radius: 7px; padding: 1px 8px; font: inherit; font-size: 11px; cursor: pointer; }
+  .rc-go:hover { background: #fae8ff; }
+  .rc-title { margin-top: 5px; font-size: 12.5px; line-height: 1.45; color: #0f274a; font-weight: 600; }
+  .rc-title.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .rcard.active .rc-title.clamp, .rc-detail .rc-title { -webkit-line-clamp: unset; display: block; }
+  .rc-where { margin-top: 4px; font-size: 11px; color: #9a3412; }
+  .rc-sec { margin-top: 7px; }
+  .rc-lab { display: block; font-size: 10px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--muted); }
+  .rc-sec p { margin: 2px 0 0; font-size: 12px; line-height: 1.45; color: #1e293b; }
+  .rcard details { margin-top: 6px; }
+  .rcard summary { cursor: pointer; font-size: 11px; color: var(--blue-d); font-weight: 600; }
+  .rc-detail { background: #fff; }
+  /* ---- object detail: identity, findings, neighbours, technical data ---- */
+  .obj-head { padding: 2px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+  .obj-name { font-size: 16px; font-weight: 800; color: #0f274a; line-height: 1.3; }
+  .obj-pills { margin-top: 4px; }
+  .obj-sub { margin-top: 5px; font-size: 11.5px; color: var(--muted); }
+  .dsec { margin: 0 0 12px; }
+  .dsec-title { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    color: #334155; margin-bottom: 6px; }
+  .dsec.none { font-size: 12px; color: var(--muted); padding: 8px 10px; border: 1px dashed var(--line);
+    border-radius: 9px; }
+  .alsoin:empty { display: none; }
+  .alsoin .k { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    color: #334155; margin-bottom: 4px; }
+  details.tech { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; }
+  details.tech summary { cursor: pointer; font-size: 11.5px; color: var(--muted); font-weight: 600; }
   .ds { border-left-color: var(--ds); background: #f3f7ff; }
   .ds.offpage { opacity: .72; border-left-style: dashed; }
   .risk b, .ds b { display: block; font-size: 12px; margin-bottom: 2px; }
@@ -519,6 +627,11 @@
     <button type="button" data-dest="system500" data-sys="SUMATERA" aria-label="Sumatera: Backbone">Backbone</button>
   </nav>
   <div class="spacer"></div>
+  <div class="gisearch">
+    <input id="gi-q" type="search" placeholder="Cari GI&hellip;" autocomplete="off"
+           aria-label="Cari GI di semua subsistem" title="Cari GI: subsistem mana saja yang memuatnya dan kerawanan yang menyentuhnya">
+    <div class="gires" id="gi-res" role="listbox"></div>
+  </div>
   <nav class="crumbs" id="crumb" aria-label="Jejak navigasi"></nav>
   <select id="scensel" title="Pola operasi"></select>
   <button class="navlink" id="printbtn" type="button"
@@ -529,37 +642,27 @@
 
 <section id="portal"><div class="portal-wrap">
 
-  <!-- HUB: one card per transmission system; each card's regions and system
-       page are separate doors, never mixed on one card/scroll -->
+  <!-- HUB: one map that zooms Indonesia > sistem > wilayah, with a panel that
+       follows the level. The system page stays a separate door. -->
   <div id="hub-screen">
     <div class="hero">
-      <div><h1>Peta Kerawanan Sistem Transmisi</h1><p>Snapshot topologi dan kerawanan sistem transmisi Jawa&ndash;Madura&ndash;Bali dan Sumatera.</p></div>
+      <div><h1>Peta Kerawanan Sistem Transmisi</h1><p>Pilih pulau, lalu wilayah, lalu subsistem &mdash; peta memperbesar ke tempat yang dipilih.</p></div>
       <div class="metric"><b id="all-total">&ndash;</b><span>kerawanan tercatat</span></div>
     </div>
-    <div class="hub-systems" id="hub-systems"></div>
+    <div class="atlas">
+      <div class="atlas-map" id="indo-map" data-level="indonesia">
+        <svg id="indo-svg" preserveAspectRatio="none" aria-label="Peta Indonesia: sistem yang sudah tersedia"></svg>
+        <nav class="atlas-crumb" id="atlas-crumb" aria-label="Tingkat peta"></nav>
+        <div class="indo-tip" id="indo-tip"></div>
+      </div>
+      <aside class="portal-card atlas-panel" id="atlas-panel" aria-live="polite"></aside>
+    </div>
     <div class="hub-legend">
       <b>Tingkat kerawanan</b>
       <span><i style="background:var(--sev-n1)"></i> N-1 &mdash; kontingensi tunggal</span>
       <span><i style="background:var(--sev-n2)"></i> N-2 &mdash; kontingensi ganda</span>
-      <span><i style="background:var(--sev-n12)"></i> N-1-2 &mdash; kombinasi</span>
+      <span><i style="background:var(--sev-n12)"></i> N-1-1 &mdash; beruntun / kombinasi</span>
       <span><i style="background:var(--sev-other)"></i> Lainnya / belum ditetapkan</span>
-    </div>
-  </div>
-
-  <!-- SCREEN: one system's regions (pins -> SS list), fully separate from its
-       system page -->
-  <div id="up2b-screen">
-    <button class="screen-back" id="back-up2b" type="button">&larr; Beranda</button>
-    <div class="screen-head"><h1 id="regions-title">Peta Wilayah UP2B</h1><p>Pilih pin wilayah untuk menyaring subsistem, atau klik langsung sebuah subsistem untuk membuka SLD.</p></div>
-    <div class="portal-grid">
-      <div class="portal-card">
-        <h2 id="regions-card-title">Wilayah UP2B</h2><div class="lead">Populasi dihitung per risk record; multiview tidak menggandakan angka.</div>
-        <div class="jamali-map" id="jamali-map">
-          <svg id="jamali-coast" aria-hidden="true" preserveAspectRatio="none"></svg>
-        </div>
-        <div class="risk-chips" id="jamali-cats"></div>
-      </div>
-      <div class="portal-card"><h2 id="ss-heading">Subsistem tersedia</h2><div class="lead" id="ss-lead">Pilih pin UP2B untuk menyaring daftar.</div><div class="ss-list" id="portal-ss"></div></div>
     </div>
   </div>
 
@@ -661,6 +764,7 @@
       </div>
 
       <div class="tabpane" id="pane-risk">
+        <div class="focusbar" id="focusbar" aria-live="polite"></div>
         <div class="riskfilter">
           <input id="risk-q" type="search" placeholder="Cari nomor, judul, atau objek&hellip;" autocomplete="off">
           <div class="chips" id="risk-cats"></div>
@@ -670,6 +774,7 @@
     </div>
   </div>
 </main>
+<div id="pintip" role="tooltip"></div>
 
 <script>
 const API = '';                       // same-origin FastAPI
@@ -689,6 +794,7 @@ function resourcePath(p){
   if(!window.STATIC_SNAPSHOT) return API+p;
   if(p==='/api/views') return 'data/views.json';
   if(p==='/api/subsystems') return 'data/subsystems.json';
+  if(p==='/api/gi-index') return 'data/gi-index.json';
   if(p==='/api/dashboard/summary') return 'data/dashboard-summary.json';
   if(p==='/api/dashboard/summary?scope=SUMATERA') return 'data/dashboard-summary-sumatera.json';
   let m=p.match(/^\/api\/views\/(\d+)\/graph$/); if(m) return `data/view-${m[1]}.json`;
@@ -710,7 +816,6 @@ const SYSTEMS = {
     view: {lon0: 104.9, lon1: 116.1, lat0: -9.2, lat1: -5.6},
     regionTerm: 'UP2B', regionWord: 'UP2B', regionsLabel: 'Wilayah UP2B',
     regionFull: {},
-    regionMapHeight: '',          // the stylesheet's wide strip suits Jawa
     // Smallest window (degrees) a region's subsystem map zooms to; one SS
     // alone would otherwise shrink it to a point.
     subsystemMinSpan: 0.9,
@@ -724,11 +829,17 @@ const SYSTEMS = {
       JAWA_TIMUR:      [-7.60, 112.60],
       BALI:            [-8.40, 115.15],
     },
-    regionsLead: 'Klik sebuah pin UP2B untuk menelusuri subsistem di dalamnya.',
-    regionsDoor: 'Lima wilayah kerja UP2B dan subsistem transmisinya.',
     systemLabel: 'Sistem 500 kV',
     systemDoor: 'Backbone transmisi dan IBT, terpisah dari risiko lokal SS.',
     systemLead: 'Backbone transmisi dan IBT Jawa-Madura-Bali. Kerawanan sistem dan bayangan dampaknya tetap terpisah dari risiko lokal SS.',
+    // What the reference document itself counts, read off each table's No
+    // column (scripts/_kerawanan_sections.py). The atlas panel shows the
+    // dashboard's numbers against these, so a drift is visible, not silent.
+    book: {
+      title: 'Buku Kerawanan Sistem & Subsistem Jawa, Madura dan Bali Tahun 2026 (UIP2B Jamali, berlaku 30 Juni 2026)',
+      local: 277, system: 69,
+      note: 'Belum dipetakan: Tabel 1.3 Kerawanan Peralatan (20) dan Tabel 1.4 Kerawanan Pembangkit (14) — temuan peralatan/pembangkit tanpa objek topologi sendiri.',
+    },
   },
   SUMATERA: {
     key: 'SUMATERA', name: 'Sumatera', full: 'Sumatera',
@@ -741,8 +852,6 @@ const SYSTEMS = {
       SUMBAGTENG: 'Sumatera Bagian Tengah (SBT)',
       SUMBAGSEL: 'Sumatera Bagian Selatan (SBS)',
     },
-    // Sumatera stands tall where Jawa lies long: give its map height.
-    regionMapHeight: 'clamp(320px, 58vh, 600px)',
     // Sumbagteng is one SS in the middle of the island: 0.9 deg around it is
     // all land and no coast, so the map read as empty.
     subsystemMinSpan: 4.0,
@@ -753,11 +862,14 @@ const SYSTEMS = {
       SUMBAGTENG: [-0.30, 101.40],
       SUMBAGSEL:  [-3.60, 104.00],
     },
-    regionsLead: 'Klik pin Sumbagut, Sumbagteng atau Sumbagsel untuk menelusuri subsistemnya.',
-    regionsDoor: 'Tiga wilayah subsistem Sumatera beserta subsistem di dalamnya.',
     systemLabel: 'Backbone Sumatera',
     systemDoor: 'Backbone 500/275 kV, terpisah dari risiko lokal subsistem.',
     systemLead: 'Backbone 500/275 kV Sumatera. Kerawanan sistem tetap terpisah dari risiko lokal subsistem.',
+    // scripts/_kerawanan_sumatera.py SECTIONS (expected counts per section)
+    book: {
+      title: 'Paparan Kerawanan Sistem Sumatera, September 2026 (UIP3B Sumatera)',
+      local: 65, system: 22,
+    },
   },
 };
 const SYSTEM_PROFILES = {BACKBONE_500: 'JAMALI', IBT_500_150: 'JAMALI', BACKBONE_SUMATERA: 'SUMATERA'};
@@ -775,9 +887,25 @@ function sysCfg(key){ return SYSTEMS[key || SYS]; }
   VIEWS = views; SUBS = subs;
   keys.forEach((k, i) => { SUMMARIES[k] = summaries[i]; });
   setSys('JAMALI');
-  buildHubCards();
   buildTree();
+  const deep = location.hash.length > 1 ? location.hash : '';
   showHub();
+  // #v=<view>&r=<seqs>&gi=<code>: open that SLD, with that kerawanan or GI in
+  // focus; #peta=<sys>[/<region>]: the atlas zoomed to that level
+  if (deep) { history.replaceState(null, '', deep); openFromHash().catch(() => {}); }
+  wireGISearch();
+  addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input, textarea, select')) return;
+    // on the atlas, Esc steps the map out one level
+    if (document.body.classList.contains('mode-hub')) {
+      if (e.key === 'Escape' && ATLAS.sys) atlasGo(ATLAS.region ? ATLAS.sys : null, null);
+      return;
+    }
+    if (!document.body.classList.contains('mode-viewer')) return;
+    if (e.key === 'Escape' && FOCUS) clearFocus();
+    else if (e.key === 'ArrowRight') { e.preventDefault(); stepFocus(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); stepFocus(-1); }
+  });
 
   $$('.layer').forEach(l => {
     const g = l.dataset.group, cb = l.querySelector('input');
@@ -790,50 +918,46 @@ function sysCfg(key){ return SYSTEMS[key || SYS]; }
   $('#zfit').onclick = () => { vb = {...vb0}; commitVB(); };
   $('#homebtn').onclick = backToMap;          // viewer -> the map one step up
   $('#printbtn').onclick = openPrintSheet;
-  $('#brandhome').onclick = () => { NAV_REGION = ''; showHub(); };
-  $('#back-up2b').onclick = () => { NAV_REGION = ''; showHub(); };
-  $('#back-system500').onclick = showHub;
+  $('#brandhome').onclick = () => showHub();
+  // back from a system page lands on that system's island, not all the way out
+  $('#back-system500').onclick = () => showHub(SYS);
   $$('#topnav button').forEach(b => b.onclick = () => {
     const d = b.dataset.dest;
-    if (d === 'hub') { NAV_REGION = ''; showHub(); }
-    else if (d === 'up2b') { NAV_REGION = ''; showUp2bScreen(b.dataset.sys); }
+    if (d === 'hub') showHub();
+    else if (d === 'up2b') showUp2bScreen(b.dataset.sys);
     else showSystem500Screen(b.dataset.sys);
   });
   wirePanel();
   wireStage();
-  // The maps project onto a pixel box measured at draw time, and the landing
-  // map is sized in vh, so a window resize would otherwise leave pins at
-  // stale coordinates.
+  // The atlas is sized in vh and its pins are placed in pixels, so a window
+  // resize re-fits the current level instead of leaving pins at stale spots.
   let rt = null;
   addEventListener('resize', () => {
     clearTimeout(rt);
     rt = setTimeout(() => {
       if (document.body.classList.contains('mode-viewer')) { applyLabelFloor($('#stage svg')); return; }
-      if (!SUMMARY) return;
-      if (document.body.classList.contains('mode-hub')) drawHubMaps();
-      else if (MAP_REGION) drawSubsystemMap(SYS, REGION_HOST, MAP_REGION);
-      else drawRegionMap(SYS, REGION_HOST);
+      if (SUMMARY && ATLAS.base && document.body.classList.contains('mode-hub')) atlasCamera(false);
     }, 150);
   });
 })().catch(e => {
   showHub();
   $('#all-total').textContent = '!';
-  $('#hub-systems').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Gagal memuat data dashboard. '
+  $('#atlas-panel').innerHTML = '<div class="empty-state">Gagal memuat data dashboard. '
     + 'Jalankan aplikasi melalui FastAPI atau layani hasil build statis lewat HTTP. Detail: '+esc(e.message)+'</div>';
-  $('#jamali-cats').innerHTML = '<span class="risk-chip">data tidak tersedia</span>';
   $('#system500').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Gagal memuat data dashboard.</div>';
-  $('#portal-ss').innerHTML = '<div class="empty-state">Jalankan aplikasi melalui FastAPI atau layani hasil build statis lewat HTTP. Detail: '+esc(e.message)+'</div>';
 });
 
-// ---------- portal navigation: hub -> {UP2B screen | Sistem 500 kV screen} ----------
-// The hub never renders UP2B and Sistem 500 kV content together; each is its
-// own screen (own body mode class) so the two kinds of thing are never mixed
-// on one scroll/card grid.
+// ---------- portal navigation: atlas (Indonesia > sistem > wilayah) | system page ----------
+// Regions and subsystems live on the atlas; a system's 500 kV / backbone page
+// is its own screen, so the two kinds of thing are never mixed on one scroll.
 function setPortalMode(mode){
-  document.body.classList.remove('mode-viewer', 'mode-hub', 'mode-up2b', 'mode-system500');
+  document.body.classList.remove('mode-viewer', 'mode-hub', 'mode-system500');
   document.body.classList.add('mode-' + mode);
   $('#scensel').style.display = 'none';
   markTopnav(mode);
+  pinTip(null);
+  // a link copied from here is a link to this screen, not to the last viewer
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
 }
 
 // ---- breadcrumb -------------------------------------------------------
@@ -856,8 +980,10 @@ function setCrumb(parts){
   });
 }
 function markTopnav(mode){
-  const dest = mode === 'viewer'
+  let dest = mode === 'viewer'
     ? (VIEW && isSystemView(VIEW) ? 'system500' : 'up2b') : mode;
+  // inside an island the atlas is that system's "Wilayah" page
+  if (mode === 'hub' && ATLAS.sys) dest = 'up2b';
   $$('#topnav button').forEach(b =>
     b.toggleAttribute('aria-current',
       b.dataset.dest === dest && (dest === 'hub' || b.dataset.sys === SYS)));
@@ -865,23 +991,20 @@ function markTopnav(mode){
 
 // The first crumb is always home; the second names the system the user is in
 // and goes to its regions (or its system page, for a system view).
-function homeCrumb(){ return {label: 'Beranda', go: () => { NAV_REGION = ''; showHub(); }}; }
+function homeCrumb(){ return {label: 'Beranda', go: () => showHub()}; }
 function regionTitle(r){
   if (!r) return '';
   return sysCfg(systemOfRegionKey(r.key)).regionTerm === 'UP2B' ? `UP2B ${r.name}` : r.name;
 }
 
-function showHub(){
+// The atlas at a level: Indonesia (no args), one system, or one of its regions.
+function showHub(sys = null, region = null, opt = {}){
   setPortalMode('hub');
-  setCrumb([{label: 'Beranda'}]);
-  if(SUMMARY) renderHub();
+  if (!SUMMARY) { setCrumb([{label: 'Beranda'}]); return; }
+  renderHub();
+  atlasGo(sys, region, opt);
 }
-function showUp2bScreen(key){
-  if (key) setSys(key);
-  setPortalMode('up2b');
-  setCrumb([homeCrumb(), {label: `${sysCfg().name} · ${sysCfg().regionsLabel}`}]);
-  if(SUMMARY) renderUp2bScreen();
-}
+function showUp2bScreen(key){ showHub(key || SYS); }
 function showSystem500Screen(key){
   if (key) setSys(key);
   setPortalMode('system500');
@@ -889,20 +1012,9 @@ function showSystem500Screen(key){
   if(SUMMARY) renderSystem500Screen();
 }
 
-// Open one region: zoom the map to it and scope the list, from wherever the
-// user clicked its pin.
-function openRegion(r){
-  setSys(systemOfRegionKey(r.key));
-  setPortalMode('up2b');
-  MAP_REGION = r; NAV_REGION = r.key;
-  setRegionHeadings();
-  setCrumb([homeCrumb(),
-            {label: `${sysCfg().name} · ${sysCfg().regionsLabel}`, go: () => showUp2bScreen()},
-            {label: r.name}]);
-  $('#jamali-cats').innerHTML = riskChips(SUMMARY.local_risk);
-  loadCoast(SYS).then(() => drawSubsystemMap(SYS, REGION_HOST, r));
-  renderSubsystems(r);
-}
+// Open one region: the atlas zoomed to its subsystems, from wherever the user
+// asked for it (a crumb, the tree, back from a viewer).
+function openRegion(r){ showHub(systemOfRegionKey(r.key), r); }
 
 // Back from a viewer goes one step up, to the map the user actually came
 // from, with that region still selected - not all the way home.
@@ -918,7 +1030,10 @@ function backToMap(){
 // their slot (dimmed at zero) so cards line up as columns; anything outside
 // the known ramp is folded into one "lainnya" chip rather than inventing a
 // colour for it.
-const SEV = [['N-1','s-n1'], ['N-2','s-n2'], ['N-1-2','s-n12']];
+// N-1-1 is the model's value for the book's "N-1-1" and its "N-1 N-2" /
+// "N-1-2" combinations alike; keying this on "N-1-2" once filed all of them
+// under "lainnya".
+const SEV = [['N-1','s-n1'], ['N-2','s-n2'], ['N-1-1','s-n12']];
 function riskChips(risk){
   const cats = {...(risk?.categories || {})};
   let h = SEV.map(([key, cls]) => {
@@ -930,74 +1045,30 @@ function riskChips(risk){
   return h;
 }
 
-// ---------- landing: one card per system ----------
-// Built once from SYSTEMS; renderHub() only fills in the numbers and maps.
-function buildHubCards(){
-  $('#hub-systems').innerHTML = Object.values(SYSTEMS).map(c => `
-    <div class="portal-card sys-card" data-sys="${c.key}">
-      <div class="sys-head"><h2>Sistem ${esc(c.name)}</h2>
-        <span class="sys-total"><b id="hub-total-${c.key}">&ndash;</b> kerawanan</span></div>
-      <div class="lead">${esc(c.regionsLead)}</div>
-      <div class="jamali-map" id="hub-map-${c.key}">
-        <svg id="hub-coast-${c.key}" aria-hidden="true" preserveAspectRatio="none"></svg>
-      </div>
-      <div class="risk-chips" id="hub-cats-${c.key}"></div>
-      <div class="sys-actions">
-        <button class="hub-card hub-up2b" id="hub-regions-${c.key}" type="button">
-          <span class="hub-head"><span class="hub-icon">&#128506;</span><h2>${esc(c.regionsLabel)}</h2></span>
-          <p class="lead">${esc(c.regionsDoor)}</p>
-          <div class="hub-stats">
-            <div class="hub-stat"><b id="hub-ss-${c.key}">&ndash;</b><span>subsistem</span></div>
-            <div class="hub-stat"><b id="hub-lrisk-${c.key}">&ndash;</b><span>kerawanan</span></div>
-          </div>
-        </button>
-        <button class="hub-card hub-500" id="hub-system-${c.key}" type="button">
-          <span class="hub-head"><span class="hub-icon">&#9889;</span><h2>${esc(c.systemLabel)}</h2></span>
-          <p class="lead">${esc(c.systemDoor)}</p>
-          <div class="hub-stats">
-            <div class="hub-stat"><b id="hub-sviews-${c.key}">&ndash;</b><span>proyeksi</span></div>
-            <div class="hub-stat"><b id="hub-srisk-${c.key}">&ndash;</b><span>kerawanan</span></div>
-          </div>
-        </button>
-      </div>
-    </div>`).join('');
-  Object.keys(SYSTEMS).forEach(k => {
-    $(`#hub-regions-${k}`).onclick = () => { NAV_REGION = ''; showUp2bScreen(k); };
-    $(`#hub-system-${k}`).onclick = () => showSystem500Screen(k);
-  });
-}
+// ---------- landing atlas: Indonesia > sistem > wilayah on one map ----------
+// One SVG in lon / -lat units, so zooming is only a viewBox change: the
+// coastline is never re-projected and the camera glides from Indonesia to an
+// island to a wilayah. Pins are HTML on top (real buttons, crisp text), placed
+// from the same box once the camera stops. Indonesia carries no pins at all:
+// wilayah pins appear inside an island, subsystem pins inside a wilayah.
+const ATLAS = {sys: null, region: null, vb: null, anim: 0, base: null};
+let INDO = null;
+const INDO_BOX = {lon: [94.6, 141.2], lat: [-11.2, 6.2]};
+// system names sit offshore, clear of the land they name ([lon, lat])
+const LABEL_AT = {SUMATERA: [97.2, -4.4], JAMALI: [111.4, -4.3]};
+const COASTS = {};         // system key -> finer coastline rings, loaded once each
+
 function renderHub(){
   let all = 0;
   Object.keys(SYSTEMS).forEach(k => {
     const S = SUMMARIES[k];
     if (!S) return;
     all += S.risk.total;
-    $(`#hub-total-${k}`).textContent = S.risk.total;
-    $(`#hub-ss-${k}`).textContent = S.regions.reduce((n, r) => n + r.subsystems.length, 0);
-    $(`#hub-lrisk-${k}`).textContent = S.local_risk.total;
-    const viewTotal = S.system.groups.reduce((n, g) => n + g.views.length, 0);
-    $(`#hub-sviews-${k}`).textContent = viewTotal;
-    $(`#hub-srisk-${k}`).textContent = S.system_risk.total;
-    const door = $(`#hub-system-${k}`);
-    door.disabled = viewTotal === 0;
-    door.title = viewTotal === 0 ? `Belum ada snapshot ${SYSTEMS[k].systemLabel}` : '';
-    $$(`#topnav button[data-dest="system500"][data-sys="${k}"]`).forEach(b => b.disabled = viewTotal === 0);
-    $(`#hub-cats-${k}`).innerHTML = riskChips(S.local_risk);
+    const views = S.system.groups.reduce((n, g) => n + g.views.length, 0);
+    $$(`#topnav button[data-dest="system500"][data-sys="${k}"]`).forEach(b => b.disabled = views === 0);
   });
   $('#all-total').textContent = all;
-  MAP_REGION = null;
-  drawHubMaps();
 }
-function drawHubMaps(){
-  Object.keys(SYSTEMS).forEach(k => {
-    if (!SUMMARIES[k]) return;
-    const host = {map: `#hub-map-${k}`, coast: `#hub-coast-${k}`};
-    loadCoast(k).then(() => drawRegionMap(k, host));
-  });
-}
-// Which region the region screen's map is zoomed into (null = all its pins).
-let MAP_REGION = null;
-const COASTS = {};         // system key -> coastline rings, loaded once each
 
 async function loadCoast(key){
   if(COASTS[key] !== undefined) return COASTS[key];
@@ -1007,17 +1078,6 @@ async function loadCoast(key){
     COASTS[key] = [];      // no backdrop is fine; the pins still carry the meaning
   }
   return COASTS[key];
-}
-
-// One projection for both the coastline and the markers, so a pin always lands
-// where that coordinate actually is on the drawn island.
-function makeProjection(view, W, H, pad){
-  const {lon0, lon1, lat0, lat1} = view;
-  return {
-    view,
-    x: lon => pad.l + (lon - lon0) / (lon1 - lon0) * (W - pad.l - pad.r),
-    y: lat => pad.t + (lat1 - lat) / (lat1 - lat0) * (H - pad.t - pad.b),
-  };
 }
 
 // Fit a lat/lon box to the panel while preserving shape, so the coastline is
@@ -1037,113 +1097,239 @@ function fitView(lons, lats, W, H, marginDeg, minSpan){
           lat0: cLat - spanLat/2, lat1: cLat + spanLat/2};
 }
 
-// The region screen draws into one fixed surface; the hub has one per system.
-const REGION_HOST = {map: '#jamali-map', coast: '#jamali-coast'};
-
-function drawCoast(key, host, proj, W, H){
-  const svg = $(host.coast);
-  if (!svg) return;
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.innerHTML = (COASTS[key] || []).map(ring => {
-    const d = ring.map(([lon, lat], i) =>
-      `${i ? 'L' : 'M'}${proj.x(lon).toFixed(1)},${proj.y(lat).toFixed(1)}`).join('') + 'Z';
-    return `<path class="coast" d="${d}"/>`;
-  }).join('');
+function atlasSize(){
+  const r = $('#indo-map').getBoundingClientRect();
+  return {W: r.width || 900, H: r.height || 500};
+}
+// fitView() in degrees, then widened by `pad` screen pixels on every side so a
+// pin and its label near the edge are not clipped.
+function atlasFit(lons, lats, marginDeg, minSpan, pad){
+  const {W, H} = atlasSize();
+  const v = fitView(lons, lats, W - 2*pad, H - 2*pad, marginDeg, minSpan);
+  const k = (v.lon1 - v.lon0) / (W - 2*pad);     // degrees per pixel, both axes
+  return {lon0: v.lon0 - pad*k, lon1: v.lon1 + pad*k, lat0: v.lat0 - pad*k, lat1: v.lat1 + pad*k};
+}
+function atlasTarget(){
+  const cfg = ATLAS.sys && SYSTEMS[ATLAS.sys];
+  if (ATLAS.region) {
+    const pos = ATLAS.region.subsystems.filter(s => s.anchor);
+    const span = cfg.subsystemMinSpan || 0.9;
+    if (pos.length) return atlasFit(pos.map(s => s.anchor.lon), pos.map(s => s.anchor.lat), 0.35, span, 46);
+    const at = cfg.regionAt[ATLAS.region.key];
+    if (at) return atlasFit([at[1]], [at[0]], 0, span, 46);
+  }
+  if (cfg) return atlasFit([cfg.view.lon0, cfg.view.lon1], [cfg.view.lat0, cfg.view.lat1], 0, 0, 28);
+  return atlasFit(INDO_BOX.lon, INDO_BOX.lat, 0, 0, 10);
+}
+function setVB(v){
+  ATLAS.vb = v;
+  $('#indo-svg').setAttribute('viewBox', [v.lon0, -v.lat1, v.lon1 - v.lon0, v.lat1 - v.lat0]
+    .map(n => n.toFixed(4)).join(' '));
+}
+function atlasXY(lon, lat){
+  const {W, H} = atlasSize(), v = ATLAS.vb;
+  return [(lon - v.lon0) / (v.lon1 - v.lon0) * W, (v.lat1 - lat) / (v.lat1 - v.lat0) * H];
 }
 
-function mapBox(host){
-  const map = $(host.map);
-  if (!map) return {map: null, W: 700, H: 245};
-  const rect = map.getBoundingClientRect();
-  return {map, W: Math.round(rect.width) || 700, H: Math.round(rect.height) || 245};
+// Drawn once: Natural Earth rings for the whole country, plus each system's
+// finer coastline, hidden until the camera is inside that system.
+function atlasBase(){
+  return ATLAS.base ||= (async () => {
+    try { INDO = await j('indonesia_outline.json'); } catch (_) { INDO = {rings: []}; }
+    await Promise.all(Object.keys(SYSTEMS).map(loadCoast));
+    const d = pts => 'M' + pts.map(p => `${(+p[0]).toFixed(3)},${(-p[1]).toFixed(3)}`).join('L') + 'Z';
+    // a national ring whose centre lies inside one of its system's finer
+    // rings is drawn by that finer ring once zoomed
+    const inside = ([x, y], ring) => {
+      let c = false;
+      for (let i = 0, k = ring.length - 1; i < ring.length; k = i++) {
+        const [xi, yi] = ring[i], [xk, yk] = ring[k];
+        if ((yi > y) !== (yk > y) && x < (xk - xi) * (y - yi) / (yk - yi) + xi) c = !c;
+      }
+      return c;
+    };
+    let h = '';
+    INDO.rings.forEach(r => {
+      const on = r.g && SUMMARIES[r.g];
+      const mid = [r.pts.reduce((a, p) => a + p[0], 0) / r.pts.length,
+                   r.pts.reduce((a, p) => a + p[1], 0) / r.pts.length];
+      const cov = on && (COASTS[r.g] || []).some(ring => inside(mid, ring));
+      h += `<path class="isl${on ? ' sys' : ''}${cov ? ' cov' : ''}"${on ? ` data-sys="${r.g}"` : ''} d="${d(r.pts)}"/>`;
+    });
+    Object.keys(SYSTEMS).forEach(k => (COASTS[k] || []).forEach(ring =>
+      h += `<path class="coast-detail" data-sys="${k}" d="${d(ring)}"/>`));
+    const svg = $('#indo-svg'), host = $('#indo-map'), tip = $('#indo-tip');
+    svg.innerHTML = h;
+    svg.querySelectorAll('.isl.sys').forEach(p => {
+      const k = p.dataset.sys;
+      p.onmouseenter = () => {
+        atlasHot(k);
+        if (!ATLAS.sys) { tip.innerHTML = indoTip(k); tip.style.display = 'block'; }
+      };
+      p.onmousemove = e => {
+        const r = host.getBoundingClientRect();
+        tip.style.left = Math.max(4, Math.min(e.clientX - r.left + 14, r.width - tip.offsetWidth - 4)) + 'px';
+        tip.style.top = Math.max(4, Math.min(e.clientY - r.top + 14, r.height - tip.offsetHeight - 4)) + 'px';
+      };
+      p.onmouseleave = () => { atlasHot(null); tip.style.display = 'none'; };
+      // from inside one system the other island is still a way across
+      p.onclick = () => atlasGo(k, null);
+    });
+    svg.querySelectorAll('.coast-detail').forEach(p => {
+      const k = p.dataset.sys;
+      p.onmouseenter = () => atlasHot(k);
+      p.onmouseleave = () => atlasHot(null);
+      p.onclick = () => { if (k !== ATLAS.sys) atlasGo(k, null); };
+    });
+    return true;
+  })();
 }
 
-function clearMap(map){
-  if (!map) return;
-  map.querySelectorAll('.region-pin,.ss-pin,.ss-leader,.map-note').forEach(x => x.remove());
+// Move to a level: Indonesia (no sys), a system, or one of its regions.
+function atlasGo(sys, region, opt = {}){
+  ATLAS.sys = sys && SUMMARIES[sys] ? sys : null;
+  ATLAS.region = ATLAS.sys ? (region || null) : null;
+  if (ATLAS.sys) setSys(ATLAS.sys);
+  NAV_REGION = ATLAS.region ? ATLAS.region.key : '';
+  atlasCrumbs();
+  markTopnav('hub');
+  const tag = ATLAS.sys ? ATLAS.sys + (ATLAS.region ? '/' + ATLAS.region.key : '') : '';
+  history.replaceState(null, '', tag ? '#peta=' + tag : location.pathname + location.search);
+  $('#indo-tip').style.display = 'none';
+  renderAtlasPanel();
+  atlasBase().then(() => atlasCamera(opt.animate !== false));
 }
 
-function setRegionHeadings(){
-  const c = sysCfg();
-  $('#regions-title').textContent = `Peta ${c.regionsLabel}`;
-  $('#regions-card-title').textContent = `${c.regionsLabel} — Sistem ${c.name}`;
-  $(REGION_HOST.map).style.height = c.regionMapHeight;
-}
-function renderUp2bScreen(){
-  setRegionHeadings();
-  $('#jamali-cats').innerHTML = riskChips(SUMMARY.local_risk);
-  MAP_REGION = null;
-  loadCoast(SYS).then(() => drawRegionMap(SYS, REGION_HOST));
-  renderSubsystems(null);
+// Zoom on a log scale with the pan tied to it, so the place being zoomed into
+// stays under the eye instead of sliding in at the last moment.
+function atlasCamera(animate){
+  const map = $('#indo-map');
+  map.dataset.level = ATLAS.region ? 'region' : ATLAS.sys ? 'system' : 'indonesia';
+  map.classList.toggle('zoomed', !!ATLAS.sys);
+  $$('#indo-svg .isl.sys, #indo-svg .coast-detail')
+    .forEach(p => p.classList.toggle('here', p.dataset.sys === ATLAS.sys));
+  atlasClear();
+  const to = atlasTarget(), from = ATLAS.vb, id = ++ATLAS.anim;
+  const still = from && ['lon0', 'lon1', 'lat0', 'lat1']
+    .every(k => Math.abs(from[k] - to[k]) < (to.lon1 - to.lon0) * 1e-4);
+  if (!animate || !from || still || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    setVB(to); atlasPins(); return;
+  }
+  const s0 = from.lon1 - from.lon0, s1 = to.lon1 - to.lon0, ar = (to.lat1 - to.lat0) / s1;
+  const c0 = [(from.lon0 + from.lon1) / 2, (from.lat0 + from.lat1) / 2];
+  const c1 = [(to.lon0 + to.lon1) / 2, (to.lat0 + to.lat1) / 2];
+  const panOnly = Math.abs(s0 - s1) / s0 < 0.05;
+  const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+  const dur = panOnly ? 380 : 720;
+  let t0 = null;
+  const finish = () => {
+    if (id !== ATLAS.anim) return;              // a newer move took over
+    ATLAS.anim++;                               // retire this move's frames
+    setVB(to); atlasPins();
+  };
+  const frame = now => {
+    if (id !== ATLAS.anim) return;
+    if (t0 === null) t0 = now;                  // the frame clock, not performance.now()
+    const t = Math.min(1, (now - t0) / dur), e = ease(t);
+    const s = s0 * Math.pow(s1 / s0, e);
+    const w = panOnly ? e : (s0 - s) / (s0 - s1);
+    const cx = c0[0] + (c1[0] - c0[0]) * w, cy = c0[1] + (c1[1] - c0[1]) * w, h = s * ar;
+    setVB({lon0: cx - s/2, lon1: cx + s/2, lat0: cy - h/2, lat1: cy + h/2});
+    if (t < 1) requestAnimationFrame(frame); else finish();
+  };
+  requestAnimationFrame(frame);
+  // Frames stall in a hidden tab (and in headless captures); the map must
+  // still end up where it was sent, with its pins.
+  setTimeout(finish, dur + 250);
 }
 
-// The whole island with one pin per region. The same map fills the landing
-// card and the region screen; only the surface it draws into differs.
-function drawRegionMap(key, host){
-  const {map, W, H} = mapBox(host);
-  if (!map) return;
-  clearMap(map);
-  const cfg = SYSTEMS[key];
-  const proj = makeProjection(fitView([cfg.view.lon0, cfg.view.lon1], [cfg.view.lat0, cfg.view.lat1],
-                                      W, H, 0, 0), W, H, {l:8, r:8, t:8, b:8});
-  drawCoast(key, host, proj, W, H);
-  SUMMARIES[key].regions.forEach(r => {
-    const at = cfg.regionAt[r.key];
-    if(!at) return;                      // the "belum dipetakan" bucket has no place
-    const b=document.createElement('button'); b.className='region-pin'+(r.subsystems.length?'':' empty');
-    b.style.left=proj.x(at[1])+'px'; b.style.top=proj.y(at[0])+'px';
-    b.innerHTML=`<i>${r.risk.total}</i><span>${esc(r.name)}</span>`;
-    const full = cfg.regionFull[r.key];
-    b.title=`${r.name}${full ? ' — ' + full : ''}: ${r.subsystems.length} SS, ${r.risk.total} kerawanan`;
-    // From the hub the pin means "take me into this region"; on the region
-    // screen it means "zoom this region", which is where the user already is.
-    b.onclick=()=>{ openRegion(r); };
-    map.appendChild(b);
-  });
+function atlasClear(){
+  $$('#indo-map .region-pin, #indo-map .ss-pin, #indo-map .ss-leader, #indo-map .map-note, #indo-map .atlas-label')
+    .forEach(x => x.remove());
+}
+function atlasHot(k){
+  $$('#indo-svg .isl.sys, #indo-svg .coast-detail')
+    .forEach(p => p.classList.toggle('hot', p.dataset.sys === k && k !== ATLAS.sys));
+  $$('#indo-map .atlas-label').forEach(b => b.classList.toggle('hot', b.dataset.sys === k));
+  $$('#atlas-panel [data-sys]').forEach(b => b.classList.toggle('hot', b.dataset.sys === k));
+}
+// map pin <-> panel row: hovering either lights the other
+function pairHot(attr, val, on){
+  $$(`#indo-map [data-${attr}="${val}"]`).forEach(x => x.classList.toggle('active', on));
+  $$(`#atlas-panel [data-${attr}="${val}"]`).forEach(x => x.classList.toggle('hot', on));
+}
+function mapNote(text){
+  const n = document.createElement('div');
+  n.className = 'map-note'; n.textContent = text;
+  $('#indo-map').appendChild(n);
 }
 
-// ---------- one region: its subsystems placed by real coordinates ----------
-// Anchors are approximate demo data (samples/ss_anchors.json). Subsystems can
-// share or nearly share a point, so markers are pushed apart and a thin leader
-// line is drawn back to the true position rather than silently relocating them.
-function drawSubsystemMap(key, host, region){
-  const {map, W, H} = mapBox(host);
-  clearMap(map);
-  const cfg = SYSTEMS[key];
-
-  const withPos = region.subsystems.filter(s => s.anchor);
-  if(!withPos.length){
-    drawCoast(key, host, makeProjection(fitView([cfg.view.lon0, cfg.view.lon1],
-      [cfg.view.lat0, cfg.view.lat1], W, H, 0, 0), W, H, {l:8, r:8, t:8, b:8}), W, H);
-    const n=document.createElement('div'); n.className='map-note';
-    n.textContent = `${region.name} — belum ada koordinat subsistem`;
-    map.appendChild(n);
+function atlasPins(){
+  const map = $('#indo-map');
+  atlasClear();
+  if (!ATLAS.sys) {
+    Object.keys(SYSTEMS).forEach(k => {
+      const S = SUMMARIES[k], at = LABEL_AT[k];
+      if (!S || !at) return;
+      const [x, y] = atlasXY(at[0], at[1]);
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'atlas-label'; b.dataset.sys = k;
+      b.style.left = x + 'px'; b.style.top = y + 'px';
+      b.innerHTML = `<b>Sistem ${esc(SYSTEMS[k].name)}</b><small>${S.risk.total} kerawanan</small>`;
+      b.onmouseenter = () => atlasHot(k);
+      b.onmouseleave = () => atlasHot(null);
+      b.onclick = () => atlasGo(k, null);
+      map.appendChild(b);
+    });
+    mapNote('Pulau berwarna abu-abu: belum ada data');
     return;
   }
-
-  // Zoom to this region's own subsystems, keeping the coastline in the same
-  // projection so the dots visibly sit on their part of the island.
-  const view = fitView(withPos.map(s => s.anchor.lon), withPos.map(s => s.anchor.lat),
-                       W, H, 0.35, cfg.subsystemMinSpan || 0.9);
-  const proj = makeProjection(view, W, H, {l:34, r:34, t:24, b:28});
-  drawCoast(key, host, proj, W, H);
-
-  const placed = withPos.map(s => {
-    const x = proj.x(s.anchor.lon), y = proj.y(s.anchor.lat);
-    return {s, tx:x, ty:y, x, y};
+  const S = SUMMARIES[ATLAS.sys], cfg = SYSTEMS[ATLAS.sys];
+  if (ATLAS.region) return atlasSSPins(ATLAS.region);
+  S.regions.forEach(r => {
+    const at = cfg.regionAt[r.key];
+    if (!at) return;                     // the "belum dipetakan" bucket has no place
+    const [x, y] = atlasXY(at[1], at[0]);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'region-pin' + (r.subsystems.length ? '' : ' empty');
+    b.dataset.key = r.key;
+    b.style.left = x + 'px'; b.style.top = y + 'px';
+    b.innerHTML = `<i>${r.risk.total}</i><span>${esc(r.name)}</span>`;
+    b.title = `${regionTitle(r)}: ${r.subsystems.length} subsistem, ${r.risk.total} kerawanan`;
+    b.onmouseenter = () => pairHot('key', r.key, true);
+    b.onmouseleave = () => pairHot('key', r.key, false);
+    b.onclick = () => atlasGo(ATLAS.sys, r);
+    map.appendChild(b);
   });
+  mapNote(`Angka pada pin = kerawanan subsistem di ${cfg.regionWord} itu`);
+}
 
-  // Nudge overlapping markers apart, keeping the true point for the leader line.
-  const MIN_GAP = 42;
-  for(let pass=0; pass<60; pass++){
+// One region's subsystems placed by real coordinates. Anchors are approximate
+// (samples/ss_anchors.json) and can share or nearly share a point, so markers
+// are pushed apart and a thin leader line runs back to the true position
+// rather than silently relocating them.
+function atlasSSPins(region){
+  const map = $('#indo-map'), {W, H} = atlasSize();
+  const withPos = region.subsystems.filter(s => s.anchor);
+  // Each marker is a disc over its code, so separate the boxes (label width
+  // included), not just the centres: 42px between centres still let
+  // GNDUL24 and BKSI_CBNG print over each other.
+  const placed = withPos.map(s => {
+    const [x, y] = atlasXY(s.anchor.lon, s.anchor.lat);
+    const w = Math.max(30, s.code.replace(/^SS_/, '').length * 6.4 + 8);
+    return {s, tx: x, ty: y, x, y, w, h: 44};
+  });
+  for(let pass=0; pass<80; pass++){
     let moved = false;
     for(let i=0;i<placed.length;i++) for(let j=i+1;j<placed.length;j++){
       const a=placed[i], b=placed[j];
-      let dx=b.x-a.x, dy=b.y-a.y, d=Math.hypot(dx,dy);
-      if(d >= MIN_GAP) continue;
-      if(d < 0.01){ dx = (i%2?1:-1)*0.7; dy = (j%2?1:-1)*0.7; d = 1; }
-      const push=(MIN_GAP-d)/2/d;
-      a.x-=dx*push; a.y-=dy*push; b.x+=dx*push; b.y+=dy*push;
+      let dx=b.x-a.x, dy=b.y-a.y;
+      const ox=(a.w+b.w)/2-Math.abs(dx), oy=(a.h+b.h)/2-Math.abs(dy);
+      if(ox <= 0 || oy <= 0) continue;
+      if(Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01){ dx = i%2 ? 1 : -1; dy = j%2 ? 1 : -1; }
+      // shortest way out: sideways or up/down, half each
+      if(ox < oy){ const m=(ox/2+0.5)*Math.sign(dx||1); a.x-=m; b.x+=m; }
+      else       { const m=(oy/2+0.5)*Math.sign(dy||1); a.y-=m; b.y+=m; }
       moved = true;
     }
     if(!moved) break;
@@ -1152,7 +1338,6 @@ function drawSubsystemMap(key, host, region){
     p.x = Math.max(20, Math.min(W-20, p.x));
     p.y = Math.max(18, Math.min(H-22, p.y));
   });
-
   placed.forEach(p => {
     const off = Math.hypot(p.x-p.tx, p.y-p.ty);
     if(off > 6){
@@ -1162,22 +1347,149 @@ function drawSubsystemMap(key, host, region){
       map.appendChild(l);
     }
     const b=document.createElement('button');
-    b.className='ss-pin'+(p.s.risk.total?'':' zero');
+    b.type='button'; b.className='ss-pin'+(p.s.risk.total?'':' zero');
     b.style.left=p.x+'px'; b.style.top=p.y+'px';
     b.dataset.sid = p.s.id;
     b.innerHTML=`<i>${p.s.risk.total}</i><span>${esc(p.s.code.replace(/^SS_/,''))}</span>`;
     b.title=`${p.s.name}\n${p.s.risk.total} kerawanan · ${p.s.views.length} view`
       + (p.s.anchor.anchored_on?.length ? `\nposisi dari: ${p.s.anchor.anchored_on.join(', ')}` : '');
+    b.onmouseenter = () => pairHot('sid', p.s.id, true);
+    b.onmouseleave = () => pairHot('sid', p.s.id, false);
     b.onclick=()=>{ if(p.s.views.length) selectView(p.s.views[0].id); };
     map.appendChild(b);
   });
-
   const hidden = region.subsystems.length - withPos.length;
-  const n=document.createElement('div'); n.className='map-note';
-  n.textContent = `${withPos.length} subsistem · posisi perkiraan (OSM)`
-    + (hidden ? ` · ${hidden} tanpa koordinat` : '');
-  map.appendChild(n);
+  mapNote(withPos.length
+    ? `${withPos.length} subsistem · posisi perkiraan (OSM)` + (hidden ? ` · ${hidden} tanpa koordinat` : '')
+    : `${region.name} — belum ada koordinat subsistem`);
 }
+
+// Header trail and the same trail on the map itself, where the eye is.
+function atlasCrumbs(){
+  const c = ATLAS.sys && SYSTEMS[ATLAS.sys];
+  setCrumb([{label: 'Beranda', go: () => atlasGo(null, null)},
+            ...(c ? [{label: `${c.name} · ${c.regionsLabel}`, go: () => atlasGo(ATLAS.sys, null)}] : []),
+            ...(ATLAS.region ? [{label: ATLAS.region.name}] : [])]);
+  const box = $('#atlas-crumb');
+  box.innerHTML = '';
+  if (!c) return;
+  const trail = [{label: 'Indonesia', go: () => atlasGo(null, null)},
+                 {label: c.name, go: () => atlasGo(ATLAS.sys, null)},
+                 ...(ATLAS.region ? [{label: ATLAS.region.name}] : [])];
+  trail.forEach((p, i) => {
+    if (i) box.insertAdjacentHTML('beforeend', '<span class="sep">›</span>');
+    const last = i === trail.length - 1;
+    const el = document.createElement(last ? 'span' : 'button');
+    if (last) el.className = 'here'; else { el.type = 'button'; el.onclick = p.go; }
+    el.textContent = (i === 0 ? '‹ ' : '') + p.label;
+    box.appendChild(el);
+  });
+}
+
+// The dashboard's own numbers next to what the reference document counts,
+// right under the totals they vouch for. Folded when they agree; open, in
+// amber, when they do not.
+function sourceNote(k){
+  const S = SUMMARIES[k], c = SYSTEMS[k], b = c.book;
+  if (!b) return '';
+  const chk = (have, want, label) => have === want
+    ? `<span class="ok">✓ ${esc(label)} ${have}</span>`
+    : `<span class="off">⚠ ${esc(label)} ${have} (sumber: ${want})</span>`;
+  const ok = S.local_risk.total === b.local && S.system_risk.total === b.system;
+  return `<details class="ap-srcd"${ok ? '' : ' open'}>`
+    + `<summary class="${ok ? 'ok' : 'off'}">${ok ? '✓ Jumlah sama dengan dokumen sumber' : '⚠ Jumlah berbeda dari dokumen sumber'}</summary>`
+    + `<div>${esc(b.title)}</div>`
+    + `<div>${chk(S.local_risk.total, b.local, 'subsistem')} · ${chk(S.system_risk.total, b.system, c.systemLabel)}</div>`
+    + (b.note ? `<div>${esc(b.note)}</div>` : '') + `</details>`;
+}
+
+function renderAtlasPanel(){
+  const box = $('#atlas-panel');
+  const row = (attrs, title, n, sub, chips, cls = '') =>
+    `<button type="button" class="ap-row${cls}" ${attrs}><div class="t"><b>${title}</b><span>${n}</span></div>`
+    + (sub ? `<small>${sub}</small>` : '') + (chips ? `<div class="risk-chips">${chips}</div>` : '') + `</button>`;
+  const ssCount = S => S.regions.reduce((n, r) => n + r.subsystems.length, 0);
+  let h;
+  if (!ATLAS.sys) {
+    const keys = Object.keys(SYSTEMS).filter(k => SUMMARIES[k]);
+    h = `<div><h2>Indonesia</h2><div class="ap-sub">Sistem transmisi yang sudah dipetakan. Pilih pulaunya di peta atau di sini untuk memperbesar.</div></div>`
+      + `<div class="ap-list">` + keys.map(k => {
+          const S = SUMMARIES[k], c = SYSTEMS[k];
+          const regs = S.regions.filter(r => c.regionAt[r.key]).length;
+          return row(`data-sys="${k}"`, `Sistem ${esc(c.name)}`, S.risk.total,
+            `${esc(c.full)} · ${regs} ${esc(c.regionWord)} · ${ssCount(S)} subsistem`, riskChips(S.risk));
+        }).join('') + `</div>`
+      + `<div class="ap-src">Angka = baris tabel kerawanan di dokumen sumber, sekali per kerawanan: subsistem dengan beberapa sudut pandang tidak dihitung ganda.</div>`;
+  } else if (!ATLAS.region) {
+    const k = ATLAS.sys, S = SUMMARIES[k], c = SYSTEMS[k];
+    const views = S.system.groups.reduce((n, g) => n + g.views.length, 0);
+    h = `<div><h2>Sistem ${esc(c.name)}</h2>`
+      + (c.full !== c.name ? `<div class="ap-sub">${esc(c.full)}</div>` : '') + `</div>`
+      + `<div class="ap-total"><b>${S.risk.total}</b><span>kerawanan</span></div>`
+      + `<div class="ap-split">${S.local_risk.total} di subsistem · ${S.system_risk.total} di ${esc(c.systemLabel)}</div>`
+      + sourceNote(k)
+      + `<div class="risk-chips" style="margin-top:0">${riskChips(S.risk)}</div>`
+      + `<div class="ap-k">${esc(c.regionsLabel)}</div><div class="ap-list">`
+      + S.regions.filter(r => c.regionAt[r.key] || r.subsystems.length).map(r =>
+          row(`data-key="${r.key}"`, esc(regionTitle(r)), r.risk.total,
+            (c.regionFull[r.key] ? esc(c.regionFull[r.key]) + ' · ' : '') + `${r.subsystems.length} subsistem`,
+            riskChips(r.risk))).join('')
+      + `</div><div class="ap-k">Sistem</div><div class="ap-list">`
+      + row(`data-door="${k}"${views ? '' : ' disabled'}`, esc(c.systemLabel), S.system_risk.total,
+            `${views} proyeksi · ${esc(c.systemDoor)}`, '', ' door')
+      + `</div>`;
+  } else {
+    const r = ATLAS.region, c = SYSTEMS[ATLAS.sys];
+    h = `<div><h2>${esc(regionTitle(r))}</h2>`
+      + (c.regionFull[r.key] ? `<div class="ap-sub">${esc(c.regionFull[r.key])}</div>` : '') + `</div>`
+      + `<div class="ap-total"><b>${r.risk.total}</b><span>kerawanan · ${r.subsystems.length} subsistem</span></div>`
+      + `<div class="risk-chips" style="margin-top:0">${riskChips(r.risk)}</div>`
+      + `<div class="ap-k">Subsistem</div><div class="ap-list">`
+      + (r.subsystems.length ? r.subsystems.map(s =>
+          row(`data-sid="${s.id}"${s.views.length ? '' : ' disabled'}`, esc(s.name), s.risk.total,
+            `${esc(s.code.replace(/^SS_/, ''))} · ${s.views.length > 1 ? s.views.length + ' sudut pandang' : '1 SLD'}`,
+            riskChips(s.risk))).join('')
+        : '<div class="empty-state">Belum ada snapshot SS untuk wilayah ini.</div>')
+      + `</div><div class="ap-src">Klik subsistem untuk membuka SLD-nya. Posisi pin diperkirakan dari koordinat GI (OpenStreetMap).</div>`;
+  }
+  box.innerHTML = h;
+  box.scrollTop = 0;
+  box.querySelectorAll('[data-sys]').forEach(b => {
+    b.onclick = () => atlasGo(b.dataset.sys, null);
+    b.onmouseenter = () => atlasHot(b.dataset.sys);
+    b.onmouseleave = () => atlasHot(null);
+  });
+  box.querySelectorAll('[data-key]').forEach(b => {
+    const r = regionOfKey(b.dataset.key);
+    b.onclick = () => atlasGo(ATLAS.sys, r);
+    b.onmouseenter = () => pairHot('key', r.key, true);
+    b.onmouseleave = () => pairHot('key', r.key, false);
+  });
+  box.querySelectorAll('[data-door]').forEach(b => b.onclick = () => showSystem500Screen(b.dataset.door));
+  box.querySelectorAll('[data-sid]').forEach(b => {
+    const s = ATLAS.region.subsystems.find(x => x.id === +b.dataset.sid);
+    b.onclick = () => { if (s?.views.length) selectView(s.views[0].id); };
+    b.onmouseenter = () => pairHot('sid', s.id, true);
+    b.onmouseleave = () => pairHot('sid', s.id, false);
+  });
+}
+
+function indoTip(k){
+  const S = SUMMARIES[k], c = SYSTEMS[k];
+  const row = (a, b) => `<div class="row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`;
+  const ss = S.regions.reduce((n, r) => n + r.subsystems.length, 0);
+  const regs = S.regions.filter(r => c.regionAt[r.key]).length;
+  const cats = {...(S.risk.categories || {})};
+  const known = SEV.map(([x]) => x).map(x => { const n = cats[x] || 0; delete cats[x]; return row('· ' + x, n); });
+  const rest = Object.values(cats).reduce((a, b) => a + b, 0);
+  return `<b>Sistem ${esc(c.name)}</b>`
+    + row(c.regionsLabel, regs) + row('Subsistem', ss)
+    + row('Kerawanan', S.risk.total) + row('· di subsistem', S.local_risk.total)
+    + row('· ' + c.systemLabel, S.system_risk.total)
+    + known.join('') + row('· lainnya', rest)
+    + `<div style="margin-top:5px;opacity:.75">klik untuk memperbesar</div>`;
+}
+
 function renderSystem500Screen(){
   const c = sysCfg();
   $('#system-title').textContent = c.systemLabel;
@@ -1186,30 +1498,6 @@ function renderSystem500Screen(){
   $('#system500').innerHTML=groups.map(g=>`<button class="system-tile" data-system="${esc(g.key)}" ${g.views.length?'':'disabled'}><b>${esc(g.label)}</b><small>${g.views.length} view &middot; ${g.risk.total} risiko</small><div class="risk-chips">${riskChips(g.risk)}</div></button>`).join('')
     || '<div class="empty-state" style="grid-column:1/-1">Belum ada proyeksi sistem.</div>';
   $$('#system500 [data-system]').forEach(b=>b.onclick=()=>{const g=groups.find(x=>x.key===b.dataset.system);if(g?.views.length)selectView(g.views[0].id)});
-}
-function renderSubsystems(region){
-  const c = sysCfg();
-  const list=region ? region.subsystems : SUMMARY.regions.flatMap(r=>r.subsystems);
-  $('#ss-heading').textContent=region ? `SS ${region.name}` : `Subsistem ${c.name}`;
-  const full = region && c.regionFull[region.key];
-  $('#ss-lead').innerHTML = region
-    ? (full ? `${esc(full)}<br>` : '')
-      + `${list.length} SS &middot; ${region.risk.total} kerawanan &nbsp; ${riskChips(region.risk)}`
-      + ` &nbsp;<button class="linkish" id="ss-allregions" type="button">semua wilayah</button>`
-    : `Pilih pin ${esc(c.regionWord)} pada peta untuk menyaring daftar.`;
-  $('#portal-ss').innerHTML=list.length ? list.map(s=>`<div class="ss-card" data-sid="${s.id}"><b>${esc(s.name)}</b><small>${esc(s.code)} &middot; ${s.views.length} view &middot; ${s.risk.total} risiko</small><div class="risk-chips">${riskChips(s.risk)}</div></div>`).join('') : '<div class="empty-state">Belum ada snapshot SS untuk wilayah ini.</div>';
-  $$('#portal-ss [data-sid]').forEach(el=>{
-    el.onclick=()=>{const s=list.find(x=>x.id===+el.dataset.sid);if(s?.views.length)selectView(s.views[0].id)};
-    // hovering a card highlights its dot on the map, so the two views read as one
-    el.onmouseenter=()=>{const p=$(`.ss-pin[data-sid="${el.dataset.sid}"]`); if(p) p.classList.add('active');};
-    el.onmouseleave=()=>{const p=$(`.ss-pin[data-sid="${el.dataset.sid}"]`); if(p) p.classList.remove('active');};
-  });
-  const back = $('#ss-allregions');
-  if(back) back.onclick = () => {
-    MAP_REGION = null; NAV_REGION = '';
-    setCrumb([homeCrumb(), {label: `${c.name} · ${c.regionsLabel}`}]);
-    drawRegionMap(SYS, REGION_HOST); renderSubsystems(null);
-  };
 }
 
 // ---------- UP2B -> SS -> point-of-view tree ----------
@@ -1397,10 +1685,11 @@ function markTree(id){
 
 // ---------- view load ----------
 async function selectView(id){
-  document.body.classList.remove('mode-hub', 'mode-up2b', 'mode-system500');
+  document.body.classList.remove('mode-hub', 'mode-system500');
   document.body.classList.add('mode-viewer');
   $('#scensel').style.display = '';
   VIEW = VIEWS.find(v => v.id === id);
+  FOCUS = null; FOCUS_PREVIEW = false; GI_MARK = null;
   // A view always opens inside its own system, whichever door it came through.
   setSys(systemOfView(VIEW));
   // Opening a subsystem scopes the sidebar to its region, whether it was reached
@@ -1436,6 +1725,8 @@ async function selectView(id){
   showTab('detail');
   clearDetail();
   updateCounts();
+  renderFocusBar();
+  writeHash();
 }
 
 function buildScenario(){
@@ -1750,11 +2041,15 @@ function wireHits(){
     const node = e.target.closest('.sld-node, .sld-bay');
     const circ = e.target.closest('[data-circuit-id]');
     const aud  = e.target.closest('[data-audit-kind]');
+    // picking any other object ends a kerawanan focus: the dimming belongs to it
+    if (!pin && (node || circ || aud) && FOCUS) clearFocus();
     if (pin)       showPinRisks(pin);
     else if (node) showNode(node);
     else if (circ) showCircuit(circ);
     else if (aud)  showAudit(aud);
   });
+  svg.addEventListener('mousemove', e => pinTip(e.target.closest('.risk-pin'), e));
+  svg.addEventListener('mouseleave', () => pinTip(null));
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -1865,7 +2160,9 @@ function svgNode(svg, kind, id){
 }
 function edgeById(id){ return (GRAPH.edges || []).find(e => e.id === +id); }
 function risksFor(kind, id){
-  return (GRAPH.overlays.risk || []).filter(r => r.attach_kind === kind && r.attach_id === +id);
+  // a finding pinned on several objects belongs to each of them
+  return (GRAPH.overlays.risk || []).filter(r => (r.attach_kind === kind && r.attach_id === +id)
+    || (r.attachments || []).some(a => a.attach_kind === kind && a.attach_id === +id));
 }
 // transformer risks have no clickable element -- surface them on the owning GI
 // (its pin is drawn at the GI busbar). Match by code inside the attach_label.
@@ -1899,27 +2196,38 @@ function showNode(g){
   const code = g.getAttribute('data-code') || '';
   const isBay = g.classList.contains('sld-bay');
   const n = nodeByKindId(kind, id) || {};
-  const rr = [...risksFor('SUBSTATION', id), ...txRisksForCode(n.code || code)];
-  let h = `<div class="kv">`;
-  h += `<div class="v" style="font-size:15px;font-weight:700">${esc(n.name || code)}</div>`;
-  h += `<div>${code ? '<span class="pill mut">'+esc(code)+'</span>' : ''}`;
-  h += n.type ? `<span class="pill">${esc(n.type)}</span>` : '';
-  h += (n.voltage_kv ? `<span class="pill">${esc(Math.round(n.voltage_kv))} kV</span>` : '');
-  h += n.status ? statusPill(n.status) : '';
-  h += `</div>`;
-  h += kv('Peran', n.role || '-');
-  h += kv('Tier (proyeksi ini)', n.tier == null ? 'tanpa Tier (objek non-live / perencanaan)' : ('Tier-' + n.tier));
-  if (isBay) h += kv('Digambar sebagai', 'bay / spur pada sudut pandang ini');
-  if (n.busbar_config) h += kv('Konfigurasi busbar', n.busbar_config);
-  if (n.has_transformer) h += kv('Trafo', 'ada IBT / trafo di GI ini');
-  if (n.has_shunt_capacitor) h += kv('Kompensator', 'shunt capacitor');
-  if (n.busbar_note) h += kv('Catatan busbar', n.busbar_note);
-  if (n.note) h += kv('Catatan', n.note);
-  if (n.confidence != null) h += kv('Confidence parse', fmtConf(n.confidence));
-  h += `</div>`;
-  if (rr.length) h += riskBlock(rr, 'Kerawanan pada objek ini');
+  const seen = new Set();
+  const here = [...risksFor('SUBSTATION', id), ...txRisksForCode(n.code || code)]
+    .filter(r => !seen.has(r.seq_no) && seen.add(r.seq_no));
+  // findings sited elsewhere whose Dampak text names this GI
+  const affected = kind === 'SUBSTATION'
+    ? (GRAPH.overlays.risk || []).filter(r => !seen.has(r.seq_no) && (r.dampak_ids || []).includes(+id))
+    : [];
+  const tier = n.tier == null ? 'tanpa Tier' : 'Tier-' + n.tier;
+  let h = `<div class="obj-head"><div class="obj-name">${esc(n.name || code)}</div>`
+    + `<div class="obj-pills">${code ? '<span class="pill mut">' + esc(displayCode(code)) + '</span>' : ''}`
+    + (n.type ? `<span class="pill">${esc(n.type)}</span>` : '')
+    + (n.voltage_kv ? `<span class="pill">${esc(Math.round(n.voltage_kv))} kV</span>` : '')
+    + (n.status ? statusPill(n.status) : '') + `</div>`
+    + `<div class="obj-sub">${esc(roleLabel(n.role) || '-')} &middot; ${esc(tier)}`
+    + (isBay ? ' &middot; digambar sebagai stub' : '') + `</div></div>`;
+  h += riskSection('Kerawanan di objek ini', here, 'detail')
+    || `<div class="dsec none">Tidak ada kerawanan yang dipasang di objek ini.</div>`;
+  h += riskSection('Terdampak oleh (disebut di Dampak)', affected, 'list');
+  const giCode = n.code || code;
+  h += `<div class="alsoin dsec" id="alsoin" data-code="${esc(giCode)}"></div>`;
+  let tech = kv('Peran (engine)', n.role || '-') + kv('Tier (proyeksi ini)', tier);
+  if (n.busbar_config) tech += kv('Konfigurasi busbar', n.busbar_config);
+  if (n.has_transformer) tech += kv('Trafo', 'ada IBT / trafo di GI ini');
+  if (n.has_shunt_capacitor) tech += kv('Kompensator', 'shunt capacitor');
+  if (n.busbar_note) tech += kv('Catatan busbar', n.busbar_note);
+  if (n.note) tech += kv('Catatan', n.note);
+  if (n.confidence != null) tech += kv('Confidence parse', fmtConf(n.confidence));
+  h += `<details class="tech"><summary>Data teknis</summary><div class="kv">${tech}</div></details>`;
   $('#detail').innerHTML = h;
+  wireDetailCards();
   showTab('detail');   // clicking the drawing must reveal what it selected
+  if (kind === 'SUBSTATION' && giCode) fillAlsoIn(giCode);
 }
 
 function showCircuit(g){
@@ -1927,21 +2235,25 @@ function showCircuit(g){
   const id = g.getAttribute('data-circuit-id');
   const e = edgeById(id) || {};
   const rr = risksFor('CIRCUIT', id);
-  let h = `<div class="kv">`;
-  h += `<div class="v" style="font-size:15px;font-weight:700">${esc(e.name || g.getAttribute('data-circuit-code'))}</div>`;
-  h += `<div><span class="pill mut">${esc(e.code || '')}</span>`;
-  h += e.circuit_type ? `<span class="pill">${esc(e.circuit_type)}</span>` : '';
-  h += e.voltage_kv ? `<span class="pill">${esc(Math.round(e.voltage_kv))} kV</span>` : '';
-  h += e.status ? statusPill(e.status) : '';
-  h += `</div>`;
-  if (e.from_substation_id) h += kv('Dari', nodeName(e.from_substation_id));
-  if (e.to_substation_id) h += kv('Ke', nodeName(e.to_substation_id));
-  h += kv('Jumlah sirkit', (e.circuit_count || 1) + (e.single_phi ? ' (single-phi)' : ''));
-  if (e.note) h += kv('Catatan', e.note);
-  if (e.confidence != null) h += kv('Confidence parse', fmtConf(e.confidence));
-  h += `</div>`;
-  if (rr.length) h += riskBlock(rr, 'Kerawanan pada ruas ini');
+  const ends = (e.from_substation_id && e.to_substation_id)
+    ? `${shortNode(e.from_substation_id)} \u2013 ${shortNode(e.to_substation_id)}` : '';
+  let h = `<div class="obj-head"><div class="obj-name">${esc(e.name || g.getAttribute('data-circuit-code'))}</div>`
+    + `<div class="obj-pills">`
+    + (e.circuit_type ? `<span class="pill">${esc(e.circuit_type === 'IBT_LINK' ? 'IBT' : e.circuit_type)}</span>` : '')
+    + (e.voltage_kv ? `<span class="pill">${esc(Math.round(e.voltage_kv))} kV</span>` : '')
+    + `<span class="pill">${esc(e.circuit_count || 1)} sirkit${e.single_phi ? ' &middot; single-phi' : ''}</span>`
+    + (e.status ? statusPill(e.status) : '') + `</div>`
+    + (ends ? `<div class="obj-sub">${esc(ends)}</div>` : '') + `</div>`;
+  h += riskSection('Kerawanan di ruas ini', rr, 'detail')
+    || `<div class="dsec none">Tidak ada kerawanan yang dipasang di ruas ini.</div>`;
+  let tech = kv('Kode', e.code || '-');
+  if (e.from_substation_id) tech += kv('Dari', nodeName(e.from_substation_id));
+  if (e.to_substation_id) tech += kv('Ke', nodeName(e.to_substation_id));
+  if (e.note) tech += kv('Catatan', e.note);
+  if (e.confidence != null) tech += kv('Confidence parse', fmtConf(e.confidence));
+  h += `<details class="tech"><summary>Data teknis</summary><div class="kv">${tech}</div></details>`;
   $('#detail').innerHTML = h;
+  wireDetailCards();
   showTab('detail');   // clicking the drawing must reveal what it selected
 }
 
@@ -1974,25 +2286,68 @@ function clearDetail(){
 function catPill(c){
   if (!c) return '';
   // same ramp as the cards' chips, so a category keeps one colour everywhere
-  const cls = {'N-1':'s-n1', 'N-2':'s-n2', 'N-1-2':'s-n12'}[c] || '';
+  const cls = Object.fromEntries(SEV)[c] || '';
   return `<span class="risk-chip ${cls}">${esc(c)}</span>`;
 }
-function riskBlock(list, heading){
-  let h = `<div class="k">${esc(heading)}</div>`;
-  list.forEach(r => {
-    h += `<div class="risk active"><b>#${r.seq_no} &middot; ${esc(r.title)}</b>`
-      + `<div class="meta">${catPill(r.category)} prioritas ${esc(r.priority || '-')} `
-      + `&middot; ${esc(r.status || '')}</div>`
-      + riskDetails(r) + `</div>`;
-  });
-  return h;
+// ---------- kerawanan card ----------
+// One card, two densities: `list` (the Kerawanan tab: what and where, details
+// on demand) and `detail` (an object's own findings: Dampak open to read).
+function plainText(s){ return (s || '').replace(/^\s*\[[^\]]*\]\s*/, ''); }
+// Where a finding sits, in names people use -- not "SUBSTATION KMBGN".
+function attachName(a){
+  if (!a) return '';
+  if (a.attach_kind === 'CIRCUIT') {
+    const e = a.attach_id && edgeById(a.attach_id);
+    if (e) return `${shortNode(e.from_substation_id)} – ${shortNode(e.to_substation_id)}`;
+  } else if (a.attach_kind === 'SUBSTATION' || a.attach_kind === 'TRANSFORMER') {
+    const n = a.attach_id && a.attach_kind === 'SUBSTATION' && nodeByKindId('SUBSTATION', a.attach_id);
+    if (n) return n.name;
+    if (a.attach_kind === 'TRANSFORMER') return 'IBT ' + (a.attach_label || '').replace(':', ' unit ');
+  }
+  return a.attach_label || '';
 }
-function riskDetails(r){
-  return `<details><summary>kondisi / dampak / mitigasi / usulan</summary>`
-    + `<p><b>Kondisi:</b> ${esc(r.condition || '-')}</p>`
-    + `<p><b>Dampak:</b> ${esc(r.impact || '-')}</p>`
-    + `<p><b>Mitigasi:</b> ${esc(r.mitigation || '-')}</p>`
-    + `<p><b>Usulan/solusi:</b> ${esc(r.follow_up || '-')}</p></details>`;
+function shortNode(id){
+  const n = (GRAPH.nodes || []).find(x => x.kind === 'SUBSTATION' && x.id === +id);
+  return n ? n.name.replace(/\s*\((bus )?\d+\s*kV\)$/i, '') : '#' + id;
+}
+function riskWhere(r){
+  const names = [...new Set([r, ...(r.attachments || [])].map(attachName).filter(Boolean))];
+  return names.length > 3 ? names.slice(0, 3).join(', ') + ` +${names.length - 3}` : names.join(', ');
+}
+function rsec(label, text){
+  return text ? `<div class="rc-sec"><span class="rc-lab">${esc(label)}</span><p>${esc(text)}</p></div>` : '';
+}
+function riskCard(r, mode, extra = ''){
+  const where = riskWhere(r);
+  const detail = mode === 'detail';
+  const cond = plainText(r.condition || r.title);
+  return `<div class="risk rcard${detail ? ' rc-detail' : ''}${extra}" data-seq="${r.seq_no}">`
+    + `<div class="rc-head"><span class="rc-no">#${r.seq_no}</span>${catPill(r.category)}`
+    + (detail ? `<button class="rc-go" type="button" data-seq="${r.seq_no}" title="Sorot di SLD">Sorot</button>` : '')
+    + `</div>`
+    + `<div class="rc-title${detail ? '' : ' clamp'}">${esc(cond)}</div>`
+    + (where ? `<div class="rc-where" title="lokasi pin">&#9679; ${esc(where)}</div>` : '')
+    + (detail ? rsec('Dampak', r.impact) : '')
+    + `<details${detail ? '' : ' class="rc-more"'}><summary>${detail ? 'Mitigasi &amp; usulan' : 'Dampak, mitigasi &amp; usulan'}</summary>`
+    + (detail ? '' : rsec('Dampak', r.impact))
+    + rsec('Mitigasi', r.mitigation) + rsec('Usulan / solusi', r.follow_up)
+    + `</details></div>`;
+}
+// The findings on an object, the ones whose Dampak names it, and a quiet line
+// when there are none.
+function riskSection(title, list, mode){
+  if (!list.length) return '';
+  return `<div class="dsec"><div class="dsec-title">${esc(title)} <span class="count">(${list.length})</span></div>`
+    + list.map(r => riskCard(r, mode)).join('') + `</div>`;
+}
+function wireDetailCards(){
+  const go = seq => { showTab('risk'); setFocus([seq], {zoom: true}); };
+  $$('#detail .rc-go').forEach(b => b.onclick = () => go(+b.dataset.seq));
+  // a finding listed as "terdampak oleh" is itself a way into that finding
+  $$('#detail .rcard:not(.rc-detail)').forEach(c => {
+    c.style.cursor = 'pointer';
+    c.onclick = ev => { if (ev.target.tagName !== 'SUMMARY') go(+c.dataset.seq); };
+  });
 }
 
 // is the object this risk pins to actually drawn on the current view?
@@ -2023,13 +2378,21 @@ function buildRiskChips(){
   // Drop a filter that no longer exists in this view rather than silently
   // hiding every risk.
   [...riskFilter.cats].forEach(c => { if(!cats.includes(c)) riskFilter.cats.delete(c); });
-  box.innerHTML = cats.length < 2 ? '' : cats.map(c =>
-    `<button class="chip${riskFilter.cats.has(c) ? ' on' : ''}" data-cat="${esc(c)}" type="button">${esc(c)}</button>`).join('');
-  $$('#risk-cats .chip').forEach(b => b.onclick = () => {
+  box.innerHTML = (cats.length < 2 ? '' : cats.map(c =>
+    `<button class="chip${riskFilter.cats.has(c) ? ' on' : ''}" data-cat="${esc(c)}" type="button">${esc(c)}</button>`).join(''))
+    + ((GRAPH?.overlays?.risk || []).length
+       ? `<button class="chip hl-all" id="hl-all" type="button" title="Sorot semua kerawanan yang tampil di daftar">Sorot semua</button>` : '');
+  $$('#risk-cats .chip[data-cat]').forEach(b => b.onclick = () => {
     const c = b.dataset.cat;
     riskFilter.cats.has(c) ? riskFilter.cats.delete(c) : riskFilter.cats.add(c);
     buildRiskChips(); renderRiskList();
   });
+  const all = $('#hl-all');
+  // every kerawanan the current filter shows, at once: "where are the N-2s?"
+  if (all) all.onclick = () => {
+    const seqs = focusableRisks().filter(riskMatches).map(r => r.seq_no);
+    if (seqs.length) setFocus(seqs, {zoom: true});
+  };
 }
 
 function riskMatches(r){
@@ -2060,15 +2423,11 @@ function renderRiskList(){
        + ` <button class="linkish" id="risk-reset" type="button">Hapus filter</button></div>`;
   }
   shown.forEach(r => {
-    const where = r.attach_label ? `${r.attach_kind || ''} ${r.attach_label}` : '';
     const here = riskOnThisPage(r);
-    h += `<div class="risk${here ? '' : ' offpage'}" data-seq="${r.seq_no}">`
-      + `<b>#${r.seq_no} &middot; ${esc(r.title)}</b>`
-      + `<div class="meta">${catPill(r.category)} ${esc(where)} `
-      + `&middot; prioritas ${esc(r.priority || '-')}`
-      + (here ? '' : ' &middot; <span class="offtag">objek tampak dari sudut pandang lain</span>')
-      + `</div>`
-      + riskDetails(r) + `</div>`;
+    let card = riskCard(r, 'list', here ? '' : ' offpage');
+    if (!here) card = card.replace('</div><div class="rc-title',
+      '<span class="offtag">di sudut pandang lain</span></div><div class="rc-title');
+    h += card;
   });
   if (layerState['ds']) {
     const svg = $('#stage svg');
@@ -2092,7 +2451,20 @@ function renderRiskList(){
   box.querySelectorAll('.risk[data-seq]:not(.offpage)').forEach(el => {
     el.style.cursor = 'pointer';
     el.onclick = ev => { if (ev.target.tagName !== 'SUMMARY') focusRisk(+el.dataset.seq); };
+    // hovering previews the kerawanan on the drawing; leaving restores what
+    // was chosen (or nothing)
+    el.onmouseenter = () => {
+      const seq = +el.dataset.seq;
+      if (FOCUS && FOCUS.seqs.length === 1 && FOCUS.seqs[0] === seq) return;
+      setFocus([seq], {preview: true});
+    };
+    el.onmouseleave = () => {
+      if (!FOCUS_PREVIEW) return;
+      FOCUS_PREVIEW = false;
+      if (FOCUS) setFocus(FOCUS.seqs); else clearFocus({silent: true});
+    };
   });
+  if (FOCUS) $$('#risklist .risk').forEach(el => el.classList.toggle('active', FOCUS.seqs.includes(+el.dataset.seq)));
   const reset = $('#risk-reset');
   if (reset) reset.onclick = () => {
     riskFilter.q = ''; riskFilter.cats.clear();
@@ -2121,27 +2493,330 @@ function showPinRisks(pin){
   $$('#risklist .risk.active').forEach(el => el.classList.remove('active'));
   rows.forEach(el => el.classList.add('active'));
   rows[0]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  highlightRiskScope(seqs);
+  setFocus(seqs, {zoom: 'ensure'});
 }
 
-// Ring the object a kerawanan is attached to, and dash-outline what it exposes.
-function highlightRiskScope(seqs){
-  const svg = $('#stage svg'); if (!svg) return;
+// ---------- risk focus ----------
+// One kerawanan (or a few) in focus: where it sits is ringed, what it reaches
+// is shaded, and the rest of the drawing steps back. What it reaches comes
+// from two sources, drawn apart:
+//   * the GIs the book's own Dampak text names (solid ring), and
+//   * what an outage strands on topology, N-1 terms (dashed, see exposedBy).
+let FOCUS = null;            // {seqs: [...]} in focus; null = none
+let FOCUS_PREVIEW = false;   // a list row is only hovered, not chosen
+
+function focusableRisks(){
+  return (GRAPH?.overlays?.risk || []).filter(riskOnThisPage)
+    .sort((a, b) => a.seq_no - b.seq_no);
+}
+
+function clearFocus(opts = {}){
+  const svg = $('#stage svg');
+  if (svg) {
+    svg.classList.remove('risk-focus');
+    svg.querySelectorAll('.in-focus').forEach(el => el.classList.remove('in-focus'));
+    svg.querySelectorAll('.risk-pin.active').forEach(p => p.classList.remove('active'));
+    svg.querySelector('#focus-shade')?.remove();
+    const g = svg.querySelector('#sel-layer'); if (g) g.innerHTML = '';
+  }
+  $$('#risklist .risk.active').forEach(el => el.classList.remove('active'));
+  if (opts.keepState) return;
+  FOCUS = null; FOCUS_PREVIEW = false;
+  renderFocusBar();
+  if (!opts.silent) writeHash();
+}
+
+function setFocus(seqs, opts = {}){
+  const svg = $('#stage svg'); if (!svg || !GRAPH) return;
+  seqs = [...new Set(seqs.map(Number))].filter(Boolean);
   const risks = (GRAPH.overlays.risk || []).filter(r => seqs.includes(r.seq_no));
-  if (!risks.length) return;
-  const r0 = risks[0];
-  const main = riskTarget(svg, r0);
-  selRing(main, {label: `#${seqs.join(', #')} · ${r0.attach_label || 'kerawanan'}`});
-  // everything else these seqs touch, plus the substations a faulted circuit
-  // would strand, is drawn as exposure rather than as the selection itself
-  const extra = new Set();
-  risks.slice(1).forEach(r => { const t = riskTarget(svg, r); if (t) extra.add(t); });
-  // a finding pinned to several objects: every further pin is part of its scope
-  const pinned = risks.flatMap(r => r.attachments || []);
-  pinned.forEach(a => { const t = riskTarget(svg, a); if (t) extra.add(t); });
-  [...risks, ...pinned].forEach(r => exposedBy(svg, r).forEach(t => extra.add(t)));
-  extra.delete(main);
-  markExposed([...extra]);
+  clearFocus({keepState: true});
+  if (!risks.length) { if (!opts.preview) { FOCUS = null; renderFocusBar(); } return; }
+  const loc = new Set(), dmp = new Set(), top = new Set();
+  risks.forEach(r => [r, ...(r.attachments || [])].forEach(a => {
+    const t = riskTarget(svg, a); if (t) loc.add(t); }));
+  risks.forEach(r => (r.dampak_ids || []).forEach(id => {
+    const t = svgNode(svg, 'SUBSTATION', id); if (t && !loc.has(t)) dmp.add(t); }));
+  risks.forEach(r => [r, ...(r.attachments || [])].forEach(a => exposedBy(svg, a).forEach(t => {
+    if (t && !loc.has(t) && !dmp.has(t)) top.add(t); })));
+  const all = [...loc, ...dmp, ...top];
+  // zoom first: the caption and rings are sized in screen terms
+  if (opts.zoom) fitTo(svg, all, opts.zoom === 'ensure');
+  svg.classList.add('risk-focus');
+  const g = selLayer(svg);
+  drawShade(svg, all);
+  const mark = el => { if (el) el.classList.add('in-focus'); };
+  loc.forEach(t => { mark(t); ringInto(g, t, 'loc'); });
+  dmp.forEach(t => { mark(t); ringInto(g, t, 'dmp'); });
+  top.forEach(t => { mark(t); ringInto(g, t, 'top'); });
+  // a penghantar in focus keeps its two ends readable
+  loc.forEach(t => {
+    const e = t.hasAttribute('data-circuit-id') && edgeById(t.getAttribute('data-circuit-id'));
+    if (e) [e.from_substation_id, e.to_substation_id].forEach(id => mark(svgNode(svg, 'SUBSTATION', id)));
+  });
+  svg.querySelectorAll('.risk-pin').forEach(p => {
+    const ps = (p.dataset.riskSeqs || '').split(',').map(Number);
+    if (ps.some(s => seqs.includes(s))) { mark(p); p.classList.add('active'); }
+  });
+  // the caption sits on a GI where there is one: a route's box is mostly empty
+  const locs = [...loc];
+  const first = locs.find(t => !t.hasAttribute('data-circuit-id')) || locs[0];
+  if (first) { try {
+    let b = first.getBBox();
+    if (first.hasAttribute('data-circuit-id')) {
+      const e = edgeById(first.getAttribute('data-circuit-id'));
+      const end = e && svgNode(svg, 'SUBSTATION', e.from_substation_id);
+      if (end) b = end.getBBox();
+    }
+    tagAt(g, svg, b.x - 6, b.y - 6, `#${seqs.join(', #')}`);
+  } catch(_){} }
+  $$('#risklist .risk').forEach(el => el.classList.toggle('active', seqs.includes(+el.dataset.seq)));
+  if (opts.zoom === true && !opts.preview)
+    $(`#risklist .risk[data-seq="${seqs[0]}"]`)?.scrollIntoView({block: 'nearest'});
+  FOCUS_PREVIEW = !!opts.preview;
+  if (!opts.preview) { FOCUS = {seqs}; renderFocusBar(); writeHash(); }
+}
+
+// Location ring (solid, with halo), Dampak ring (solid, thinner) or topology
+// ring (dashed). A penghantar is traced along its route, never boxed.
+function ringInto(g, target, kind){
+  try {
+    if (target.hasAttribute('data-circuit-id')) {
+      [...target.querySelectorAll('path,line')].forEach(p => {
+        const d = p.getAttribute('d');
+        const mk = cls => d ? svgEl('path', {class: cls, d})
+          : svgEl('line', {class: cls, x1: p.getAttribute('x1'), y1: p.getAttribute('y1'),
+                           x2: p.getAttribute('x2'), y2: p.getAttribute('y2')});
+        if (kind === 'loc') g.appendChild(mk('sel-glow'));
+        g.appendChild(mk(kind === 'top' ? 'exp-trace' : 'sel-trace'));
+      });
+      return;
+    }
+    const b = target.getBBox(), pad = kind === 'loc' ? 6 : 4;
+    const box = {x: b.x - pad, y: b.y - pad, width: b.width + pad * 2, height: b.height + pad * 2, rx: 6};
+    if (kind === 'loc') {
+      g.appendChild(svgEl('rect', {...box, class: 'sel-glow'}));
+      g.appendChild(svgEl('rect', {...box, class: 'sel-ring'}));
+    } else g.appendChild(svgEl('rect', {...box, class: kind === 'dmp' ? 'dmp-ring' : 'exp-ring'}));
+  } catch(_){}
+}
+
+// One soft plane behind each group of nearby objects the finding reaches;
+// groups far apart get planes of their own rather than one box over the
+// unaffected area between them. A penghantar contributes its two ends only --
+// its route can cross the whole sheet.
+function drawShade(svg, els){
+  svg.querySelector('#focus-shade')?.remove();
+  const boxes = [];
+  const push = n => { try { const b = n.getBBox();
+    boxes.push({x1: b.x, y1: b.y, x2: b.x + b.width, y2: b.y + b.height}); } catch(_){} };
+  els.forEach(el => {
+    if (!el) return;
+    if (el.hasAttribute('data-circuit-id')) {
+      const e = edgeById(el.getAttribute('data-circuit-id'));
+      if (e) [e.from_substation_id, e.to_substation_id].forEach(id => {
+        const n = svgNode(svg, 'SUBSTATION', id); if (n) push(n); });
+    } else push(el);
+  });
+  if (!boxes.length) return;
+  const PAD = 24, JOIN = 70;
+  const groups = boxes;
+  for (let merged = true; merged; ) {
+    merged = false;
+    outer: for (let i = 0; i < groups.length; i++) for (let j = i + 1; j < groups.length; j++) {
+      const a = groups[i], b = groups[j];
+      if (a.x1 - JOIN <= b.x2 && b.x1 - JOIN <= a.x2 && a.y1 - JOIN <= b.y2 && b.y1 - JOIN <= a.y2) {
+        groups[i] = {x1: Math.min(a.x1, b.x1), y1: Math.min(a.y1, b.y1),
+                     x2: Math.max(a.x2, b.x2), y2: Math.max(a.y2, b.y2)};
+        groups.splice(j, 1); merged = true; break outer;
+      }
+    }
+  }
+  const layer = svgEl('g', {id: 'focus-shade'});
+  layer.style.pointerEvents = 'none';
+  groups.forEach(b => layer.appendChild(svgEl('rect', {class: 'focus-shade',
+    x: b.x1 - PAD, y: b.y1 - PAD, width: b.x2 - b.x1 + PAD * 2, height: b.y2 - b.y1 + PAD * 2, rx: 18})));
+  // just above the white background, beneath every drawn object
+  const bg = svg.querySelector(':scope > rect');
+  svg.insertBefore(layer, bg ? bg.nextSibling : svg.firstChild);
+}
+
+// Bring a set of objects into view. `ensureOnly`: move only when something is
+// off screen, so a click on a pin does not yank a view the user arranged.
+function fitTo(svg, els, ensureOnly){
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  els.forEach(el => { try { const b = el.getBBox();
+    x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+    x2 = Math.max(x2, b.x + b.width); y2 = Math.max(y2, b.y + b.height); } catch(_){} });
+  if (!isFinite(x1)) return;
+  if (ensureOnly && x1 >= vb.x && y1 >= vb.y && x2 <= vb.x + vb.w && y2 <= vb.y + vb.h) return;
+  const r = svg.getBoundingClientRect();
+  const ar = (r.width && r.height) ? r.height / r.width : vb.h / vb.w;
+  const pad = 90;
+  let w = Math.max(x2 - x1 + pad * 2, 560), h = Math.max(y2 - y1 + pad * 2, 560 * ar);
+  if (h / w > ar) w = h / ar;
+  w = clamp(w, vb0.w / 8, vb0.w * 3); h = w * ar;
+  vb = {x: (x1 + x2) / 2 - w / 2, y: (y1 + y2) / 2 - h / 2, w, h};
+  commitVB();
+}
+
+function renderFocusBar(){
+  const bar = $('#focusbar'); if (!bar) return;
+  if (!FOCUS) { bar.classList.remove('on'); bar.innerHTML = ''; return; }
+  const many = focusableRisks().length > 1;
+  const one = FOCUS.seqs.length === 1;
+  bar.innerHTML = `<b>Sorotan ${one ? '#' + FOCUS.seqs[0] : FOCUS.seqs.length + ' kerawanan'}</b>`
+    + `<span class="fk"><i class="k-loc"></i>lokasi</span>`
+    + `<span class="fk"><i class="k-dmp"></i>disebut Dampak</span>`
+    + `<span class="fk"><i class="k-top"></i>terputus (topologi N-1)</span>`
+    + `<span class="spacer"></span>`
+    + (many ? `<button type="button" id="fprev" title="Kerawanan sebelumnya (&larr;)">&lsaquo;</button>`
+            + `<button type="button" id="fnext" title="Kerawanan berikutnya (&rarr;)">&rsaquo;</button>` : '')
+    + `<button type="button" id="fclear" title="Lepas sorotan (Esc)">&#10005;</button>`;
+  bar.classList.add('on');
+  if (many) { $('#fprev').onclick = () => stepFocus(-1); $('#fnext').onclick = () => stepFocus(1); }
+  $('#fclear').onclick = () => clearFocus();
+}
+
+function stepFocus(d){
+  const list = focusableRisks(); if (!list.length) return;
+  let i = FOCUS ? list.findIndex(r => r.seq_no === FOCUS.seqs[0]) : (d > 0 ? -1 : 0);
+  i = (i + d + list.length) % list.length;
+  setFocus([list[i].seq_no], {zoom: true});
+  showTab('risk');
+  $(`#risklist .risk[data-seq="${list[i].seq_no}"]`)?.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+}
+
+// Hovering a pin tells what it is before any click.
+function shortText(s, n){
+  s = (s || '').replace(/^\[[^\]]*\]\s*/, '');
+  return s.length > n ? s.slice(0, n - 1) + '…' : s;
+}
+function pinTip(pin, e){
+  const tip = $('#pintip'); if (!tip) return;
+  if (!pin || !GRAPH) { tip.style.display = 'none'; return; }
+  const seqs = (pin.dataset.riskSeqs || '').split(',').map(Number).filter(Boolean);
+  const rs = (GRAPH.overlays.risk || []).filter(r => seqs.includes(r.seq_no));
+  if (!rs.length) { tip.style.display = 'none'; return; }
+  tip.innerHTML = rs.map(r => `<div><b>#${r.seq_no}</b> ${esc(r.category || '')} &middot; `
+    + `${esc(shortText(r.condition, 110))}</div>`).join('');
+  tip.style.display = 'block';
+  tip.style.left = Math.max(6, Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8)) + 'px';
+  tip.style.top = Math.max(6, Math.min(e.clientY + 14, innerHeight - tip.offsetHeight - 8)) + 'px';
+}
+
+// ---------- deep link: #v=<view>&r=<seqs>&gi=<code> ----------
+let GI_MARK = null;
+function writeHash(){
+  if (!VIEW || !document.body.classList.contains('mode-viewer')) return;
+  const p = new URLSearchParams();
+  p.set('v', VIEW.view_key);
+  if (FOCUS) p.set('r', FOCUS.seqs.join(','));
+  else if (GI_MARK) p.set('gi', GI_MARK);
+  history.replaceState(null, '', '#' + p.toString());
+}
+async function openFromHash(){
+  const p = new URLSearchParams(location.hash.slice(1));
+  const peta = p.get('peta');
+  if (peta) {
+    const [sys, rk] = peta.split('/');
+    if (!SUMMARIES[sys]) return false;
+    showHub(sys, rk ? SUMMARIES[sys].regions.find(r => r.key === rk) || null : null);
+    return true;
+  }
+  const v = VIEWS.find(x => x.view_key === p.get('v'));
+  if (!v) return false;
+  await selectView(v.id);
+  const r = (p.get('r') || '').split(',').map(Number).filter(Boolean);
+  if (r.length) { showTab('risk'); setFocus(r, {zoom: true}); }
+  else if (p.get('gi')) markGI(p.get('gi'));
+  return true;
+}
+// Ring one GI, zoom to it and open its detail (from search or a boundary jump).
+function markGI(code){
+  const svg = $('#stage svg'); if (!svg || !GRAPH) return;
+  const n = (GRAPH.nodes || []).find(x => x.kind === 'SUBSTATION' && x.code === code);
+  const el = n && svgNode(svg, 'SUBSTATION', n.id);
+  if (!el) return;
+  clearFocus({silent: true});
+  fitTo(svg, [el], false);
+  showNode(el);
+  GI_MARK = code;
+  writeHash();
+}
+
+// ---------- GI search + "also in" ----------
+// One index of every GI: the subsystems that carry it (as core, source,
+// boundary or stub) and the kerawanan that touch it. Fetched on first use.
+let GI_INDEX = null;
+async function giIndex(){ if (!GI_INDEX) GI_INDEX = await j('/api/gi-index'); return GI_INDEX; }
+const ROLE_LABEL = {SOURCE: 'sumber', CORE: 'inti', SOURCE_BOUNDARY: 'batas', BOUNDARY: 'batas',
+                    EXTERNAL_CONTEXT: 'stub', DOWNSTREAM_CONTEXT: 'hilir'};
+const VIA_LABEL = {pin: 'lokasi', ruas: 'pada ruasnya', dampak: 'disebut Dampak'};
+function roleLabel(r){ return ROLE_LABEL[r] || (r || '').toLowerCase(); }
+function normTxt(s){ return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-z0-9]+/g, ' ').trim(); }
+function displayCode(c){ return (c || '').replace(/@[A-Z]+$/, '').replace(/_(500|275|150|70|66|30|20)$/, ''); }
+function ssTitle(code, name){ const s = SUBS.find(x => x.code === code); return (s && s.name) || name || code; }
+function ssButton(m, gi){
+  return `<button class="ssl" type="button" data-view="${m.view_id}" data-gi="${esc(gi)}">`
+    + `${esc(ssTitle(m.ss, m.ss_name))} <small>${esc(roleLabel(m.role))}</small></button>`;
+}
+
+function wireGISearch(){
+  const q = $('#gi-q'), res = $('#gi-res'); if (!q) return;
+  let t = null;
+  q.addEventListener('focus', () => { giIndex().catch(() => {}); if (q.value.trim().length > 1) res.classList.add('on'); });
+  q.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => runGISearch(q.value), 120); });
+  q.addEventListener('keydown', e => { if (e.key === 'Escape') { res.classList.remove('on'); q.blur(); } });
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('.gisearch')) res.classList.remove('on'); });
+}
+
+async function runGISearch(text){
+  const res = $('#gi-res'), s = normTxt(text), code = text.trim().toUpperCase();
+  if (s.length < 2) { res.classList.remove('on'); res.innerHTML = ''; return; }
+  let idx;
+  try { idx = await giIndex(); }
+  catch (_) { res.innerHTML = '<div class="none">Indeks GI belum tersedia.</div>'; res.classList.add('on'); return; }
+  const hits = idx.map(g => {
+    const nm = normTxt(g.name), cd = displayCode(g.code).toUpperCase();
+    const score = cd === code ? 100 : nm === s ? 90 : nm.startsWith(s) ? 70
+      : (' ' + nm).includes(' ' + s) ? 50 : (nm.includes(s) || cd.includes(code)) ? 30 : 0;
+    return {g, score};
+  }).filter(h => h.score && h.g.memberships.some(m => m.view_id))
+    .sort((a, b) => b.score - a.score || (a.g.name || '').localeCompare(b.g.name || '')).slice(0, 12);
+  if (!hits.length) { res.innerHTML = '<div class="none">Tidak ada GI yang cocok.</div>'; res.classList.add('on'); return; }
+  res.innerHTML = hits.map(({g}) => {
+    const systems = [...new Set(g.memberships.map(m => SYSTEMS[m.system]?.name || m.system))].join(' / ');
+    const mem = g.memberships.filter(m => m.view_id).map(m => ssButton(m, g.code)).join('');
+    const rk = g.risks.filter(r => r.view_id).map(r =>
+      `<button class="rkl" type="button" data-view="${r.view_id}" data-seq="${r.seq}" title="${esc(shortText(r.text, 160))}">`
+      + `${esc(r.ss.replace(/^SS_/, ''))} #${r.seq} <small>${esc(r.category || '')} &middot; ${esc(VIA_LABEL[r.via] || r.via)}</small></button>`).join('');
+    return `<div class="gi"><div class="gi-head"><b>${esc(g.name)}</b>`
+      + `<span>${esc(displayCode(g.code))}${g.kv ? ' &middot; ' + Math.round(g.kv) + ' kV' : ''} &middot; ${esc(systems)}</span></div>`
+      + `<div class="gi-row">Subsistem: ${mem}</div>`
+      + `<div class="gi-row">${rk ? 'Kerawanan: ' + rk : 'Tidak ada kerawanan yang menyentuh GI ini.'}</div></div>`;
+  }).join('');
+  res.classList.add('on');
+  res.querySelectorAll('.ssl').forEach(b => b.onclick = async () => {
+    res.classList.remove('on'); await selectView(+b.dataset.view); markGI(b.dataset.gi); });
+  res.querySelectorAll('.rkl').forEach(b => b.onclick = async () => {
+    res.classList.remove('on'); await selectView(+b.dataset.view);
+    showTab('risk'); setFocus([+b.dataset.seq], {zoom: true}); });
+}
+
+// In a GI's detail: every other subsystem that carries it, one click away --
+// the jump across a boundary to the neighbour that owns the GI.
+async function fillAlsoIn(code){
+  let idx; try { idx = await giIndex(); } catch (_) { return; }
+  const box = $('#alsoin'); if (!box || box.dataset.code !== code) return;
+  const g = idx.find(x => x.code === code); if (!g) return;
+  const cur = ssOf(VIEW?.subsystem_id)?.code;
+  const other = g.memberships.filter(m => m.ss !== cur && m.view_id);
+  if (!other.length) return;
+  box.innerHTML = `<div class="k">Juga tercakup di</div>` + other.map(m => ssButton(m, code)).join('');
+  box.querySelectorAll('.ssl').forEach(b => b.onclick = async () => {
+    await selectView(+b.dataset.view); markGI(code); });
 }
 
 function riskTarget(svg, r){
@@ -2216,24 +2891,9 @@ function exposedBy(svg, r){
   return out;
 }
 
+// A row in the list: bring that kerawanan into focus and into view.
 function focusRisk(seq){
-  const svg = $('#stage svg'); if (!svg) return;
-  // risk pins carry no id; approximate by locating the attached object
-  const r = (GRAPH.overlays.risk || []).find(x => x.seq_no === seq);
-  if (!r || !r.attach_kind || !r.attach_id) return;
-  let g = null;
-  if (r.attach_kind === 'CIRCUIT') g = svg.querySelector(`[data-circuit-id="${r.attach_id}"]`);
-  else g = svgNode(svg, 'SUBSTATION', r.attach_id);
-  if (!g) return;
-  try {
-    const b = g.getBBox();
-    const pad = Math.max(b.width, b.height) * 2 + 120;
-    vb = { x: b.x + b.width/2 - pad/2, y: b.y + b.height/2 - pad*(vb0.h/vb0.w)/2,
-           w: pad, h: pad * (vb0.h / vb0.w) };
-    commitVB();
-    selRing(g);
-    if (r.attach_kind === 'CIRCUIT') showCircuit(g); else showNode(g);
-  } catch(_){}
+  setFocus([seq], {zoom: true});
 }
 
 // ---------- validation card ----------

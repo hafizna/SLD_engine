@@ -380,3 +380,50 @@ def test_kerawanan_category_dropdown(client):
     r2 = client.patch(f"/api/risks/{rk}", json={"category": "N-0"}).json()
     assert r2["category"] == "N-0"
     assert client.delete(f"/api/risks/{rk}").json()["deleted"] == rk
+
+
+def test_dampak_text_names_gis_whole_word_and_longest_first():
+    from app.services.risk_scope import named_substations
+    gis = [(1, "PRTMR", "Priok Timur Baru"), (2, "PRTRU", "Priok Timur Lama"),
+           (3, "BKASI", "Bekasi (bus 150 kV)"), (4, "CWANG", "Cawang"),
+           (5, "SNYAN", "Senayan"), (6, "NSYAN", "New Senayan"), (7, "ARUN_275", "GITET Arun (275 kV)")]
+    # a subsystem's title names GIs that are not what the finding knocks out
+    assert named_substations(
+        "Pemadaman pada Subsistem Bekasi 2,4-Cawang 1-Priok, dan GI Priok Timur Baru padam", gis) == [1]
+    # "New Senayan" is one GI, "Senayan" another; both named here
+    assert set(named_substations("ruas SKTT Kembangan-New Senayan menyebabkan GIS Senayan padam",
+                                 gis)) == {5, 6}
+    assert named_substations("pembangkit ARUN trip", gis) == [7]
+    assert named_substations("Senayanan dan Bekasian", gis) == []
+
+
+def test_gi_index_lists_every_subsystem_and_risk_a_gi_is_in(client):
+    """A boundary GI sits in two subsystems; the index is what lets the viewer
+    jump from one to the other, and the graph carries the Dampak GIs."""
+    def publish(code, objects, connections, risks):
+        payload = {"subsystem": {"code": code, "name": code, "apb": "Sumbagteng"},
+                   "objects": objects, "connections": connections, "risks": risks}
+        draft = client.post("/api/ingest/parse", json={"payload": payload}).json()
+        for n in draft["nodes"]:
+            n["resolution"] = "NEW"
+        r = client.post("/api/ingest/publish", json={
+            "draft": draft, "subsystem_code": code, "subsystem_name": code})
+        assert r.status_code == 200, r.text
+    publish("SS_IDX_A",
+            [{"external_key": "AAA", "raw_label": "Alfa", "object_type": "GI", "tier_hint": 1},
+             {"external_key": "BBB", "raw_label": "Bravo", "object_type": "GI", "tier_hint": 2}],
+            [{"from_external_key": "AAA", "to_external_key": "BBB"}],
+            [{"seq_no": 1, "category": "N-2", "condition": "Trip 2 sirkit Alfa-Bravo",
+              "impact": "GI Bravo padam", "pin_kind": "CIRCUIT", "pin_key": "AAA-BBB"}])
+    publish("SS_IDX_B",
+            [{"external_key": "BBB", "raw_label": "Bravo", "object_type": "GI", "tier_hint": 1},
+             {"external_key": "CCC", "raw_label": "Charlie", "object_type": "GI", "tier_hint": 2}],
+            [{"from_external_key": "BBB", "to_external_key": "CCC"}], [])
+    index = {row["code"]: row for row in client.get("/api/gi-index").json()}
+    bravo = index["BBB"]
+    assert {m["ss"] for m in bravo["memberships"]} == {"SS_IDX_A", "SS_IDX_B"}
+    assert all(m["view_id"] for m in bravo["memberships"])
+    assert {(r["ss"], r["seq"], r["via"]) for r in bravo["risks"]} == {("SS_IDX_A", 1, "ruas")}
+    view = next(v for v in client.get("/api/views").json() if v["view_key"] == "SS_IDX_A_FULL")
+    risk = client.get(f"/api/views/{view['id']}/graph").json()["overlays"]["risk"][0]
+    assert risk["dampak_ids"] == [bravo["id"]]

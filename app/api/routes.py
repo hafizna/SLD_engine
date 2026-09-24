@@ -32,7 +32,9 @@ from app.models import (
     RiskRecord,
     Substation,
     Subsystem,
+    SubsystemMembership,
     Transformer,
+    ViewMembership,
 )
 from app.schemas import (
     CRCreateIn,
@@ -53,6 +55,7 @@ from app.services.ingest import IngestError
 from app.services.ingest_parser import IngestParseError, normalise, parse_upload
 from app.services.ingestion import save_observation_batch
 from app.services.reconciliation import classify, find_candidates
+from app.services.risk_scope import named_substations
 from app.services.sld_print import plan as print_plan, to_a4
 from app.services.sld_renderer import render_view_svg
 from app.services.systems import region_key, system_of_apb  # noqa: F401  (tests import them here)
@@ -67,6 +70,78 @@ def health():
 
 
 # ---- subsystems ----------------------------------------------------------
+
+@router.get("/gi-index")
+def gi_index(db: Session = Depends(get_db)):
+    """Every GI with the subsystems that carry it and the kerawanan that touch it.
+
+    Drives the dashboard's GI search and the "also in" jump between subsystems
+    at their boundaries. One row per physical GI. A risk touches a GI when it
+    is pinned there (`pin`), pinned on a ruas ending there (`ruas`), or when its
+    Dampak text names the GI (`dampak`)."""
+    subs = {s.id: s for s in db.query(Subsystem).all()}
+    gis = {s.id: s for s in db.query(Substation).all()}
+    views_by_ss: dict[int, list] = {}
+    for v in db.query(AnalyticalView).order_by(AnalyticalView.id).all():
+        if v.subsystem_id:
+            views_by_ss.setdefault(v.subsystem_id, []).append(v)
+    in_view: dict[int, set] = {}
+    for m in db.query(ViewMembership).filter(ViewMembership.node_kind == "SUBSTATION").all():
+        in_view.setdefault(m.view_id, set()).add(m.node_id)
+
+    def view_for(ss_id, sid):
+        """The view of a subsystem that draws this GI, else its first view."""
+        vs = views_by_ss.get(ss_id, [])
+        return next((v for v in vs if sid in in_view.get(v.id, ())), vs[0] if vs else None)
+
+    rows: dict[int, dict] = {}
+
+    def row(sid):
+        s = gis[sid]
+        return rows.setdefault(sid, {"id": sid, "code": s.code, "name": s.name,
+                                     "kv": s.voltage_kv, "type": s.substation_type,
+                                     "memberships": [], "risks": []})
+
+    members_by_ss: dict[int, list] = {}
+    for m in db.query(SubsystemMembership).filter(SubsystemMembership.node_kind == "SUBSTATION").all():
+        ss = subs.get(m.subsystem_id)
+        if not ss or m.node_id not in gis:
+            continue
+        members_by_ss.setdefault(ss.id, []).append(m.node_id)
+        v = view_for(ss.id, m.node_id)
+        row(m.node_id)["memberships"].append({
+            "ss": ss.code, "ss_name": ss.name, "system": system_of_apb(ss.apb), "role": m.role,
+            "view_id": v.id if v else None, "view_key": v.view_key if v else None})
+
+    circuits = {c.id: c for c in db.query(Circuit).all()}
+    tx_sub = {t.id: t.substation_id for t in db.query(Transformer).all()}
+    extra: dict[int, list] = {}
+    for a in db.query(RiskAttachment).all():
+        extra.setdefault(a.risk_id, []).append((a.attach_kind, a.attach_id))
+    for r in db.query(RiskRecord).order_by(RiskRecord.subsystem_id, RiskRecord.seq_no).all():
+        ss = subs.get(r.subsystem_id)
+        if not ss:
+            continue
+        touched: dict[int, str] = {}
+        for kind, aid in [(r.attach_kind, r.attach_id)] + extra.get(r.id, []):
+            if kind == "SUBSTATION" and aid in gis:
+                touched.setdefault(aid, "pin")
+            elif kind == "TRANSFORMER" and tx_sub.get(aid) in gis:
+                touched.setdefault(tx_sub[aid], "pin")
+            elif kind == "CIRCUIT" and aid in circuits:
+                for end in (circuits[aid].from_substation_id, circuits[aid].to_substation_id):
+                    if end in gis:
+                        touched.setdefault(end, "ruas")
+        own = [(sid, gis[sid].code, gis[sid].name) for sid in members_by_ss.get(ss.id, [])]
+        for sid in named_substations(r.impact, own):
+            touched.setdefault(sid, "dampak")
+        for sid, via in touched.items():
+            v = view_for(ss.id, sid)
+            row(sid)["risks"].append({
+                "ss": ss.code, "seq": r.seq_no, "category": r.category, "via": via,
+                "view_id": v.id if v else None, "text": (r.condition or "")[:160]})
+    return sorted(rows.values(), key=lambda x: ((x["name"] or "").lower(), x["code"]))
+
 
 @router.get("/subsystems")
 def list_subsystems(db: Session = Depends(get_db)):
@@ -299,6 +374,9 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
             extra_by_risk.setdefault(a.risk_id, []).append({
                 "attach_kind": a.attach_kind, "attach_id": a.attach_id,
                 "attach_label": a.attach_label})
+        # the GIs drawn on this view, for reading the Dampak text against
+        drawn = [(nid, obj.code, obj.name) for (kind, nid), obj in nodes.items()
+                 if kind == "SUBSTATION"]
         for r in ss_risks:
             risks.append({
                 "risk_key": r.risk_key, "seq_no": r.seq_no, "category": r.category,
@@ -308,6 +386,8 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
                 "attach_kind": r.attach_kind, "attach_id": r.attach_id, "attach_label": r.attach_label,
                 # further objects the same finding is pinned to (primary excluded)
                 "attachments": extra_by_risk.get(r.id, []),
+                # GIs on this view that the book's Dampak text names
+                "dampak_ids": named_substations(r.impact, drawn),
             })
         rel_by_scheme: dict[int, list] = {}
         for rel in db.query(DSRelation).filter(DSRelation.subsystem_id == v.subsystem_id).all():
