@@ -83,12 +83,16 @@ def build() -> None:
                      "ss_bali_ingest.json",
                      # Sistem Sumatera (Kerawanan Sumatera Sep 2026 deck)
                      "ss_bengkulu_ingest.xlsx", "ss_sumsel_ingest.xlsx",
-                     "ss_lampung_ingest.xlsx", "ss_sumbagteng_ingest.xlsx"):
+                     "ss_lampung_ingest.xlsx", "ss_sumbagteng_ingest.xlsx",
+                     "ss_sumbagut_ingest.xlsx"):
             seed_xlsx_fixture(db, ROOT / "samples" / name)
         # Keep the IBT risk projection as its own Sistem 500 kV view. Load it
         # after the SS fixtures so shared physical circuits keep the reviewed
         # SS attributes; view membership still isolates the IBT projection.
         seed_xlsx_fixture(db, ROOT / "samples" / "system_ibt_500_ingest.xlsx")
+        # Sumatera's backbone reuses the SS sheets' GITET codes, so it is loaded
+        # after them and joins the same physical GITETs.
+        seed_xlsx_fixture(db, ROOT / "samples" / "backbone_sumatera_ingest.xlsx")
 
     from app.main import app  # imports after DB is ready
 

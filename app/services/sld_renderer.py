@@ -384,6 +384,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     _ibt_step_down: dict[tuple[int, int], object] = {}
     ibt_links_by_pair: dict[tuple[int, int], list] = defaultdict(list)
     _ibt_as_line: set[int] = set()   # circuit ids to route like a normal line
+    # A GITET that carries its own SUTET in this view (the Sumatera backbone:
+    # Muara Enim 500 - New Aurduri 500, each over its own 275 kV bar) cannot
+    # float in the source band -- two floating bars have no channel between
+    # them. It keeps its tier row and its IBT draws like a step-down.
+    _gitet_with_lines = {sid for c in edges if c.circuit_type != "IBT_LINK"
+                         for sid in (c.from_substation_id, c.to_substation_id)}
     for c in edges:
         if c.circuit_type != "IBT_LINK":
             continue
@@ -398,7 +404,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             _ibt_as_line.add(c.id)
             continue
         ibt_links_by_pair[(hv, lv)].append(c)
-        if subs[hv].substation_type == "GITET":
+        if subs[hv].substation_type == "GITET" and hv not in _gitet_with_lines:
             # A GITET is drawn floating directly above the LV bus it feeds; it
             # has no row of its own. `gitet_feeds` drives that placement.
             if lv not in gitet_feeds[hv]:
@@ -543,7 +549,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             lv in (a, b) and row_of[b if a == lv else a] == row_of[hv]
             for a, b in layout_links
         )
-        if competing_same_row_parent:
+        # A GITET that keeps its own row (it carries SUTET here) should still
+        # stand over its lower-voltage bar, or the IBT chain crosses the sheet.
+        if competing_same_row_parent or subs[hv].substation_type == "GITET":
             layout_links.append((hv, lv))
     # Allocate routing capacity per tier gap. A dense boundary can grow without
     # forcing every other pair of tiers to inherit its height.
@@ -584,6 +592,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # push the whole sheet down by that much so the top one stays on the page.
     stack_rise = GITET_RISE * (max((_gitet_depth(hv, gitet_feeds) for hv in gitet_feeds
                                     if hv in row_of), default=1) - 1)
+    # A plant on a floating GITET (PLTMG Arun, PLTU Nagan Raya at 275 kV) is
+    # drawn above that GITET, which itself sits above Tier-1: without this the
+    # generator and its name were cut off at the top of the sheet.
+    if any(g.outlet_substation_id in gitet_feeds and g.outlet_substation_id in row_of
+           for g in gens.values()):
+        stack_rise += 70
     tier_y = {1: 210.0 + stack_rise}
     for t in integer_tiers[:-1]:
         tier_y[t + 1] = tier_y[t] + gap_height[t]

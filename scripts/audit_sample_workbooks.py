@@ -101,6 +101,9 @@ def main() -> int:
     ibt = ROOT / "samples" / "system_ibt_500_ingest.xlsx"
     if ibt.exists():
         paths.append(ibt)
+    sumatera = ROOT / "samples" / "backbone_sumatera_ingest.xlsx"
+    if sumatera.exists():
+        paths.append(sumatera)
     # Once the final workbook is checked into samples, do not audit the local
     # authoring copy a second time under the same subsystem code.
     if (EXTERNAL_FINAL.exists()
