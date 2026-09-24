@@ -344,8 +344,15 @@ Rekonsiliasi jumlah (25 September 2026): 33 tabel subsistem Buku Kerawanan SJB
 2026 = 277 risiko, SUTET 500 kV = 31, IBT 500/150 kV = 38, semuanya sama dengan
 dashboard; Sumatera 65 + 22 = 87 sama dengan deck. Rentang halaman Jakban di
 `scripts/_kerawanan_sections.py` dibaca ulang dari kolom No (GUCL memang 7).
-`tests/test_reference_counts.py` mengunci jumlah per fixture. Belum dipetakan:
-Tabel 1.3 Peralatan (20) dan 1.4 Pembangkit (14). Kategori UI kini memakai
+`tests/test_reference_counts.py` mengunci jumlah per fixture. Tabel 1.3
+Peralatan (20) dan 1.4 Pembangkit (14) tidak menempel pada satu objek, jadi
+ditampilkan sebagai **tabel buku apa adanya** di halaman Sistem 500 kV
+(`samples/system_tables_jamali.json` dari `scripts/make_system_tables_json.py`,
+`/api/system-tables`, deep link `#sistem=JAMALI&tabel=PERALATAN`) dan ikut
+dihitung: Jamali = 277 + 103 = 380. GI/pembangkit yang disebut Kondisi/Dampak
+diberi tautan "Disebut" ke SLD yang memuatnya (rujukan nama, bukan pin). Judul
+landing menjadi "Peta Kerawanan Operasi Sistem", sesuai tujuan buku sendiri
+("kondisi kerawanan dari sisi operasi sistem"). Kategori UI kini memakai
 `N-1-1` (sebelumnya chip mencari `N-1-2` sehingga 33 risiko N-1-1 tampil sebagai
 "lainnya"); BLL/CWD tidak lagi berkategori kosong.
 

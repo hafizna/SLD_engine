@@ -166,11 +166,15 @@ def list_views(db: Session = Depends(get_db)):
 
 
 def _risk_counts(rows):
+    return _category_counts([row.category for row in rows])
+
+
+def _category_counts(categories):
     counts: dict[str, int] = {}
-    for row in rows:
-        category = (row.category or "LAINNYA").upper()
+    for category in categories:
+        category = (category or "LAINNYA").upper()
         counts[category] = counts.get(category, 0) + 1
-    return {"total": len(rows), "categories": counts}
+    return {"total": len(categories), "categories": counts}
 
 
 @lru_cache(maxsize=1)
@@ -194,6 +198,24 @@ def _ss_anchors() -> dict[str, dict]:
         for row in data.get("subsystems", [])
         if row.get("lat") is not None
     }
+
+
+@lru_cache(maxsize=1)
+def _system_tables() -> dict[str, dict]:
+    """Book tables with no topology object of their own, by system scope.
+
+    samples/system_tables_<scope>.json (scripts/make_system_tables_json.py):
+    chapter 1's Peralatan and Pembangkit findings of Buku Kerawanan SJB, kept
+    as the book prints them. A system without such a file simply has none.
+    """
+    out: dict[str, dict] = {}
+    for path in sorted((Path(__file__).resolve().parents[2] / "samples").glob("system_tables_*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        out[(data.get("scope") or "").upper()] = data
+    return out
 
 
 # Each transmission system the dashboard knows: its regions (the pins on its
@@ -285,20 +307,80 @@ def dashboard_summary(scope: str = "JAMALI", db: Session = Depends(get_db)):
                       for v in selected],
         }
 
-    groups = [{"key": key, "label": label, "profile": profile, **system_group(profile)}
+    groups = [{"key": key, "label": label, "profile": profile, "kind": "sld", **system_group(profile)}
               for key, label, profile in cfg["system_groups"]]
+    # Chapter-1 findings the book lists with no object to pin them on
+    # (Peralatan, Pembangkit): counted with the system like any other row of
+    # the book, shown as the book's own tables instead of an SLD.
+    table_categories: list[str | None] = []
+    for table in _system_tables().get(scope, {}).get("tables", []):
+        cats = [row.get("category") for row in table["rows"]]
+        table_categories.extend(cats)
+        groups.append({"key": table["key"].lower(), "label": table["label"], "kind": "table",
+                       "table": table["key"], "caption": table["caption"],
+                       "risk": _category_counts(cats), "views": []})
     own_system_ss = {v.subsystem_id for v in views
                      if _SYSTEM_PROFILES.get(v.rule_profile) == scope}
     system_risks = [r for r in risks if r.subsystem_id in own_system_ss]
+    system_categories = [r.category for r in system_risks] + table_categories
     return {
-        "scope": scope, "risk": _risk_counts(local_risks + system_risks),
-        "local_risk": _risk_counts(local_risks), "system_risk": _risk_counts(system_risks),
+        "scope": scope,
+        "risk": _category_counts([r.category for r in local_risks] + system_categories),
+        "local_risk": _risk_counts(local_risks), "system_risk": _category_counts(system_categories),
         "regions": region_out,
         # generic: this system's own page (Sistem 500 kV / Backbone Sumatera)
         "system": {"title": cfg["system_title"], "groups": groups},
-        # kept for existing Jamali consumers
-        "system_500": {g["key"]: {"risk": g["risk"], "views": g["views"]} for g in groups},
+        # kept for existing Jamali consumers: the SLD projections only
+        "system_500": {g["key"]: {"risk": g["risk"], "views": g["views"]}
+                       for g in groups if g["kind"] == "sld"},
     }
+
+
+@router.get("/system-tables")
+def system_tables(scope: str = "JAMALI", db: Session = Depends(get_db)):
+    """A system's no-object tables as the book prints them.
+
+    Each row also lists the GIs and plants its Kondisi and Dampak name
+    ("disebut"), matched by name like a risk's Dampak: a way to find them on an
+    SLD, never a pin. A named plant resolves to the GI it feeds, since that is
+    what the SLDs draw and the GI search indexes.
+    """
+    scope = (scope or "JAMALI").upper()
+    if scope not in DASHBOARD_SYSTEMS:
+        raise HTTPException(404, f"sistem '{scope}' tidak dikenal")
+    data = _system_tables().get(scope)
+    if not data:
+        return {"scope": scope, "source": None, "tables": []}
+    subs = {s.id: s for s in db.query(Subsystem).all()}
+    own = {m.node_id for m in db.query(SubsystemMembership)
+           .filter(SubsystemMembership.node_kind == "SUBSTATION").all()
+           if m.subsystem_id in subs and system_of_apb(subs[m.subsystem_id].apb) == scope}
+    gis = {s.id: s for s in db.query(Substation).filter(Substation.id.in_(own)).all()}
+    candidates = [(sid, s.code, s.name) for sid, s in gis.items()]
+    plants = {}
+    for unit in db.query(GeneratingUnit).all():
+        if unit.outlet_substation_id in gis:
+            plants[-unit.id] = unit            # negative ids keep them apart from GIs
+            candidates.append((-unit.id, unit.code, unit.name))
+
+    def named(text: str) -> list[dict]:
+        out: list[dict] = []
+        for hit in named_substations(text, candidates):
+            if hit < 0:
+                unit = plants[hit]
+                entry = {"code": gis[unit.outlet_substation_id].code, "name": unit.name,
+                         "kind": "PEMBANGKIT"}
+            else:
+                entry = {"code": gis[hit].code, "name": gis[hit].name, "kind": "GI"}
+            if entry not in out:
+                out.append(entry)
+        return out
+
+    tables = [{**{k: v for k, v in table.items() if k != "rows"},
+               "rows": [{**row, "named": named(f"{row['kondisi']} {row['dampak']}")}
+                        for row in table["rows"]]}
+              for table in data["tables"]]
+    return {"scope": scope, "source": data.get("source"), "tables": tables}
 
 
 @router.post("/views")

@@ -115,6 +115,10 @@ def build() -> None:
                              ("SUMATERA", "dashboard-summary-sumatera.json")):
             summary = client.get("/api/dashboard/summary", params={"scope": scope}).json()
             (data_dir / fname).write_text(json.dumps(summary, indent=2), encoding="utf-8")
+            # the book tables with no object to pin (Peralatan, Pembangkit)
+            tables = client.get("/api/system-tables", params={"scope": scope}).json()
+            (data_dir / f"system-tables-{scope.lower()}.json").write_text(
+                json.dumps(tables, ensure_ascii=False, indent=1), encoding="utf-8")
 
         for v in views:
             vid = v["id"]

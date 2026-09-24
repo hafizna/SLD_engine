@@ -70,16 +70,16 @@ SECTIONS = [
     ("Subsistem Bali", "6.3", 238, (239, 246), 11),
 ]
 
-# Chapter 1 (sistem 500 kV), same No-column read. Only the first two are in
-# the dashboard (backbone_500 / system_ibt_500 workbooks, 31 + 38 = 69).
-# Peralatan and Pembangkit are equipment/plant findings with no topology
-# object of their own yet -- out of the current scope, listed so the gap to
-# the book's grand total is explicit rather than silent.
+# Chapter 1 (sistem 500 kV), same No-column read. SUTET and IBT are drawn as
+# SLDs (backbone_500 / system_ibt_500 workbooks, 31 + 38). Peralatan and
+# Pembangkit are equipment/plant findings with no topology object of their
+# own, so they are published as the book's tables
+# (make_system_tables_json.py -> samples/system_tables_jamali.json).
 SYSTEM_TABLES = [
     ("Tabel 1.1.A Kerawanan SUTET 500 kV", (23, 38), 31, "backbone_500_ingest.xlsx"),
     ("Tabel 1.2 Kerawanan IBT 500/150 kV", (41, 64), 38, "system_ibt_500_ingest.xlsx"),
-    ("Tabel 1.3 Kerawanan Peralatan", (66, 72), 20, None),
-    ("Tabel 1.4 Kerawanan Pembangkit", (72, 76), 14, None),
+    ("Tabel 1.3 Kerawanan Peralatan", (66, 72), 20, "system_tables_jamali.json"),
+    ("Tabel 1.4 Kerawanan Pembangkit", (72, 76), 14, "system_tables_jamali.json"),
 ]
 
 # Lampiran single-line diagrams, 1-based PDF pages. Cross-check only: use each

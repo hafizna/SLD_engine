@@ -43,7 +43,10 @@ JAMALI = {
     "6.3": "ss_bali_ingest.json",
 }
 SYSTEM = {"Tabel 1.1.A Kerawanan SUTET 500 kV": "backbone_500_ingest.xlsx",
-          "Tabel 1.2 Kerawanan IBT 500/150 kV": "system_ibt_500_ingest.xlsx"}
+          "Tabel 1.2 Kerawanan IBT 500/150 kV": "system_ibt_500_ingest.xlsx",
+          # no object to pin: published as the book's own tables
+          "Tabel 1.3 Kerawanan Peralatan": "system_tables_jamali.json#PERALATAN",
+          "Tabel 1.4 Kerawanan Pembangkit": "system_tables_jamali.json#PEMBANGKIT"}
 SUMATERA_FIXTURES = {
     "BACKBONE": "backbone_sumatera_ingest.xlsx", "SUMSEL": "ss_sumsel_ingest.xlsx",
     "LAMPUNG": "ss_lampung_ingest.xlsx", "BENGKULU": "ss_bengkulu_ingest.xlsx",
@@ -56,7 +59,11 @@ def risk_count(fixture: str) -> int:
         # BLL and CWD are published from their hand-written seeders
         module = __import__(f"app.services.{fixture}", fromlist=["RISKS"])
         return len(module.RISKS)
+    fixture, _, table = fixture.partition("#")
     path = ROOT / "samples" / fixture
+    if table:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return len(next(t for t in data["tables"] if t["key"] == table)["rows"])
     if path.suffix == ".json":
         return len(json.loads(path.read_text(encoding="utf-8"))["risks"])
     ws = openpyxl.load_workbook(path, read_only=True)["Data_Kerawanan_Detail"]
@@ -85,8 +92,10 @@ def test_sumatera_section_matches_the_deck(section):
 
 def test_every_book_section_has_a_fixture_and_the_totals_hold():
     # Nothing in the book is silently unmapped, and the headline numbers the
-    # landing page shows are the book's own: 277 subsystem + 69 sistem 500 kV.
+    # landing page shows are the book's own: 277 subsystem + 103 in Bab 1
+    # (SUTET 31 + IBT 38 on SLDs, Peralatan 20 + Pembangkit 14 as tables).
     assert set(JAMALI) == set(BOOK)
+    assert set(SYSTEM) == {label for label, *_ in SYSTEM_TABLES}
     assert sum(BOOK.values()) == 277
-    assert sum(n for _l, _p, n, f in SYSTEM_TABLES if f) == 69
+    assert sum(n for _l, _p, n, _f in SYSTEM_TABLES) == 103
     assert sum(s["expected"] for s in SUMATERA.values()) == 87

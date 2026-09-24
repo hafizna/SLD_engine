@@ -427,3 +427,39 @@ def test_gi_index_lists_every_subsystem_and_risk_a_gi_is_in(client):
     view = next(v for v in client.get("/api/views").json() if v["view_key"] == "SS_IDX_A_FULL")
     risk = client.get(f"/api/views/{view['id']}/graph").json()["overlays"]["risk"][0]
     assert risk["dampak_ids"] == [bravo["id"]]
+
+
+def test_system_tables_are_the_books_own_and_count_with_the_system(client):
+    """Bab 1's Peralatan and Pembangkit rows have no object to pin: they come
+    through as the book's tables, counted with the system, and a row that
+    names a GI links to it by name -- only within its own system."""
+    def publish(code, apb, key, label):
+        payload = {"subsystem": {"code": code, "name": code, "apb": apb},
+                   "objects": [{"external_key": key, "raw_label": label, "object_type": "GI", "tier_hint": 1},
+                               {"external_key": key + "X", "raw_label": "Xray " + code, "object_type": "GI", "tier_hint": 2}],
+                   "connections": [{"from_external_key": key, "to_external_key": key + "X"}], "risks": []}
+        draft = client.post("/api/ingest/parse", json={"payload": payload}).json()
+        for n in draft["nodes"]:
+            n["resolution"] = "NEW"
+        r = client.post("/api/ingest/publish", json={
+            "draft": draft, "subsystem_code": code, "subsystem_name": code})
+        assert r.status_code == 200, r.text
+    publish("SS_TBL_JTD", "UP2B Jawa Tengah & DIY", "UNGTEST", "GITET Ungaran")
+    publish("SS_TBL_SUM", "Sumbagteng", "UNGSUM", "Ungaran")
+
+    data = client.get("/api/system-tables", params={"scope": "JAMALI"}).json()
+    tables = {t["key"]: t for t in data["tables"]}
+    assert [len(tables[k]["rows"]) for k in ("PERALATAN", "PEMBANGKIT")] == [20, 14]
+    reactor = tables["PERALATAN"]["rows"][3]           # #4 Reaktor Line di GITET Ungaran
+    assert reactor["no"] == 4 and "Ungaran" in reactor["kondisi"]
+    codes = {n["code"] for n in reactor["named"]}
+    assert "UNGTEST" in codes and "UNGSUM" not in codes
+    assert client.get("/api/system-tables", params={"scope": "SUMATERA"}).json()["tables"] == []
+
+    jam = client.get("/api/dashboard/summary").json()
+    kinds = {g["key"]: (g["kind"], g["risk"]["total"]) for g in jam["system"]["groups"]}
+    assert kinds["peralatan"] == ("table", 20) and kinds["pembangkit"] == ("table", 14)
+    assert jam["system_risk"]["total"] == 34 + sum(
+        g["risk"]["total"] for g in jam["system"]["groups"] if g["kind"] == "sld")
+    assert jam["risk"]["total"] == jam["local_risk"]["total"] + jam["system_risk"]["total"]
+    assert set(jam["system_500"]) == {"transmission", "ibt"}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Peta Kerawanan &mdash; MANTAPS</title>
+<title>Peta Kerawanan Operasi Sistem &mdash; MANTAPS</title>
 <style>
   :root {
     color-scheme: light;
@@ -442,6 +442,31 @@
     padding: 2px 9px; font-size: 11.5px; cursor: pointer; margin: 3px 4px 0 0; }
   .alsoin .ssl:hover { border-color: var(--blue); background: #eff6ff; }
 
+  /* ---- book tables with no object (Sistem 500 kV page) ---- */
+  .system-tile.active { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(11,92,171,.18); }
+  .st-card { margin-top: 16px; }
+  .st-card[hidden] { display: none; }
+  .st-head h2 { margin: 0 0 4px; font-size: 18px; }
+  .st-meta { color: var(--muted); font-size: 12px; line-height: 1.55; margin-bottom: 12px; max-width: 980px; }
+  .st-wrap { overflow-x: auto; }
+  .stable { width: 100%; min-width: 980px; border-collapse: collapse; font-size: 12px; line-height: 1.5; }
+  .stable th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); background: #f1f5f9; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .stable td { vertical-align: top; padding: 10px; border-bottom: 1px solid var(--line); white-space: pre-line; }
+  .stable td.no { font-weight: 800; width: 34px; }
+  .stable td.unit { width: 110px; color: var(--muted); font-size: 11.5px; }
+  .stable tr:hover td { background: #f8fbff; }
+  .st-named { margin-top: 7px; white-space: normal; font-size: 11px; color: var(--muted); }
+  .st-gi { border: 1px solid var(--line); background: #f8fafc; border-radius: 999px; padding: 1px 8px;
+    font: inherit; font-size: 11px; color: #0f274a; cursor: pointer; margin: 2px 3px 0 0; }
+  .st-gi:hover, .st-gi.on { border-color: var(--blue); background: #eff6ff; }
+  .st-where { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .st-where:empty { display: none; }
+  .st-where .ssl { border: 1px solid var(--line); background: #fff; border-radius: 999px;
+    padding: 2px 9px; font: inherit; font-size: 11px; color: #0f274a; cursor: pointer; }
+  .st-where .ssl small { color: var(--muted); }
+  .st-where .ssl:hover { border-color: var(--blue); background: #eff6ff; }
+
   /* ---- atlas hover card (Indonesia level) ---- */
   .indo-tip { position: absolute; z-index: 5; pointer-events: none; display: none;
     background: #0f274a; color: #fff; border-radius: 10px; padding: 9px 11px; font-size: 12px;
@@ -615,7 +640,7 @@
 <header>
   <button class="brand" id="brandhome" type="button" title="Kembali ke Beranda">
     <b>MANTAPS</b> &nbsp;<span class="sub">Peta Kerawanan</span>
-    <div class="sub">Subsistem transmisi Jamali &amp; Sumatera &middot; Tier per sudut pandang &middot; overlay kerawanan</div>
+    <div class="sub">Kerawanan operasi sistem Jamali &amp; Sumatera &middot; per subsistem, GI dan penghantar</div>
   </button>
   <nav class="topnav" id="topnav" aria-label="Menu utama">
     <button type="button" data-dest="hub">Beranda</button>
@@ -646,7 +671,7 @@
        follows the level. The system page stays a separate door. -->
   <div id="hub-screen">
     <div class="hero">
-      <div><h1>Peta Kerawanan Sistem Transmisi</h1><p>Pilih pulau, lalu wilayah, lalu subsistem &mdash; peta memperbesar ke tempat yang dipilih.</p></div>
+      <div><h1>Peta Kerawanan Operasi Sistem</h1><p>Kerawanan dari sisi operasi sistem di tiap subsistem Jawa&ndash;Madura&ndash;Bali dan Sumatera. Pilih pulau, lalu wilayah, lalu subsistem.</p></div>
       <div class="metric"><b id="all-total">&ndash;</b><span>kerawanan tercatat</span></div>
     </div>
     <div class="atlas">
@@ -672,6 +697,7 @@
     <button class="screen-back" id="back-system500" type="button">&larr; Beranda</button>
     <div class="screen-head"><h1 id="system-title">Sistem 500 kV</h1><p id="system-lead"></p></div>
     <div class="portal-card"><div class="system-grid" id="system500"></div></div>
+    <div class="portal-card st-card" id="system-table" hidden></div>
   </div>
 
 </div></section>
@@ -797,6 +823,7 @@ function resourcePath(p){
   if(p==='/api/gi-index') return 'data/gi-index.json';
   if(p==='/api/dashboard/summary') return 'data/dashboard-summary.json';
   if(p==='/api/dashboard/summary?scope=SUMATERA') return 'data/dashboard-summary-sumatera.json';
+  let t=p.match(/^\/api\/system-tables\?scope=([A-Z]+)$/); if(t) return `data/system-tables-${t[1].toLowerCase()}.json`;
   let m=p.match(/^\/api\/views\/(\d+)\/graph$/); if(m) return `data/view-${m[1]}.json`;
   m=p.match(/^\/api\/views\/(\d+)\/sld\.svg$/); if(m) return `data/view-${m[1]}.svg`;
   return p;
@@ -830,15 +857,15 @@ const SYSTEMS = {
       BALI:            [-8.40, 115.15],
     },
     systemLabel: 'Sistem 500 kV',
-    systemDoor: 'Backbone transmisi dan IBT, terpisah dari risiko lokal SS.',
-    systemLead: 'Backbone transmisi dan IBT Jawa-Madura-Bali. Kerawanan sistem dan bayangan dampaknya tetap terpisah dari risiko lokal SS.',
+    systemDoor: 'SUTET dan IBT di SLD; peralatan dan pembangkit sebagai tabel buku.',
+    systemLead: 'Bab 1 buku kerawanan. SUTET 500 kV dan IBT 500/150 kV digambar sebagai SLD; Peralatan dan Pembangkit ditampilkan sebagai tabel buku apa adanya, karena tidak menempel pada satu objek. Semuanya terpisah dari risiko lokal SS.',
     // What the reference document itself counts, read off each table's No
     // column (scripts/_kerawanan_sections.py). The atlas panel shows the
     // dashboard's numbers against these, so a drift is visible, not silent.
     book: {
       title: 'Buku Kerawanan Sistem & Subsistem Jawa, Madura dan Bali Tahun 2026 (UIP2B Jamali, berlaku 30 Juni 2026)',
-      local: 277, system: 69,
-      note: 'Belum dipetakan: Tabel 1.3 Kerawanan Peralatan (20) dan Tabel 1.4 Kerawanan Pembangkit (14) — temuan peralatan/pembangkit tanpa objek topologi sendiri.',
+      // system = Bab 1: SUTET 31 + IBT 38 (SLD) + Peralatan 20 + Pembangkit 14 (tabel)
+      local: 277, system: 103,
     },
   },
   SUMATERA: {
@@ -1009,6 +1036,7 @@ function showSystem500Screen(key){
   if (key) setSys(key);
   setPortalMode('system500');
   setCrumb([homeCrumb(), {label: sysCfg().systemLabel}]);
+  history.replaceState(null, '', '#sistem=' + SYS);
   if(SUMMARY) renderSystem500Screen();
 }
 
@@ -1064,8 +1092,8 @@ function renderHub(){
     const S = SUMMARIES[k];
     if (!S) return;
     all += S.risk.total;
-    const views = S.system.groups.reduce((n, g) => n + g.views.length, 0);
-    $$(`#topnav button[data-dest="system500"][data-sys="${k}"]`).forEach(b => b.disabled = views === 0);
+    const doors = S.system.groups.reduce((n, g) => n + g.views.length + (g.kind === 'table' ? 1 : 0), 0);
+    $$(`#topnav button[data-dest="system500"][data-sys="${k}"]`).forEach(b => b.disabled = doors === 0);
   });
   $('#all-total').textContent = all;
 }
@@ -1423,6 +1451,7 @@ function renderAtlasPanel(){
   } else if (!ATLAS.region) {
     const k = ATLAS.sys, S = SUMMARIES[k], c = SYSTEMS[k];
     const views = S.system.groups.reduce((n, g) => n + g.views.length, 0);
+    const tables = S.system.groups.filter(g => g.kind === 'table').length;
     h = `<div><h2>Sistem ${esc(c.name)}</h2>`
       + (c.full !== c.name ? `<div class="ap-sub">${esc(c.full)}</div>` : '') + `</div>`
       + `<div class="ap-total"><b>${S.risk.total}</b><span>kerawanan</span></div>`
@@ -1435,8 +1464,8 @@ function renderAtlasPanel(){
             (c.regionFull[r.key] ? esc(c.regionFull[r.key]) + ' · ' : '') + `${r.subsystems.length} subsistem`,
             riskChips(r.risk))).join('')
       + `</div><div class="ap-k">Sistem</div><div class="ap-list">`
-      + row(`data-door="${k}"${views ? '' : ' disabled'}`, esc(c.systemLabel), S.system_risk.total,
-            `${views} proyeksi · ${esc(c.systemDoor)}`, '', ' door')
+      + row(`data-door="${k}"${views || tables ? '' : ' disabled'}`, esc(c.systemLabel), S.system_risk.total,
+            `${views} SLD${tables ? ` + ${tables} tabel` : ''} · ${esc(c.systemDoor)}`, '', ' door')
       + `</div>`;
   } else {
     const r = ATLAS.region, c = SYSTEMS[ATLAS.sys];
@@ -1495,9 +1524,95 @@ function renderSystem500Screen(){
   $('#system-title').textContent = c.systemLabel;
   $('#system-lead').textContent = c.systemLead;
   const groups = SUMMARY.system.groups;
-  $('#system500').innerHTML=groups.map(g=>`<button class="system-tile" data-system="${esc(g.key)}" ${g.views.length?'':'disabled'}><b>${esc(g.label)}</b><small>${g.views.length} view &middot; ${g.risk.total} risiko</small><div class="risk-chips">${riskChips(g.risk)}</div></button>`).join('')
+  // An SLD tile opens its projection; a table tile opens the book's table
+  // below, for findings that sit on no single object.
+  const tile = g => g.kind === 'table'
+    ? `<button class="system-tile" data-table="${esc(g.table)}"><b>${esc(g.label)}</b>`
+      + `<small>tabel buku &middot; ${g.risk.total} kerawanan &middot; tanpa kategori kontingensi</small></button>`
+    : `<button class="system-tile" data-system="${esc(g.key)}" ${g.views.length?'':'disabled'}><b>${esc(g.label)}</b>`
+      + `<small>SLD &middot; ${g.views.length} view &middot; ${g.risk.total} kerawanan</small><div class="risk-chips">${riskChips(g.risk)}</div></button>`;
+  $('#system500').innerHTML = groups.map(tile).join('')
     || '<div class="empty-state" style="grid-column:1/-1">Belum ada proyeksi sistem.</div>';
   $$('#system500 [data-system]').forEach(b=>b.onclick=()=>{const g=groups.find(x=>x.key===b.dataset.system);if(g?.views.length)selectView(g.views[0].id)});
+  $$('#system500 [data-table]').forEach(b => b.onclick = () => openSystemTable(b.dataset.table));
+  $('#system-table').hidden = true;
+}
+
+// ---------- book tables with no object (Bab 1: Peralatan, Pembangkit) ----------
+const SYSTEM_TABLES = {};          // system key -> /api/system-tables, loaded once
+async function systemTables(key){
+  return SYSTEM_TABLES[key] ||= j(`/api/system-tables?scope=${key}`).catch(e => { delete SYSTEM_TABLES[key]; throw e; });
+}
+// The book runs a cell's numbered points together ("1. ... 2. ..."); one line
+// per point is how the page itself lays them out.
+function bookCell(t){
+  return esc(t || '').replace(/(\S)\s+(?=(?:\d{1,2}\.\s?[A-Z(]|[a-h]\)\s|•\s))/g, '$1\n');
+}
+async function openSystemTable(tableKey){
+  const box = $('#system-table');
+  let data;
+  try { data = await systemTables(SYS); } catch (e) {
+    box.hidden = false;
+    box.innerHTML = `<div class="empty-state">Tabel tidak dapat dimuat: ${esc(e.message)}</div>`;
+    return;
+  }
+  const t = (data.tables || []).find(x => x.key === tableKey);
+  if (!t) return;
+  $$('#system500 [data-table]').forEach(b => b.classList.toggle('active', b.dataset.table === tableKey));
+  history.replaceState(null, '', `#sistem=${SYS}&tabel=${tableKey}`);
+  // One chip per place, not per code: "GITET Pedan, Kediri, Ngimbang" names
+  // Ngimbang bare, which fits both its GITET and its 150 kV bus, and GITET
+  // Ungaran carries two codes. A plant keeps its own name.
+  const place = n => n.kind === 'PEMBANGKIT' ? n.name
+    : n.name.replace(/\s*\([^)]*\)/g, '').replace(/^(GITET|GIS|GI)\s+/i, '').trim();
+  const named = r => {
+    const groups = [];
+    (r.named || []).forEach(n => {
+      const key = place(n);
+      let g = groups.find(x => x.key === key);
+      if (!g) groups.push(g = {key, names: [], codes: []});
+      if (!g.names.includes(n.name)) g.names.push(n.name);
+      if (!g.codes.includes(n.code)) g.codes.push(n.code);
+    });
+    return groups.length
+      ? `<div class="st-named"><span>Disebut:</span> ` + groups.map(g =>
+          `<button type="button" class="st-gi" data-gi="${esc(g.codes.join(','))}" title="${esc(g.names.join(' · '))}">`
+          + `${esc(g.names.length === 1 ? g.names[0] : g.key)}</button>`).join('')
+        + `<div class="st-where"></div></div>`
+      : '';
+  };
+  box.innerHTML = `<div class="st-head"><h2>${esc(t.caption)}</h2>`
+    + `<div class="st-meta">${esc(data.source || '')} &middot; bagian ${esc(t.section)} &middot; hlm. ${t.pages[0]}&ndash;${t.pages[1]} &middot; `
+    + `<b>${t.rows.length} kerawanan</b>. Ditampilkan apa adanya: temuan ini tidak menempel pada satu objek, `
+    + `jadi tidak digambar di SLD. GI atau pembangkit yang disebut teksnya bisa dibuka dari tautan &ldquo;Disebut&rdquo; &mdash; itu rujukan nama, bukan lokasi kerawanan.</div></div>`
+    + `<div class="st-wrap"><table class="stable"><thead><tr><th>No</th><th>${esc(t.unit_label)}</th>`
+    + `<th>Kondisi / Permasalahan</th><th>Dampak</th><th>Mitigasi</th><th>Usulan / Solusi</th></tr></thead><tbody>`
+    + t.rows.map(r => `<tr><td class="no">${r.no}</td><td class="unit">${esc(r.unit) || '&ndash;'}</td>`
+        + `<td>${bookCell(r.kondisi)}${named(r)}</td><td>${bookCell(r.dampak)}</td>`
+        + `<td>${bookCell(r.mitigasi)}</td><td>${bookCell(r.usulan)}</td></tr>`).join('')
+    + `</tbody></table></div>`;
+  box.hidden = false;
+  // a named GI or plant: every SLD that draws it, one click away
+  box.querySelectorAll('.st-gi').forEach(b => b.onclick = async () => {
+    const where = b.parentElement.querySelector('.st-where');
+    const open = b.classList.contains('on');
+    b.parentElement.querySelectorAll('.st-gi').forEach(x => x.classList.remove('on'));
+    where.innerHTML = '';
+    if (open) return;
+    b.classList.add('on');
+    let idx; try { idx = await giIndex(); } catch (_) { return; }
+    const seen = new Set(), links = [];
+    b.dataset.gi.split(',').forEach(code => {
+      const g = idx.find(x => x.code === code);
+      (g?.memberships || []).filter(m => m.view_id && !seen.has(m.view_id)).forEach(m => {
+        seen.add(m.view_id); links.push(ssButton(m, code)); });
+    });
+    where.innerHTML = links.length ? links.join('')
+      : '<span class="muted">belum digambar di SLD mana pun</span>';
+    where.querySelectorAll('.ssl').forEach(x => x.onclick = async () => {
+      await selectView(+x.dataset.view); markGI(x.dataset.gi); });
+  });
+  box.scrollIntoView({block: 'start', behavior: 'smooth'});
 }
 
 // ---------- UP2B -> SS -> point-of-view tree ----------
@@ -1559,9 +1674,15 @@ function buildTree(scope='subsystem'){
     : (NAV_REGION ? regionTitle(regionOfKey(NAV_REGION))
                   : `${c.regionTerm} & subsistem ${c.name}`);
   if(scope === 'system'){
-    (SUMMARY?.system.groups || []).forEach(({label, profile})=>{
-      const matches=VIEWS.filter(v=>v.rule_profile===profile);
+    (SUMMARY?.system.groups || []).forEach(({label, profile, kind, table, risk})=>{
       const ah=document.createElement('div'); ah.className='apb'; ah.textContent=label; box.appendChild(ah);
+      if(kind === 'table'){
+        const b=document.createElement('button'); b.className='pov'; b.type='button';
+        b.innerHTML=`Tabel buku<small>${risk.total} kerawanan &middot; tanpa SLD</small>`;
+        b.onclick=()=>{ showSystem500Screen(); openSystemTable(table); };
+        box.appendChild(b); return;
+      }
+      const matches=VIEWS.filter(v=>v.rule_profile===profile);
       if(!matches.length){const e=document.createElement('div');e.className='muted';e.style.cssText='font-size:12px;padding:7px 4px';e.textContent='Belum ada snapshot';box.appendChild(e);return;}
       matches.forEach(v=>{const b=document.createElement('button');b.className='pov';b.dataset.viewId=v.id;b.textContent=v.name;b.onclick=()=>selectView(v.id);box.appendChild(b)});
     });
@@ -2717,6 +2838,12 @@ function writeHash(){
 }
 async function openFromHash(){
   const p = new URLSearchParams(location.hash.slice(1));
+  const sistem = p.get('sistem');
+  if (sistem && SUMMARIES[sistem]) {
+    showSystem500Screen(sistem);
+    if (p.get('tabel')) await openSystemTable(p.get('tabel'));
+    return true;
+  }
   const peta = p.get('peta');
   if (peta) {
     const [sys, rk] = peta.split('/');
