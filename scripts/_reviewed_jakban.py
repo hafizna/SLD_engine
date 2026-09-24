@@ -250,6 +250,109 @@ def _augment_boundary_evidence(wb, code):
             add_bay(stub, name, feeder)
 
 
+# The reviewed LBK and PBRC books carry no risk table, so the dashboard showed
+# both subsystems with 0 kerawanan. Their Tabel 2.3 / 2.8 rows still live in
+# the historical SPEC of each builder; they are re-attached to the reviewed
+# topology here. A pin marks where the finding sits -- the objects its Kondisi
+# names (the Sumatera rule, user 2026-09-23) -- never the GIs it knocks out.
+# Where the reviewed topology no longer has the named object, the nearest one
+# that is drawn stands in, and the note says so.
+RISK_PINS = {
+    "SS_LBK": {
+        # IBT-1,2 Kembangan: the reviewed book models Kembangan's 150 kV bus
+        # only, with no GITET or IBT rows -- the pin stands on that bus.
+        1: [("asset", "KMBGN")],
+        2: [("line", "KMBGN", "NSYAN")],
+        3: [("line", "PSKBR", "GJTGL"), ("line", "PSKMS", "GJTGL")],
+        4: [("line", "CKUPA", "JTAKE"), ("line", "ILKNG", "TGBRU")],
+        # Durikosambi - Cengkareng: Durikosambi is SS Muarakarang's, and the
+        # reviewed book does not draw the ruas; Cengkareng is its end here.
+        5: [("asset", "CNKNG")],
+        6: [("asset", "SNYAN"), ("line", "NSYAN", "SNYAN")],
+    },
+    "SS_PRBC": {
+        # "interconnector-1&2 Priok Timur Lama arah Priok Barat": the reviewed
+        # book has no direct Timur Lama - Barat ruas; the interconnector drawn
+        # at Priok Timur is Timur Baru - Timur Lama.
+        1: [("line", "PRTMR", "PRTRU")],
+        2: [("line", "PRBRT", "PLPNG40"), ("line", "PRTMR", "PLPNG20")],
+        3: [("line", "GDPLA", "MGRAI"), ("line", "MGRAI", "DKTAS")],
+        4: [("line", "PGLNG", "RATER")],
+        5: [("asset", "KIT_PRIOK_B12"), ("asset", "KIT_PRIOK_B3")],
+        6: [("asset", "PRBRT"), ("asset", "PRTMR"), ("asset", "PRTRU"),
+            ("asset", "PLPNG20"), ("asset", "PLPNG40"), ("asset", "PGSAN")],
+        7: [("asset", "GDPLA")],
+    },
+}
+
+
+def _legacy_risks(code):
+    """Tabel rows from the builder's historical SPEC (Buku Kerawanan SJB 2026)."""
+    import importlib
+    import sys
+    scripts = str(ROOT / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    return importlib.import_module(f"make_{code.lower()}_xlsx").RISKS
+
+
+def _mark(ws, row, number, rawan):
+    headers = _headers(ws)
+    col = _column(headers, "No Kerawanan", "No. Kerawanan")
+    if col is None:
+        col = max(headers.values()) + 1
+        ws.cell(1, col).value = "No Kerawanan"
+    current = ws.cell(row, col).value
+    numbers = [n for n in str(current or "").replace(",", ";").split(";") if n.strip()]
+    if str(number) not in numbers:
+        numbers.append(str(number))
+    ws.cell(row, col).value = ";".join(numbers)
+    status = _column(headers, "Status Kerawanan", "Tingkat Kerawanan")
+    if status:
+        ws.cell(row, status).value = rawan
+
+
+def _restore_risks(wb, code):
+    pins = RISK_PINS.get(code)
+    risk_ws = wb["Data_Kerawanan_Detail"]
+    has_rows = any(_row_value(risk_ws, row, "No") not in (None, "")
+                   for row in range(2, risk_ws.max_row + 1))
+    if not pins or has_rows:
+        return
+    # drop the blank placeholder rows the reviewed books ship with
+    for row in range(risk_ws.max_row, 1, -1):
+        if all(cell.value in (None, "") for cell in risk_ws[row]):
+            risk_ws.delete_rows(row)
+    for r in _legacy_risks(code):
+        cat = r.get("category", "N-1")
+        _append_record(risk_ws, {
+            "No": r["no"], "UIT": r.get("uit", "JBB"), "Kategori Kontingensi": cat,
+            "Kondisi / Permasalahan": f"[{cat}] {r['kondisi']}",
+            "Dampak": r.get("dampak", ""), "Mitigasi": r.get("mitigasi", ""),
+            "Usulan / Solusi": r.get("usulan", ""),
+        })
+    asset, line = wb["Gardu_Induk_dan_Aset"], wb["Jalur_Transmisi"]
+    for number, targets in pins.items():
+        for target in targets:
+            if target[0] == "asset":
+                rows = [row for row in range(2, asset.max_row + 1)
+                        if _row_value(asset, row, "Kode Singkatan", "Kode", "Code") == target[1]]
+                ws, rawan = asset, "Rawan"
+            else:
+                pair = {target[1], target[2]}
+                rows = [row for row in range(2, line.max_row + 1)
+                        if {_row_value(line, row, "Dari GI", "From"),
+                            _row_value(line, row, "Ke GI", "To")} == pair]
+                ws, rawan = line, "Sangat Rawan"
+            if not rows:
+                raise ValueError(f"{code} kerawanan #{number}: {target[1:]} tidak ada di workbook revisi")
+            for row in rows:
+                _mark(ws, row, number, rawan)
+    info = wb["Info"]
+    if not any(row[0].value == "Multi Pin" for row in info.iter_rows()):
+        info.append(["Multi Pin", "Ya"])
+
+
 def build_reviewed(code: str, output_dir: Path | None = None) -> Path:
     source = ROOT / "samples" / "sources" / SOURCES[code]
     wb = openpyxl.load_workbook(source)
@@ -280,6 +383,7 @@ def build_reviewed(code: str, output_dir: Path | None = None) -> Path:
     ws.freeze_panes = "A2"
     _restore_legacy_names(wb, code)
     _augment_boundary_evidence(wb, code)
+    _restore_risks(wb, code)
     output_dir = Path(output_dir) if output_dir else ROOT / "samples"
     output_dir.mkdir(parents=True, exist_ok=True)
     target = output_dir / f"{code.lower()}_ingest.xlsx"

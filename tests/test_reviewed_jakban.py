@@ -9,7 +9,7 @@ from app.db import Base
 from app.models import AnalyticalView, ViewMembership, Substation, GeneratingUnit
 from app.services import ingest
 from app.services.ingest_parser import parse_upload
-from scripts._reviewed_jakban import build_reviewed, SOURCES, ROOT
+from scripts._reviewed_jakban import build_reviewed, RISK_PINS, SOURCES, ROOT
 
 
 @pytest.mark.parametrize("code", SOURCES)
@@ -22,7 +22,14 @@ def test_reviewed_regeneration_preserves_topology_and_full_membership(code, tmp_
     assert parsed == parse_upload(committed.read_bytes(), committed.name)
     assert parsed["subsystem"]["code"] == code
     assert parsed["meta"]["dropped_edges"] == []
-    assert parsed["risks"] == original["risks"]
+    if code in RISK_PINS:
+        # The reviewed LBK / PBRC books carry no risk table; the book's rows are
+        # re-attached to the reviewed topology, each with a pin.
+        assert not original["risks"]
+        assert len(parsed["risks"]) == len(RISK_PINS[code])
+        assert all(r["pin_key"] for r in parsed["risks"])
+    else:
+        assert parsed["risks"] == original["risks"]
     # The reviewed workbook may add explicit source/stub evidence to the
     # machine-readable sheets. Every row from the user's source must still be
     # present, while the supplemental rows are checked below by code.
@@ -109,3 +116,27 @@ def test_legacy_labels_are_carried_by_stable_codes():
         parsed = parse_upload(path.read_bytes(), path.name)
         names = {n["external_key"]: n["raw_label"] for n in parsed["objects"]}
         assert {key: names[key] for key in expected} == expected
+
+
+def test_a_pin_on_a_plant_row_lands_on_its_outlet_bus():
+    """PRBC #5 (power swing trips Priok generation) is written on the two Priok
+    plant rows. It used to publish as a SUBSTATION pin carrying the plant's
+    GeneratingUnit id, so it drew on whichever GI shared that id."""
+    path = ROOT / "samples/ss_prbc_ingest.xlsx"
+    parsed = parse_upload(path.read_bytes(), path.name)
+    risk = next(r for r in parsed["risks"] if r["seq_no"] == 5)
+    pins = {risk["pin_key"], *(key for _kind, key in risk["extra_pins"])}
+    assert pins == {"PRTRU", "PRBRT"}           # outlets of Priok Blok 3 and Blok 1&2
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        draft = ingest.build_draft(db, parsed)
+        for n in draft["nodes"]:
+            n.update(resolution="NEW", canonical_id=None,
+                     confirmed_code=n["external_key"], confirmed_name=n["raw_label"])
+        ingest.publish(db, draft, "SS_PRBC", parsed["subsystem"]["name"], None,
+                       parsed["subsystem"]["apb"])
+        from app.models import RiskRecord
+        record = db.query(RiskRecord).filter_by(seq_no=5).one()
+        assert db.get(Substation, record.attach_id).code == record.attach_label
+    engine.dispose()

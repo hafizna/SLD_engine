@@ -69,6 +69,30 @@ dibandingkan sebagai pasangan tak berarah; unit IBT, jumlah sirkit, dan
   dipertahankan sebagai bukti; parser tidak mengimpor seluruh isi sheet tersebut
   sebagai constraint topologi.
 
+## Pemetaan ulang risiko LBK dan PBRC — 24 September 2026
+
+Workbook revisi LBK dan PBRC tidak membawa tabel risiko, sehingga dashboard
+menampilkan kedua SS dengan 0 kerawanan. `_restore_risks` di
+`_reviewed_jakban.py` kini memasang kembali baris Tabel 2.3 (LBK, 6 risiko) dan
+Tabel 2.8 (PBRC, 7 risiko) dari SPEC historis builder ke topologi revisi, tanpa
+mengubah aset atau relasi dari file pengguna. Langkah ini hanya berjalan bila
+tabel risiko sumber kosong; GUCL tetap memakai 7 risiko dari file pengguna.
+
+Pin mengikuti aturan lokasi (objek yang disebut Kondisi, `Multi Pin = Ya`),
+daftar lengkapnya di `RISK_PINS`. Tiga objek tidak ada pada topologi revisi dan
+diwakili objek terdekat yang tergambar:
+
+| Risiko | Kondisi menyebut | Pin pada topologi revisi |
+|---|---|---|
+| LBK #1 | IBT-1,2 Kembangan | bus 150 kV `KMBGN` (GITET/IBT tidak dimodelkan) |
+| LBK #5 | ruas Durikosambi–Cengkareng | GI `CNKNG` (Durikosambi milik SS Muarakarang) |
+| PBRC #1 | interconnector Priok Timur Lama arah Priok Barat | ruas `PRTMR–PRTRU` (tidak ada ruas langsung Timur Lama–Barat) |
+
+Sekaligus diperbaiki: nomor kerawanan pada baris Pembangkit dulu terbit sebagai
+pin `SUBSTATION` yang membawa id GeneratingUnit, sehingga tergambar pada GI yang
+kebetulan ber-id sama (PBRC #5, Ungaran 1,2 #8). Parser kini memasang pin itu
+pada bus outlet pembangkit.
+
 ## Regenerasi
 
 ```powershell

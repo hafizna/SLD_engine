@@ -515,9 +515,27 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             seen.remove(pin)
         seen.append(pin)
 
+    # A number written on a Pembangkit row pins the plant's outlet bus: the SLD
+    # draws a plant through that bus, and there is no generator pin. It used to
+    # go out as a SUBSTATION pin keyed by the plant, and publish then stamped
+    # the plant's GeneratingUnit id on it -- landing the pin on whichever GI
+    # happened to share that id (PRBC #5 on Priok Timur Baru, Ungaran #8).
+    gen_keys = {o["external_key"] for o in objects if o.get("object_type") == "GENERATING_UNIT"}
+    gen_outlet = {o["external_key"]: o["outlet_key"] for o in objects
+                  if o["external_key"] in gen_keys and o.get("outlet_key")}
+    for c in connections:
+        for g, other in ((c["from_external_key"], c["to_external_key"]),
+                         (c["to_external_key"], c["from_external_key"])):
+            if g in gen_keys and other not in gen_keys:
+                gen_outlet.setdefault(g, other)
     for o in objects:
         for nk in o.pop("_no_kerawanan", []):
-            _pin(nk, ("SUBSTATION", o["external_key"]))
+            key = o["external_key"]
+            if key in gen_keys:
+                key = gen_outlet.get(key)
+                if not key:
+                    continue
+            _pin(nk, ("SUBSTATION", key))
     for c in connections:
         for nk in c.pop("_no_kerawanan", []):
             _pin(nk, ("CIRCUIT", f"{c['from_external_key']}-{c['to_external_key']}"))
