@@ -17,15 +17,20 @@ from __future__ import annotations
 # label, section, figure page, (table from, table to), risk count
 SECTIONS = [
     # ---- UP2B Jakarta & Banten (all built) ----
-    ("Suralaya Unit #3 - Suralaya 1,2 - Cilegon 4", "2.3", 79, (79, 80), None),
-    ("GU Cilegon - Cilegon Baru 1,2,3 - Labuan", "2.4", 81, (82, 84), None),
-    ("Lontar - Balaraja 1,2 - Kembangan 1,2", "2.5", 85, (86, 87), None),
-    ("Balaraja 3,4 - Lengkong 1,2", "2.6", 88, (88, 88), None),
-    ("Cawang 2,3 - Depok 1", "2.7", 89, (89, 90), None),
-    ("Muarakarang 1,2 - Durikosambi 1 - KIT Muarakarang", "2.8", 91, (92, 95), None),
-    ("Durikosambi 2 - Gandul 1,3", "2.9", 96, (96, 97), None),
-    ("Priok - Bekasi 2,4 - Cawang 1", "2.10", 98, (98, 100), None),
-    ("Pelabuhan Ratu - Salak - Cibinong 1,2 - Depok 2", "2.11", 101, (101, 104), 8),
+    # Re-read 24 Sep 2026 from the No column itself (words left of x=82 pt).
+    # The old heading-based ranges were off by a page for LBK/BLL/CWD because
+    # each table spills onto the next section's heading page (LBK #6 sits on
+    # p.88 under the 2.6 heading; CWD #3-4 on p.91 under 2.8). GUCL is 7, not
+    # 6: plain-text extraction glues row "7." onto #6's Polyprima text.
+    ("Suralaya Unit #3 - Suralaya 1,2 - Cilegon 4", "2.3", 79, (80, 80), 3),
+    ("GU Cilegon - Cilegon Baru 1,2,3 - Labuan", "2.4", 81, (82, 84), 7),
+    ("Lontar - Balaraja 1,2 - Kembangan 1,2", "2.5", 85, (86, 88), 6),
+    ("Balaraja 3,4 - Lengkong 1,2", "2.6", 88, (89, 89), 1),
+    ("Cawang 2,3 - Depok 1", "2.7", 89, (90, 91), 4),
+    ("Muarakarang 1,2 - Durikosambi 1 - KIT Muarakarang", "2.8", 91, (92, 95), 8),
+    ("Durikosambi 2 - Gandul 1,3", "2.9", 96, (97, 97), 1),
+    ("Priok - Bekasi 2,4 - Cawang 1", "2.10", 98, (99, 100), 7),
+    ("Pelabuhan Ratu - Salak - Cibinong 1,2 - Depok 2", "2.11", 101, (102, 104), 8),
     ("Bekasi 1,3 - Cibinong 3", "2.12", 104, (105, 106), 3),
     ("Gandul 2,4", "2.13", 107, (108, 110), 1),
 
@@ -63,6 +68,18 @@ SECTIONS = [
 
     # ---- UP2B Bali ----
     ("Subsistem Bali", "6.3", 238, (239, 246), 11),
+]
+
+# Chapter 1 (sistem 500 kV), same No-column read. Only the first two are in
+# the dashboard (backbone_500 / system_ibt_500 workbooks, 31 + 38 = 69).
+# Peralatan and Pembangkit are equipment/plant findings with no topology
+# object of their own yet -- out of the current scope, listed so the gap to
+# the book's grand total is explicit rather than silent.
+SYSTEM_TABLES = [
+    ("Tabel 1.1.A Kerawanan SUTET 500 kV", (23, 38), 31, "backbone_500_ingest.xlsx"),
+    ("Tabel 1.2 Kerawanan IBT 500/150 kV", (41, 64), 38, "system_ibt_500_ingest.xlsx"),
+    ("Tabel 1.3 Kerawanan Peralatan", (66, 72), 20, None),
+    ("Tabel 1.4 Kerawanan Pembangkit", (72, 76), 14, None),
 ]
 
 # Lampiran single-line diagrams, 1-based PDF pages. Cross-check only: use each

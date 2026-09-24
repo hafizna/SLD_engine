@@ -327,6 +327,10 @@ def seed_ss_bll(db: Session) -> None:
     def resolve(kind: str, code: str):
         return {"SUBSTATION": subs, "TRANSFORMER": txs, "CIRCUIT": circuits}.get(kind, {}).get(code)
 
+    # The book has no contingency column. Same rule as the workbook builders
+    # (_kerawanan_tables.contingency_of): the deepest N-x the Kondisi names,
+    # else BELUM_DITETAPKAN -- never left blank, which read as LAINNYA.
+    category = {1: "BELUM_DITETAPKAN"}
     for (seq, title, cond, impact, mit, fu, prio, akind, acode) in RISKS:
         obj = resolve(akind, acode)
         db.add(RiskRecord(
@@ -334,6 +338,7 @@ def seed_ss_bll(db: Session) -> None:
             subsystem_id=ss.id, seq_no=seq, uit="JBB",
             attach_kind=akind, attach_id=(obj.id if obj else None), attach_label=acode,
             title=title, condition=cond, impact=impact, mitigation=mit, follow_up=fu,
+            category=category[seq],
             priority=prio, status="OPEN", source_document_id=doc.id,
         ))
 
