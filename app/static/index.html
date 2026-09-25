@@ -259,7 +259,19 @@
   .ap-row .t span { font-weight:800; font-size:15px; }
   .ap-row small { display:block; color:var(--muted); margin-top:1px; font-size:11px; }
   .ap-row .risk-chips { margin-top:6px; }
-  .ap-row.door { background:#f5f7ff; border-color:#dde3fb; }
+  .ap-row.door { background:#eef2ff; border-color:#c7d2fe; }
+  .ap-row.door:hover { border-color:#6366f1; }
+  .ap-row.door .go { display:block; margin-top:5px; color:#3730a3; font-weight:700; }
+  .atlas-door { position:absolute; right:10px; top:10px; z-index:4; display:flex; align-items:center;
+    gap:8px; background:#fff; border:1px solid #c7d2fe; border-radius:10px; padding:6px 10px 6px 7px;
+    cursor:pointer; font:inherit; color:var(--ink); text-align:left;
+    box-shadow:0 2px 10px rgba(15,39,74,.12); animation:fadeIn .28s ease-out both; }
+  .atlas-door:hover { border-color:#6366f1; box-shadow:0 0 0 2px rgba(99,102,241,.18), 0 2px 10px rgba(15,39,74,.12); }
+  .atlas-door .ic { width:26px; height:26px; border-radius:7px; background:#eef2ff; color:#3730a3;
+    display:grid; place-items:center; font-size:14px; flex:none; }
+  .atlas-door b { display:block; font-size:12.5px; }
+  .atlas-door small { display:block; font-size:10.5px; color:var(--muted); white-space:nowrap; }
+  .atlas-door .go { color:#3730a3; font-size:16px; font-weight:700; }
   .ap-row.door .t b::before { content:"\26A1  "; }
   .ap-row[disabled] { opacity:.55; cursor:not-allowed; box-shadow:none; }
   .ap-src { font-size:11px; color:var(--muted); line-height:1.5; border-top:1px dashed var(--line);
@@ -1272,8 +1284,22 @@ function atlasCamera(animate){
 }
 
 function atlasClear(){
-  $$('#indo-map .region-pin, #indo-map .ss-pin, #indo-map .ss-leader, #indo-map .map-note, #indo-map .atlas-label')
+  $$('#indo-map .region-pin, #indo-map .ss-pin, #indo-map .ss-leader, #indo-map .map-note, #indo-map .atlas-label, #indo-map .atlas-door')
     .forEach(x => x.remove());
+}
+// Inside a system, its system page is a door on the map itself: not a pin,
+// since the backbone is no one place, but where the eye already is.
+function atlasDoor(){
+  const k = ATLAS.sys, S = SUMMARIES[k], c = SYSTEMS[k];
+  const doors = S.system.groups.reduce((n, g) => n + g.views.length + (g.kind === 'table' ? 1 : 0), 0);
+  if (!doors) return;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'atlas-door';
+  b.title = `${c.systemLabel}: ${c.systemDoor}`;
+  b.innerHTML = `<span class="ic">&#9889;</span><span><b>${esc(c.systemLabel)}</b>`
+    + `<small>${S.system_risk.total} kerawanan tingkat sistem</small></span><span class="go">›</span>`;
+  b.onclick = () => showSystem500Screen(k);
+  $('#indo-map').appendChild(b);
 }
 function atlasHot(k){
   $$('#indo-svg .isl.sys, #indo-svg .coast-detail')
@@ -1313,6 +1339,7 @@ function atlasPins(){
     return;
   }
   const S = SUMMARIES[ATLAS.sys], cfg = SYSTEMS[ATLAS.sys];
+  atlasDoor();
   if (ATLAS.region) return atlasSSPins(ATLAS.region);
   S.regions.forEach(r => {
     const at = cfg.regionAt[r.key];
@@ -1458,14 +1485,17 @@ function renderAtlasPanel(){
       + `<div class="ap-split">${S.local_risk.total} di subsistem · ${S.system_risk.total} di ${esc(c.systemLabel)}</div>`
       + sourceNote(k)
       + `<div class="risk-chips" style="margin-top:0">${riskChips(S.risk)}</div>`
-      + `<div class="ap-k">${esc(c.regionsLabel)}</div><div class="ap-list">`
+      // The system level sits above the regions it ties together, so its
+      // door comes first; at the foot of a long list it went unseen.
+      + `<div class="ap-k">Tingkat sistem</div><div class="ap-list">`
+      + row(`data-door="${k}"${views || tables ? '' : ' disabled'}`, esc(c.systemLabel), S.system_risk.total,
+            `${views} SLD${tables ? ` + ${tables} tabel` : ''} · ${esc(c.systemDoor)}`
+            + `<span class="go">Buka halaman sistem ›</span>`, '', ' door')
+      + `</div><div class="ap-k">${esc(c.regionsLabel)}</div><div class="ap-list">`
       + S.regions.filter(r => c.regionAt[r.key] || r.subsystems.length).map(r =>
           row(`data-key="${r.key}"`, esc(regionTitle(r)), r.risk.total,
             (c.regionFull[r.key] ? esc(c.regionFull[r.key]) + ' · ' : '') + `${r.subsystems.length} subsistem`,
             riskChips(r.risk))).join('')
-      + `</div><div class="ap-k">Sistem</div><div class="ap-list">`
-      + row(`data-door="${k}"${views || tables ? '' : ' disabled'}`, esc(c.systemLabel), S.system_risk.total,
-            `${views} SLD${tables ? ` + ${tables} tabel` : ''} · ${esc(c.systemDoor)}`, '', ' door')
       + `</div>`;
   } else {
     const r = ATLAS.region, c = SYSTEMS[ATLAS.sys];
@@ -2285,13 +2315,15 @@ function risksFor(kind, id){
   return (GRAPH.overlays.risk || []).filter(r => (r.attach_kind === kind && r.attach_id === +id)
     || (r.attachments || []).some(a => a.attach_kind === kind && a.attach_id === +id));
 }
-// transformer risks have no clickable element -- surface them on the owning GI
-// (its pin is drawn at the GI busbar). Match by code inside the attach_label.
-function txRisksForCode(code){
-  if (!code) return [];
-  return (GRAPH.overlays.risk || []).filter(r =>
-    r.attach_kind === 'TRANSFORMER' &&
-    (r.attach_label || '').toUpperCase().includes(code.toUpperCase()));
+// transformer risks have no clickable element -- surface them on the GI that
+// holds the transformer (its pin is drawn at that busbar). By the GI id the
+// graph now carries; the old "label contains code" test also handed GITET
+// UNGAR7's IBT findings to the 150 kV bus UNGAR.
+function txRisksForNode(id, code){
+  const on = a => a.attach_kind === 'TRANSFORMER' && (a.attach_substation_id
+    ? a.attach_substation_id === +id
+    : !!code && (a.attach_label || '').toUpperCase().split(':')[0] === code.toUpperCase());
+  return (GRAPH.overlays.risk || []).filter(r => on(r) || (r.attachments || []).some(on));
 }
 function nodeName(id){
   const n = (GRAPH.nodes || []).find(x => x.kind === 'SUBSTATION' && x.id === +id);
@@ -2318,7 +2350,7 @@ function showNode(g){
   const isBay = g.classList.contains('sld-bay');
   const n = nodeByKindId(kind, id) || {};
   const seen = new Set();
-  const here = [...risksFor('SUBSTATION', id), ...txRisksForCode(n.code || code)]
+  const here = [...risksFor('SUBSTATION', id), ...txRisksForNode(id, n.code || code)]
     .filter(r => !seen.has(r.seq_no) && seen.add(r.seq_no));
   // findings sited elsewhere whose Dampak text names this GI
   const affected = kind === 'SUBSTATION'
@@ -2654,8 +2686,8 @@ function setFocus(seqs, opts = {}){
   clearFocus({keepState: true});
   if (!risks.length) { if (!opts.preview) { FOCUS = null; renderFocusBar(); } return; }
   const loc = new Set(), dmp = new Set(), top = new Set();
-  risks.forEach(r => [r, ...(r.attachments || [])].forEach(a => {
-    const t = riskTarget(svg, a); if (t) loc.add(t); }));
+  risks.forEach(r => [r, ...(r.attachments || [])].forEach(a =>
+    riskTargets(svg, a).forEach(t => loc.add(t))));
   risks.forEach(r => (r.dampak_ids || []).forEach(id => {
     const t = svgNode(svg, 'SUBSTATION', id); if (t && !loc.has(t)) dmp.add(t); }));
   risks.forEach(r => [r, ...(r.attachments || [])].forEach(a => exposedBy(svg, a).forEach(t => {
@@ -2950,16 +2982,38 @@ function riskTarget(svg, r){
   if (!r || !r.attach_kind || !r.attach_id) return null;
   if (r.attach_kind === 'CIRCUIT')
     return svg.querySelector(`[data-circuit-id="${r.attach_id}"]`);
-  // A transformer/IBT is drawn inside its GI, and the graph exposes no
-  // TRANSFORMER node, so the GI carries the marker. Its IBT_LINK edges are
-  // shown as exposure below, which is what actually de-energises.
+  // A transformer has no node of its own: its IBT chain is the object, and
+  // the GI that holds it is where it sits.
   if (r.attach_kind === 'TRANSFORMER') {
-    const link = (GRAPH.edges || []).find(e =>
-      e.circuit_type === 'IBT_LINK' && (e.code || '').includes(r.attach_label || '\u0000'));
+    const link = ibtLinkOf(r);
     if (link) return svg.querySelector(`[data-circuit-id="${link.id}"]`);
-    return svgNode(svg, 'SUBSTATION', r.attach_id);
+    return r.attach_substation_id ? svgNode(svg, 'SUBSTATION', r.attach_substation_id) : null;
   }
   return svgNode(svg, 'SUBSTATION', r.attach_id);
+}
+// The IBT chain of a transformer finding. Its label ("UNGAR7:2") matches no
+// circuit code ("UNGAR7_UNGAR_IBT2"), and attach_id is the transformer's own
+// id -- read as a GI id it lit up nothing, or the wrong GI. Match on the GI
+// that holds it and its unit number instead.
+function ibtLinkOf(r){
+  const sid = r.attach_substation_id;
+  if (!sid) return null;
+  const unit = String(r.attach_unit || (r.attach_label || '').split(':')[1] || '').trim();
+  const links = (GRAPH.edges || []).filter(e => e.circuit_type === 'IBT_LINK'
+    && (e.from_substation_id === sid || e.to_substation_id === sid));
+  const unitOf = e => ((e.code || '').match(/IBT[_ -]?(\d+)$/i) || (e.name || '').match(/\bIBT\s*(\d+)\b/i) || [])[1];
+  return links.find(e => unit && unitOf(e) === unit) || links[0] || null;
+}
+// Objects a finding sits on, for focus: the IBT chain AND the GITET that
+// holds it, so the GITET is ringed and shaded like any GI finding.
+function riskTargets(svg, r){
+  const t = riskTarget(svg, r);
+  const out = t ? [t] : [];
+  if (r && r.attach_kind === 'TRANSFORMER' && r.attach_substation_id) {
+    const gi = svgNode(svg, 'SUBSTATION', r.attach_substation_id);
+    if (gi && gi !== t) out.push(gi);
+  }
+  return out;
 }
 
 // Which GIs a circuit still reaches if this one is lost. Used to decide whether
@@ -2997,13 +3051,11 @@ function exposedBy(svg, r){
   }
 
   if (r.attach_kind === 'TRANSFORMER') {
-    // the GI whose 500/150 transformation this IBT provides
-    (GRAPH.edges || []).forEach(e => {
-      if (e.circuit_type !== 'IBT_LINK') return;
-      if (!(e.code || '').includes(r.attach_label || '\u0000')) return;
-      [e.from_substation_id, e.to_substation_id].forEach(id => {
-        if (id != null) push(svgNode(svg, 'SUBSTATION', id));
-      });
+    // the bus whose transformation this IBT provides (its GITET is the
+    // location itself)
+    const e = ibtLinkOf(r);
+    if (e) [e.from_substation_id, e.to_substation_id].forEach(id => {
+      if (id != null && id !== r.attach_substation_id) push(svgNode(svg, 'SUBSTATION', id));
     });
     return out;
   }

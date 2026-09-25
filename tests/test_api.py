@@ -463,3 +463,20 @@ def test_system_tables_are_the_books_own_and_count_with_the_system(client):
         g["risk"]["total"] for g in jam["system"]["groups"] if g["kind"] == "sld")
     assert jam["risk"]["total"] == jam["local_risk"]["total"] + jam["system_risk"]["total"]
     assert set(jam["system_500"]) == {"transmission", "ibt"}
+
+
+def test_a_transformer_finding_names_the_gi_and_unit_that_hold_it(client):
+    """The viewer shades an IBT finding's GITET and rings its own chain; for
+    that the graph must say which GI holds the transformer and which unit it
+    is. attach_id alone is the transformer's id, not a GI's."""
+    drawn_in = []
+    for view in client.get("/api/views").json():
+        graph = client.get(f"/api/views/{view['id']}/graph").json()
+        node_ids = {n["id"] for n in graph["nodes"] if n["kind"] == "SUBSTATION"}
+        for r in graph["overlays"]["risk"]:
+            if r["attach_kind"] == "TRANSFORMER":
+                assert r["attach_substation_id"]
+                assert r["attach_unit"] == "1"          # IBT_KMBGN_1
+                # a subsystem's findings show on all its views; the GI is drawn on its side's
+                drawn_in.append(r["attach_substation_id"] in node_ids)
+    assert any(drawn_in), "the LBK seed pins risk #1 on IBT 1 Kembangan"

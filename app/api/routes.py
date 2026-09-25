@@ -450,12 +450,24 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
     if v.subsystem_id:
         ss_risks = (db.query(RiskRecord).filter(RiskRecord.subsystem_id == v.subsystem_id)
                     .order_by(RiskRecord.seq_no).all())
+        extra = (db.query(RiskAttachment)
+                 .filter(RiskAttachment.risk_id.in_([r.id for r in ss_risks] or [-1])).all())
+        # A transformer finding names the transformer, not the GI that holds it,
+        # and its label ("UNGAR7:2") matches no IBT circuit code; the viewer
+        # needs the GI and the unit to find the chain and shade its GITET.
+        tx_ids = {a.attach_id for a in [*ss_risks, *extra]
+                  if a.attach_kind == "TRANSFORMER" and a.attach_id}
+        txs = {t.id: t for t in db.query(Transformer).filter(Transformer.id.in_(tx_ids or [-1])).all()}
+
+        def where(kind, aid):
+            t = txs.get(aid) if kind == "TRANSFORMER" else None
+            return {"attach_substation_id": t.substation_id, "attach_unit": t.unit_no} if t else {}
+
         extra_by_risk: dict[int, list] = {}
-        for a in (db.query(RiskAttachment)
-                  .filter(RiskAttachment.risk_id.in_([r.id for r in ss_risks] or [-1])).all()):
+        for a in extra:
             extra_by_risk.setdefault(a.risk_id, []).append({
                 "attach_kind": a.attach_kind, "attach_id": a.attach_id,
-                "attach_label": a.attach_label})
+                "attach_label": a.attach_label, **where(a.attach_kind, a.attach_id)})
         # the GIs drawn on this view, for reading the Dampak text against
         drawn = [(nid, obj.code, obj.name) for (kind, nid), obj in nodes.items()
                  if kind == "SUBSTATION"]
@@ -466,6 +478,7 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
                 "mitigation": r.mitigation, "follow_up": r.follow_up,
                 "horizon": r.horizon, "priority": r.priority, "status": r.status,
                 "attach_kind": r.attach_kind, "attach_id": r.attach_id, "attach_label": r.attach_label,
+                **where(r.attach_kind, r.attach_id),
                 # further objects the same finding is pinned to (primary excluded)
                 "attachments": extra_by_risk.get(r.id, []),
                 # GIs on this view that the book's Dampak text names
