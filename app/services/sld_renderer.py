@@ -107,6 +107,12 @@ EDGE_MARGIN = 54       # width of the outer channel a cross-tier feed routes in
 
 
 GITET_RISE = 130       # how far a GITET floats above the LV bus it feeds
+# How far below its HV bay a long IBT chain hangs its symbol: past the bay
+# stubs and their labels (STUB_LEN 42 + label), so it reads as equipment in the
+# chain rather than a stub, but no longer drifting to the middle of a two-tier
+# drop, far from the bay it belongs to. A GITET-over-bus chain is shorter than
+# twice this and keeps its symbol at its middle.
+IBT_SYMBOL_DROP = 90
 GITET_SIBLING_GAP = 40 # clear space between two GITETs feeding the same bus
 
 
@@ -829,9 +835,18 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # In-network step-downs need their own LV landing port as well. Falling
     # back to the bus centre puts the transformer obstacle on top of a normal
     # incoming circuit port, making an otherwise valid route impossible.
+    ibt_hv_bay: set[tuple[int, int]] = set()
     for hv, lv in _ibt_step_down:
         if lv in pos and hv in pos:
             bus_attach[lv].append(("ibt", "ibt", pos[hv][0]))
+            # An LV bus that does not sit under its HV bar gets the IBT as a
+            # real bay of the HV bar, among its other bottom bays, on the side
+            # facing the LV bus. Clamped to the bar's edge instead, the chain
+            # landed wherever the edge was and a penghantar leaving on that
+            # side had to cross it (Perawang / New Aurduri on the backbone).
+            if abs(pos[lv][0] - pos[hv][0]) > bus_half(hv) - 24:
+                bus_attach[hv].append((f"ibtlv{lv}", "out", pos[lv][0]))
+                ibt_hv_bay.add((hv, lv))
     for g in gens.values():
         if g.outlet_substation_id in pos:
             bus_attach[g.outlet_substation_id].append((f"gen{g.id}", "gen", None))
@@ -854,6 +869,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             bus_attach[feeder_id].append((f"spur{spur_id}", "bay", None))
 
     top_port_x: dict[int, list[float]] = defaultdict(list)   # x of each top attachment
+    PITCH: dict[tuple[int, bool], float] = {}                 # (sub_id, top side) -> bay pitch
     for sid, items in bus_attach.items():
         cx, cy = pos[sid]
         bh = bus_half(sid)
@@ -868,7 +884,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             group.sort(key=lambda it: (rank.get(it[1], 9), *_order_key(sid, it[1], it[2]), it[0]))
             weights = []
             for key, _, _ in group:
-                if key.startswith("ibt"):
+                if key.startswith("ibtlv"):
+                    # the HV end of a step-down: one bay per IBT unit
+                    weight = _ibt_unit_count(ibt_links_by_pair.get((sid, int(key[5:])), []))
+                elif key.startswith("ibt"):
                     # a per-GITET port carries only that GITET's chains; the
                     # bare "ibt" key still covers every IBT landing on this bus
                     _hv = int(key[3:]) if key[3:].isdigit() else None
@@ -892,6 +911,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 weights.append(weight)
             total = sum(weights)
             pitch = min(bay_slot, (2 * bh - 32) / max(total, 1))
+            PITCH[(sid, top)] = pitch
             cursor = cx - total * pitch / 2
             for (key, kind, _), weight in zip(group, weights):
                 px = cursor + weight * pitch / 2
@@ -974,6 +994,13 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         start = (ax, ay + (BUS_BOTTOM if da > 0 else -BUS_TOP))
         end = (bx, by + (BUS_BOTTOM if db_ > 0 else -BUS_TOP))
         specs.append((c, (ax, ay), start, end, (bx, by)))
+    _ibt_unit: dict[int, str] = {}
+    _ibt_tx_ids = {c.transformer_id for links in ibt_links_by_pair.values()
+                   for c in links if c.transformer_id}
+    if _ibt_tx_ids:
+        for t in db.query(Transformer).filter(Transformer.id.in_(_ibt_tx_ids)).all():
+            _ibt_unit[t.id] = t.unit_no or ""
+
     # Separate the horizontal shoulders of unrelated step-down groups sharing
     # the same pair of tier rows. Without distinct lanes, Cirata and Jatiluhur
     # 150/70 links become one continuous brown conductor visually.
@@ -990,11 +1017,61 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             centre = (pos[hv][1] + pos[lv][1]) / 2
             step_mid_y[pair] = centre + (index - (len(ordered) - 1) / 2) * 32
 
+    IBT_DX = 46   # room for the inline symbol + a unit label per chain
+
+    def ibt_chains(hv, lv, links):
+        """Where each IBT chain of one HV/LV pair runs, decided once so the
+        router's obstacles and the drawing agree.
+
+        A GITET sits directly above the bus it feeds, so its chain is a plain
+        vertical drop. An in-network step-down keeps both buses on their own
+        rows, usually offset, so the chain steps across at a shoulder. Either
+        way the symbol hangs IBT_SYMBOL_DROP under its HV bay when the chain
+        is long enough to carry it there and still turn below it; a short
+        jogged chain keeps it on the LV leg as before.
+        """
+        hy, ly = pos[hv][1], pos[lv][1]
+        base = port(lv, f"ibt{hv}" if hv in gitet_feeds else "ibt")
+        mid = step_mid_y.get((hv, lv), (hy + ly) / 2)
+        span = (pos[hv][0] - bus_half(hv), pos[hv][0] + bus_half(hv))
+        slinks = [(c, unit) for c in sorted(
+            links, key=lambda z: (_ibt_unit.get(z.transformer_id, ""), z.code))
+            for unit in range(max(1, c.circuit_count or 1))]
+        n = len(slinks)
+        out = []
+        for i, (c, unit) in enumerate(slinks):
+            cx = base + (i - (n - 1) / 2) * IBT_DX
+            if (hv, lv) in ibt_hv_bay:
+                hx = port(hv, f"ibtlv{lv}") + (i - (n - 1) / 2) * PITCH.get((hv, False), IBT_DX)
+            else:
+                hx = min(max(cx, span[0] + 6), span[1] - 6)
+            near = hy + IBT_SYMBOL_DROP
+            if abs(hx - cx) < 0.5:
+                hx = cx
+                sx, sy, shoulder = cx, min(mid - 4, near), None
+            elif ly - hy >= 200:
+                # symbol under the HV bay, then down and across to the LV port
+                sx, sy, shoulder = hx, near, max(mid - 16, near + 38)
+            else:
+                sx, sy, shoulder = cx, mid - 4, mid - 16
+            # neighbouring units closer than a label's width: alternate label rows
+            tight = (hv, lv) in ibt_hv_bay and PITCH.get((hv, False), IBT_DX) < 40
+            out.append({"c": c, "unit": unit, "cx": cx, "hx": hx, "hy": hy, "ly": ly,
+                        "sx": sx, "sy": sy, "shoulder": shoulder,
+                        "label_y": sy + 24 + (10 if tight and i % 2 else 0)})
+        return out
+
     symbol_obstacles = []
     for (hv, lv), links in ibt_links_by_pair.items():
         if hv in pos and lv in pos:
             base = port(lv, f"ibt{hv}" if hv in gitet_feeds else "ibt")
             radius = (_ibt_unit_count(links) - 1) * 46 / 2 + 20
+            # a symbol hung under its HV bay is equipment in the way, like a
+            # load transformer: keep conductors out of it
+            for ch in ibt_chains(hv, lv, links):
+                if ch["shoulder"] is not None and ch["sx"] == ch["hx"]:
+                    symbol_obstacles.append((ch["hx"] - 14, ch["hy"] + 18,
+                                             ch["hx"] + 14, ch["label_y"] + 6))
             top = pos[hv][1]
             # A step-down whose LV port is not under its HV bar is drawn down,
             # across at its shoulder, then down (see the chain below), so above
@@ -1088,12 +1165,6 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # We draw only the IBTs that belong to THIS view (New Balaraja shows IBT 3,4
     # in SS_BLL, IBT 1,2 in SS_LBK). Each chain is labelled with its unit no so
     # a reader can tell which transformer it is.
-    _ibt_unit: dict[int, str] = {}
-    _ibt_tx_ids = {c.transformer_id for links in ibt_links_by_pair.values()
-                   for c in links if c.transformer_id}
-    if _ibt_tx_ids:
-        for t in db.query(Transformer).filter(Transformer.id.in_(_ibt_tx_ids)).all():
-            _ibt_unit[t.id] = t.unit_no or ""
 
     def _ibt_label(c, instance=0, total=1) -> str:
         u = _ibt_unit.get(c.transformer_id, "")
@@ -1105,34 +1176,20 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
     p.append('<g id="ibt-links">')
     for (hv, lv), links in ibt_links_by_pair.items():
-        hp, lp = pos.get(hv), pos.get(lv)
-        if not hp or not lp:
+        if hv not in pos or lv not in pos:
             continue
         hv_col, lv_col = _vcol(subs[hv].voltage_kv), _vcol(subs[lv].voltage_kv)
-        base = port(lv, f"ibt{hv}" if hv in gitet_feeds else "ibt")
-        slinks = [(c, unit) for c in sorted(
-            links, key=lambda z: (_ibt_unit.get(z.transformer_id, ""), z.code))
-            for unit in range(max(1, c.circuit_count or 1))]
-        n = len(slinks)
-        IBT_DX = 46   # room for the inline symbol + a unit label per chain
-        # A GITET sits directly above the bus it feeds, so its chain is a plain
-        # vertical drop. An in-network step-down (150/70) keeps both buses on
-        # their own rows and they are usually offset horizontally, so the chain
-        # has to step across to the HV busbar instead of hanging in mid-air.
-        hv_x_span = (hp[0] - bus_half(hv), hp[0] + bus_half(hv))
-        for i, (c, unit) in enumerate(slinks):
-            cx = base + (i - (n - 1) / 2) * IBT_DX
-            hy, ly = hp[1], lp[1]
-            mid = step_mid_y.get((hv, lv), (hy + ly) / 2)
-            hx = min(max(cx, hv_x_span[0] + 6), hv_x_span[1] - 6)
+        for ch in ibt_chains(hv, lv, links):
+            c, unit = ch["c"], ch["unit"]
+            cx, hx, hy, ly, sx, sy = ch["cx"], ch["hx"], ch["hy"], ch["ly"], ch["sx"], ch["sy"]
             da = f' stroke-dasharray="{STATUS_DASH.get(c.status, "none")}"' if c.status != "ENERGIZED" else ""
             p.append(f'<g data-circuit-id="{c.id}" data-circuit-code="{esc(c.code)}" '
                      f'data-circuit-type="IBT_LINK" data-status="{esc(c.status)}">')
-            if abs(hx - cx) < 0.5:
+            if ch["shoulder"] is None:
                 d = f"M{cx:.1f},{hy:.1f} V{ly:.1f}"
             else:
-                # down from the HV bar, across in the gap, then down to the LV bar
-                d = (f"M{hx:.1f},{hy:.1f} V{mid - 16:.1f} "
+                # down from the HV bay, across in the gap, then down to the LV bar
+                d = (f"M{hx:.1f},{hy:.1f} V{ch['shoulder']:.1f} "
                      f"H{cx:.1f} V{ly:.1f}")
             p.append(f'<path d="{d}" fill="none" stroke="#8a6a3a" '
                      f'stroke-width="1.6"{da}><title>{esc(c.name)} - {esc(c.status)}</title></path>')
@@ -1141,15 +1198,15 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             # Aurduri) as two circles, like its 275/150 ones.
             if (max(subs[hv].voltage_kv, subs[lv].voltage_kv) < 500
                     or min(subs[hv].voltage_kv, subs[lv].voltage_kv) >= 275):
-                p.append(_sym_two_winding_inline(cx, mid - 4, hv_col, lv_col))
+                p.append(_sym_two_winding_inline(sx, sy, hv_col, lv_col))
             else:
                 # The book uses the three-circle IBT convention on the 500 kV
                 # projection; its tertiary is the 70/66 kV colour.
-                p.append(_sym_ibt_inline(cx, mid - 4, hv_col, lv_col, _vcol(70)))
+                p.append(_sym_ibt_inline(sx, sy, hv_col, lv_col, _vcol(70)))
             p.append(_cb(cx, ly - CB_GAP, lv_col))
             # unit label below the inline symbol (clear of both the circles and
             # the neighbouring chain)
-            p.append(f'<text x="{cx:.1f}" y="{mid + 20:.1f}" font-size="8.5" '
+            p.append(f'<text x="{sx:.1f}" y="{ch["label_y"]:.1f}" font-size="8.5" '
                      f'fill="#8a6a3a" font-weight="700" text-anchor="middle">{esc(_ibt_label(c, unit, max(1, c.circuit_count or 1)))}</text>')
             p.append('</g>')
     p.append('</g>')
