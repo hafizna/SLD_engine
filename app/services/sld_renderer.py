@@ -113,6 +113,19 @@ GITET_RISE = 130       # how far a GITET floats above the LV bus it feeds
 # drop, far from the bay it belongs to. A GITET-over-bus chain is shorter than
 # twice this and keeps its symbol at its middle.
 IBT_SYMBOL_DROP = 90
+# An IBT drawn as a bay of its GITET (the Sistem 500 kV IBT map): CB, the
+# three-winding symbol, then a short secondary lead that ends in a break mark
+# instead of running on to the 150 kV GI. The HV circle's centre sits this far
+# from the bus; the whole bay is IBT_BAY_REACH deep, label included.
+IBT_BAY_HV = 36
+IBT_BAY_REACH = 84
+
+
+def _ibt_bay_label(gi) -> str:
+    """"IBT 1,2 TMBUN7 500/150 kV" -> "IBT 1,2": the unit numbers are what a
+    reader needs next to the symbol; the GITET is the bus it hangs from."""
+    m = re.search(r"\bIBT\s*\d[\d\s,&]*", gi.name or "")
+    return m.group(0).strip(" ,&") if m else _display_code(gi.code)
 GITET_SIBLING_GAP = 40 # clear space between two GITETs feeding the same bus
 
 
@@ -1087,6 +1100,17 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if outlet in pos:
             gx = port(outlet, f"gen{gid}")
             symbol_obstacles.append((gx - 24, gy - 42, gx + 24, pos[outlet][1] - 20))
+    # an IBT drawn as a bay is a transformer, not a stub: keep conductors out
+    for feeder_id, blist in bays_by_feeder.items():
+        if feeder_id not in pos:
+            continue
+        fy = pos[feeder_id][1]
+        d = -1 if feeder_id in gitet_feeds else 1
+        for b in blist:
+            if "kind=IBT" in (b.note or ""):
+                bx = port(feeder_id, f"bay{b.id}")
+                y0, y1 = sorted((fy + d * 16, fy + d * IBT_BAY_REACH))
+                symbol_obstacles.append((bx - 14, y0, bx + 14, y1))
     routes = []
     # Within a tier gap, reserve the long runs before shorter local ties.
     specs.sort(key=lambda z: (abs(z[2][1] - z[3][1]), -abs(z[2][0] - z[3][0]), z[0].code))
@@ -1429,6 +1453,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
     STUB_LEN = 42   # every bay stub is exactly this long -- consistent, per the book
     stub_pin_by_circuit = {}
+    stub_pin_by_sub = {}    # a finding sited AT a bay GI has no bus to sit on
 
     for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], _stub_x(it))):
         fx, fy = pos[feeder_id]
@@ -1459,10 +1484,44 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         group_counts = [max(1, c.circuit_count or 1) for c in _bcs]
         circuit_count = (sum(group_counts) if group_counts else
                          max(1, bay_counts.get(bay_row.id, 1) if bay_row else 1))
-        p.append(f'<g class="sld-bay" data-node-kind="SUBSTATION" data-node-id="{gi.id}" '
+        is_ibt = "kind=IBT" in (meta or "")
+        p.append(f'<g class="sld-bay{" sld-bay-ibt" if is_ibt else ""}" data-node-kind="SUBSTATION" '
+                 f'data-node-id="{gi.id}" data-feeder-id="{feeder_id}" '
                  f'data-code="{esc(gi.code)}" data-circuit-count="{circuit_count}"{_bc_attr}>'
                  f'<title>{esc(gi.name)} [{esc(gi.code)}] - bay di bus {esc(subs[feeder_id].name)} '
                  f'({esc(status)}){" - " + esc(meta) if meta else ""}</title>')
+        if is_ibt:
+            # The IBT map shows each GITET's IBTs, not the 150 kV network
+            # behind them: a transformer facing its secondary, whose lead is
+            # cut rather than drawn on to the GI across it. A stub with a dot
+            # read as a feeder, and hid what the finding is about.
+            d = direction
+            hv_col, lv_col = _vcol(subs[feeder_id].voltage_kv), _vcol(gi.voltage_kv)
+            cy = fy + d * IBT_BAY_HV                      # HV circle centre
+            lv_c = cy + d * 8                             # LV circles' centre
+            p.append(f'<path d="M{sx:.1f},{fy:.1f} V{cy - d * 7.5:.1f}" fill="none" '
+                     f'stroke="{hv_col}" stroke-width="2.1"{da}/>')
+            p.append(_cb(sx, fy + d * CB_GAP, hv_col))
+            p.append(f'<g fill="#ffffff" stroke-width="1.7">'
+                     f'<circle cx="{sx:.1f}" cy="{cy:.1f}" r="7.5" stroke="{hv_col}"/>'
+                     f'<circle cx="{sx - 4.5:.1f}" cy="{lv_c:.1f}" r="7.5" stroke="{lv_col}"/>'
+                     f'<circle cx="{sx + 4.5:.1f}" cy="{lv_c:.1f}" r="7.5" stroke="{_vcol(70)}"/></g>')
+            s0, s1 = lv_c + d * 7.5, lv_c + d * 21
+            p.append(f'<path d="M{sx:.1f},{s0:.1f} V{s1:.1f}" fill="none" '
+                     f'stroke="{lv_col}" stroke-width="2.1"{da}/>')
+            # break mark: the secondary goes on to a GI this map does not draw
+            bm = s1 - d * 5
+            p.append(f'<path d="M{sx - 5:.1f},{bm + 3:.1f} L{sx + 5:.1f},{bm - 1:.1f} '
+                     f'M{sx - 5:.1f},{bm + 7:.1f} L{sx + 5:.1f},{bm + 3:.1f}" '
+                     f'stroke="{lv_col}" stroke-width="1.6" fill="none"/>')
+            label_y = s1 + (11 if d > 0 else -5)
+            p.append(f'<text x="{sx:.1f}" y="{label_y:.1f}" font-size="10" font-weight="700" '
+                     f'paint-order="stroke" stroke="#ffffff" stroke-width="3" '
+                     f'text-anchor="middle" fill="#8a6a3a">{esc(_ibt_bay_label(gi))}</text>')
+            p.append('</g>')
+            stub_pin_by_sub.setdefault(gi.id, (sx + 20, cy + d * 4))
+            continue
+        stub_pin_by_sub.setdefault(gi.id, (sx + 16, (fy + sy) / 2))
         offsets = [x for group in _conductor_offsets(group_counts or [circuit_count]) for x in group]
         for off in offsets:
             px = sx + off
@@ -1535,6 +1594,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     for cid, (px, py) in stub_pin_by_circuit.items():
         seqs = risk_on.get(("CIRCUIT", cid))
         if seqs:
+            p.append(_pin(px, py, seqs))
+    # A finding sited at a GI drawn only as a bay (an IBT on the 500 kV map)
+    # had no pin at all: the pins above need a busbar of its own.
+    for sid, (px, py) in stub_pin_by_sub.items():
+        seqs = risk_on.get(("SUBSTATION", sid))
+        if seqs and sid not in drawn_ids:
             p.append(_pin(px, py, seqs))
     for sid, tx_list in tx_by_sub.items():
         # Every transformer pin of a GI sits on the same spot, so draw one pin

@@ -784,3 +784,31 @@ def test_one_risk_number_on_several_objects_pins_each_of_them(client, monkeypatc
     # risk 1 on C, A-B and B-C; IBT 1 and 2 share one spot, so one pin for #3
     assert sum('1' in (s or '').split(',') for s in pins) == 3
     assert sum('3' in (s or '').split(',') for s in pins) == 1
+
+
+def test_an_ibt_bay_on_the_500kv_map_draws_as_a_transformer_with_its_pin(client):
+    """The Sistem 500 kV IBT map hangs each GITET's IBTs off it as Bay rows
+    (Jenis = IBT). The parser used to drop `Jenis`, so they drew as plain
+    feeder stubs, and a finding sited at one had no pin at all. Now each is a
+    transformer whose secondary is cut, labelled with its units, and pinned."""
+    import re
+    path = SAMPLE_XLSX.parent / 'system_ibt_500_ingest.xlsx'
+    r = client.post("/api/ingest/parse-file", files={"file": (path.name, path.read_bytes(),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+    assert r.status_code == 200, r.text
+    draft = r.json()
+    assert any(n.get("bay_kind") == "IBT" for n in draft["nodes"])
+    for n in draft["nodes"]:
+        n["resolution"] = "NEW"
+    published = client.post('/api/ingest/publish', json={
+        'draft': draft, 'subsystem_code': 'SYSTEM_IBT_500', 'subsystem_name': 'IBT 500/150 kV'})
+    assert published.status_code == 200, published.text
+    view = next(v for v in client.get('/api/views').json() if v['view_key'].startswith('SYSTEM_IBT_500'))
+    svg = client.get(f"/api/views/{view['id']}/sld.svg").text
+    from tests.test_sld_geometry import geometry_errors
+    assert geometry_errors(svg) == []
+    bay = re.search(r'<g class="sld-bay sld-bay-ibt"[^>]*data-code="IBT_TMBUN7".*?</text>', svg, re.S)
+    assert bay, "Tambun's IBT is drawn as an IBT bay"
+    assert bay.group(0).count('<circle') >= 3            # three windings, not a stub's dot
+    assert '>IBT 1,2</text>' in bay.group(0)
+    assert re.search(r'class="risk-pin" data-risk-seqs="16"', svg)   # #16 is sited on it

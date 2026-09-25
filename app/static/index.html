@@ -2350,7 +2350,11 @@ function showNode(g){
   const isBay = g.classList.contains('sld-bay');
   const n = nodeByKindId(kind, id) || {};
   const seen = new Set();
-  const here = [...risksFor('SUBSTATION', id), ...txRisksForNode(id, n.code || code)]
+  // an IBT drawn as a bay of this GITET is part of it: its findings are here
+  const ibtBays = [...(g.ownerSVGElement || document).querySelectorAll(
+    `.sld-bay-ibt[data-feeder-id="${id}"]`)].map(b => b.dataset.nodeId);
+  const here = [...risksFor('SUBSTATION', id), ...txRisksForNode(id, n.code || code),
+                ...ibtBays.flatMap(b => risksFor('SUBSTATION', b))]
     .filter(r => !seen.has(r.seq_no) && seen.add(r.seq_no));
   // findings sited elsewhere whose Dampak text names this GI
   const affected = kind === 'SUBSTATION'
@@ -3012,6 +3016,12 @@ function riskTargets(svg, r){
   if (r && r.attach_kind === 'TRANSFORMER' && r.attach_substation_id) {
     const gi = svgNode(svg, 'SUBSTATION', r.attach_substation_id);
     if (gi && gi !== t) out.push(gi);
+  }
+  // a GI drawn as a bay (an IBT on the 500 kV map) sits on its feeder's bus:
+  // that GITET is where the finding is, too
+  if (t && t.classList.contains('sld-bay') && t.dataset.feederId) {
+    const bus = svgNode(svg, 'SUBSTATION', t.dataset.feederId);
+    if (bus && bus !== t) out.push(bus);
   }
   return out;
 }

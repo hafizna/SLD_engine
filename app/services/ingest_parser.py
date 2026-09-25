@@ -66,6 +66,9 @@ _NODE_DEFAULTS = {
     "has_transformer": False, "has_capacitor": False,
     "transformer_count": None, "capacitor_count": None, "symbol_note": None,
     "view_keys": [], "outlet_key": None, "bay_circuit_count": None,
+    # the Bay sheet's `Jenis` (SUTT / SKTT / TRAFO / IBT). Missing here, the
+    # normaliser dropped it and every bay reached ingest as a plain SUTT.
+    "bay_kind": None,
     "role_hint": None, "bay_view_keys": [], "bay_appearances": [], "latitude": None, "longitude": None,
 }
 _CONN_DEFAULTS = {

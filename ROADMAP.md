@@ -352,7 +352,13 @@ ditampilkan sebagai **tabel buku apa adanya** di halaman Sistem 500 kV
 dihitung: Jamali = 277 + 103 = 380. GI/pembangkit yang disebut Kondisi/Dampak
 diberi tautan "Disebut" ke SLD yang memuatnya (rujukan nama, bukan pin). Judul
 landing menjadi "Peta Kerawanan Operasi Sistem", sesuai tujuan buku sendiri
-("kondisi kerawanan dari sisi operasi sistem"). Kategori UI kini memakai
+("kondisi kerawanan dari sisi operasi sistem"). Teks kerawanan yang katanya
+menempel akibat ekstraksi PDF ("Kesugihandengan") diperbaiki di 536 sel oleh
+`scripts/respace_risk_text.py`, yang hanya menambah spasi di antara huruf yang
+sama dengan buku; jalankan lagi setelah workbook dibangun ulang dari PDF. Di
+peta IBT Sistem 500 kV, IBT digambar sebagai trafo menghadap sisi sekunder
+dengan lead 150 kV terputus, bukan stub, dan nomor kerawanannya tampil lagi
+(parser sebelumnya membuang kolom `Jenis` Bay). Kategori UI kini memakai
 `N-1-1` (sebelumnya chip mencari `N-1-2` sehingga 33 risiko N-1-1 tampil sebagai
 "lainnya"); BLL/CWD tidak lagi berkategori kosong.
 
