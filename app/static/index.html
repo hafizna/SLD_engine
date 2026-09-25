@@ -365,6 +365,13 @@
   #stage svg #overlay-risk { pointer-events: none; }
   #stage svg .risk-pin { pointer-events: auto; }
   #stage svg .risk-pin.active > circle:not(.pin-hit) { stroke: #7c2d12; stroke-width: 2.5; }
+  /* A hovered list row only points at its pin: the chosen kerawanan keeps its
+     focus. The pin is lifted out of any dimming and pulses. */
+  #stage svg .risk-pin.hover { opacity: 1 !important; }
+  #stage svg .risk-pin.hover > circle:not(.pin-hit) { stroke: #a21caf; stroke-width: 3;
+    animation: pinPulse 1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes pinPulse { 50% { transform: scale(1.35); } }
+  @media (prefers-reduced-motion: reduce) { #stage svg .risk-pin.hover > circle:not(.pin-hit) { animation: none; } }
   #stage svg .hit-sel { outline: none; }
   /* Selection must not read as part of the diagram. Blue is 500 kV and red is
      150 kV, so the marker uses none of the voltage colours: a soft drop
@@ -419,6 +426,9 @@
   .focusbar button { border: 1px solid #f0abfc; background: #fff; color: #701a75;
     border-radius: 7px; padding: 2px 8px; font: inherit; cursor: pointer; }
   .focusbar button:hover { background: #fae8ff; }
+  .focusbar #fclear { background: #a21caf; border-color: #a21caf; color: #fff; font-weight: 700; }
+  .focusbar #fclear:hover { background: #86198f; }
+  .focusbar .fhint { flex-basis: 100%; font-size: 10.5px; color: #a21caf; opacity: .8; }
   .riskfilter .hl-all { border: 1px dashed #d946ef; color: #a21caf; background: #fff; }
   #pintip { position: fixed; z-index: 60; max-width: 320px; pointer-events: none;
     background: #0f274a; color: #fff; border-radius: 8px; padding: 7px 9px;
@@ -2066,7 +2076,7 @@ function applyLabelFloor(svg){
 
 function wireStage(){
   const stage = $('#stage');
-  let dragging = false, lx = 0, ly = 0;
+  let dragging = false, lx = 0, ly = 0, x0 = 0, y0 = 0;
 
   stage.addEventListener('pointerdown', e => {
     // Anything clickable must be listed here. Starting a pan calls
@@ -2074,7 +2084,7 @@ function wireStage(){
     // event then never fires on what was actually pressed - which is why a
     // risk pin looked inert however large its hit area was.
     if (e.target.closest('.sld-node, .sld-bay, [data-circuit-id], [data-audit-kind], .risk-pin')) return;
-    dragging = true; lx = e.clientX; ly = e.clientY;
+    dragging = true; lx = x0 = e.clientX; ly = y0 = e.clientY;
     stage.classList.add('panning'); stage.setPointerCapture(e.pointerId);
   });
   stage.addEventListener('pointermove', e => {
@@ -2086,8 +2096,17 @@ function wireStage(){
     lx = e.clientX; ly = e.clientY;
     commitVB();
   });
-  const end = e => { dragging = false; stage.classList.remove('panning');
-    try { stage.releasePointerCapture(e.pointerId); } catch(_){} };
+  const end = e => {
+    // Pointer capture retargets the click to #stage, so the drawing never sees
+    // a press on empty paper; a press that did not move is that tap.
+    const tap = dragging && e.type === 'pointerup' && Math.hypot(e.clientX - x0, e.clientY - y0) < 4;
+    dragging = false; stage.classList.remove('panning');
+    try { stage.releasePointerCapture(e.pointerId); } catch(_){}
+    if (tap && e.target.closest('#stage') && !e.target.closest('.zoomctl')) {
+      if (FOCUS) clearFocus();
+      else { const g = $('#stage svg #sel-layer'); if (g) g.innerHTML = ''; }
+    }
+  };
   stage.addEventListener('pointerup', end);
   stage.addEventListener('pointercancel', end);
 
@@ -2607,19 +2626,18 @@ function renderRiskList(){
   box.innerHTML = h;
   box.querySelectorAll('.risk[data-seq]:not(.offpage)').forEach(el => {
     el.style.cursor = 'pointer';
-    el.onclick = ev => { if (ev.target.tagName !== 'SUMMARY') focusRisk(+el.dataset.seq); };
-    // hovering previews the kerawanan on the drawing; leaving restores what
-    // was chosen (or nothing)
-    el.onmouseenter = () => {
+    // a click chooses the kerawanan; clicking the chosen one again lets go
+    el.onclick = ev => {
+      if (ev.target.tagName === 'SUMMARY') return;
       const seq = +el.dataset.seq;
-      if (FOCUS && FOCUS.seqs.length === 1 && FOCUS.seqs[0] === seq) return;
-      setFocus([seq], {preview: true});
+      if (FOCUS && FOCUS.seqs.length === 1 && FOCUS.seqs[0] === seq) clearFocus();
+      else focusRisk(seq);
     };
-    el.onmouseleave = () => {
-      if (!FOCUS_PREVIEW) return;
-      FOCUS_PREVIEW = false;
-      if (FOCUS) setFocus(FOCUS.seqs); else clearFocus({silent: true});
-    };
+    // Hovering only points at the row's pin. It used to re-focus the drawing
+    // on every row the mouse crossed, so the kerawanan actually chosen kept
+    // vanishing under whatever the pointer passed over on its way.
+    el.onmouseenter = () => hoverPins(+el.dataset.seq, true);
+    el.onmouseleave = () => hoverPins(+el.dataset.seq, false);
   });
   if (FOCUS) $$('#risklist .risk').forEach(el => el.classList.toggle('active', FOCUS.seqs.includes(+el.dataset.seq)));
   const reset = $('#risk-reset');
@@ -2633,9 +2651,19 @@ function renderRiskList(){
 // Clicking a pin on the drawing reveals the kerawanan it stands for. A pin can
 // carry several seq numbers (that is what its label shows), so all of them are
 // highlighted rather than only the first.
+function hoverPins(seq, on){
+  $$('#stage svg .risk-pin').forEach(p => {
+    if ((p.dataset.riskSeqs || '').split(',').map(Number).includes(seq)) p.classList.toggle('hover', on);
+  });
+}
 function showPinRisks(pin){
   const seqs = (pin.dataset.riskSeqs || '').split(',').map(s => +s).filter(Boolean);
   if (!seqs.length) return;
+  // the pin of the kerawanan already in focus: a second click lets go
+  if (FOCUS && pin.classList.contains('active')
+      && FOCUS.seqs.length === seqs.length && seqs.every(q => FOCUS.seqs.includes(q))) {
+    clearFocus(); return;
+  }
   const svg = $('#stage svg');
   svg.querySelectorAll('.risk-pin.active').forEach(p => p.classList.remove('active'));
   pin.classList.add('active');
@@ -2829,7 +2857,8 @@ function renderFocusBar(){
     + `<span class="spacer"></span>`
     + (many ? `<button type="button" id="fprev" title="Kerawanan sebelumnya (&larr;)">&lsaquo;</button>`
             + `<button type="button" id="fnext" title="Kerawanan berikutnya (&rarr;)">&rsaquo;</button>` : '')
-    + `<button type="button" id="fclear" title="Lepas sorotan (Esc)">&#10005;</button>`;
+    + `<button type="button" id="fclear" title="Lepas sorotan (Esc)">&#10005; Lepas sorotan</button>`
+    + `<span class="fhint">atau klik area kosong di gambar, klik kartunya lagi, atau tekan Esc</span>`;
   bar.classList.add('on');
   if (many) { $('#fprev').onclick = () => stepFocus(-1); $('#fnext').onclick = () => stepFocus(1); }
   $('#fclear').onclick = () => clearFocus();
