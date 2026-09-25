@@ -85,7 +85,7 @@ def _strip_chrome(text: str) -> str:
     return text
 
 
-def risk_rows(page_from: int, page_to: int) -> list[list[str]]:
+def risk_rows(page_from: int, page_to: int, x_tolerance: float = 3) -> list[list[str]]:
     """Rows of [no, uit, kondisi, dampak, mitigasi, usulan] for a 1-based page range.
 
     Most subsystem tables have six columns. The Sistem 500 kV tables in Sec 1.4
@@ -99,7 +99,7 @@ def risk_rows(page_from: int, page_to: int) -> list[list[str]]:
     current: list[str] | None = None
     with pdfplumber.open(PDF) as pdf:
         for pno in range(page_from, page_to + 1):
-            for table in pdf.pages[pno - 1].extract_tables():
+            for table in pdf.pages[pno - 1].extract_tables({"text_x_tolerance": x_tolerance}):
                 seven = len(table[0]) >= 7 if table else False
                 for raw in table:
                     row = list(raw)

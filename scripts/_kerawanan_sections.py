@@ -70,6 +70,28 @@ SECTIONS = [
     ("Subsistem Bali", "6.3", 238, (239, 246), 11),
 ]
 
+# book section -> the fixture build_static_site.py publishes for it
+FIXTURES = {
+    "2.3": "ss_slcg_ingest.xlsx", "2.4": "ss_gucl_ingest.xlsx",
+    "2.5": "ss_lbk_ingest.xlsx", "2.6": "seed_ss_bll", "2.7": "seed_ss_cwd",
+    "2.8": "ss_muarakarang_durikosambi_ingest.xlsx", "2.9": "ss_dkgd_ingest.xlsx",
+    "2.10": "ss_prbc_ingest.xlsx", "2.11": "ss_plbratu_ingest.xlsx",
+    "2.12": "ss_bksi_cbng_ingest.xlsx", "2.13": "ss_gndul24_ingest.xlsx",
+    "3.3": "ss_cbatu34_mdrcn_ingest.xlsx", "3.4": "ss_cirata_ingest.xlsx",
+    "3.5": "ss_cbatu12_dltms_ingest.xlsx", "3.6": "ss_bdgsel_nubrg_ingest.xlsx",
+    "3.7": "ss_tasik_ingest.xlsx", "3.8": "ss_ntmbn_ingest.xlsx",
+    "3.9": "ss_sktni_ingest.xlsx",
+    "4.3": "ss_tjati_ungaran3_ingest.xlsx", "4.4": "ss_ungaran12_ingest.xlsx",
+    "4.5": "ss_pedan12_ingest.xlsx", "4.6": "ss_pedan34_ingest.xlsx",
+    "4.7": "ss_ksghn_ingest.xlsx", "4.8": "ss_pmlng_ingest.xlsx",
+    "4.9": "ss_byoli_ingest.xlsx",
+    "5.3": "ss_krian12_gresik_ingest.xlsx", "5.4": "ss_krian3456_ingest.xlsx",
+    "5.5": "ss_ngimbang_ingest.xlsx", "5.6": "ss_kediri12_ingest.xlsx",
+    "5.7": "ss_kediri34_ingest.xlsx", "5.8": "ss_grati_ingest.xlsx",
+    "5.9": "ss_paiton123_ingest.xlsx",
+    "6.3": "ss_bali_ingest.json",
+}
+
 # Chapter 1 (sistem 500 kV), same No-column read. SUTET and IBT are drawn as
 # SLDs (backbone_500 / system_ibt_500 workbooks, 31 + 38). Peralatan and
 # Pembangkit are equipment/plant findings with no topology object of their

@@ -18,30 +18,9 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from _kerawanan_sections import SECTIONS, SYSTEM_TABLES  # noqa: E402
+from _kerawanan_sections import FIXTURES as JAMALI, SECTIONS, SYSTEM_TABLES  # noqa: E402
 from _kerawanan_sumatera import SECTIONS as SUMATERA  # noqa: E402
 
-# book section -> the fixture build_static_site.py publishes for it
-JAMALI = {
-    "2.3": "ss_slcg_ingest.xlsx", "2.4": "ss_gucl_ingest.xlsx",
-    "2.5": "ss_lbk_ingest.xlsx", "2.6": "seed_ss_bll", "2.7": "seed_ss_cwd",
-    "2.8": "ss_muarakarang_durikosambi_ingest.xlsx", "2.9": "ss_dkgd_ingest.xlsx",
-    "2.10": "ss_prbc_ingest.xlsx", "2.11": "ss_plbratu_ingest.xlsx",
-    "2.12": "ss_bksi_cbng_ingest.xlsx", "2.13": "ss_gndul24_ingest.xlsx",
-    "3.3": "ss_cbatu34_mdrcn_ingest.xlsx", "3.4": "ss_cirata_ingest.xlsx",
-    "3.5": "ss_cbatu12_dltms_ingest.xlsx", "3.6": "ss_bdgsel_nubrg_ingest.xlsx",
-    "3.7": "ss_tasik_ingest.xlsx", "3.8": "ss_ntmbn_ingest.xlsx",
-    "3.9": "ss_sktni_ingest.xlsx",
-    "4.3": "ss_tjati_ungaran3_ingest.xlsx", "4.4": "ss_ungaran12_ingest.xlsx",
-    "4.5": "ss_pedan12_ingest.xlsx", "4.6": "ss_pedan34_ingest.xlsx",
-    "4.7": "ss_ksghn_ingest.xlsx", "4.8": "ss_pmlng_ingest.xlsx",
-    "4.9": "ss_byoli_ingest.xlsx",
-    "5.3": "ss_krian12_gresik_ingest.xlsx", "5.4": "ss_krian3456_ingest.xlsx",
-    "5.5": "ss_ngimbang_ingest.xlsx", "5.6": "ss_kediri12_ingest.xlsx",
-    "5.7": "ss_kediri34_ingest.xlsx", "5.8": "ss_grati_ingest.xlsx",
-    "5.9": "ss_paiton123_ingest.xlsx",
-    "6.3": "ss_bali_ingest.json",
-}
 SYSTEM = {"Tabel 1.1.A Kerawanan SUTET 500 kV": "backbone_500_ingest.xlsx",
           "Tabel 1.2 Kerawanan IBT 500/150 kV": "system_ibt_500_ingest.xlsx",
           # no object to pin: published as the book's own tables
