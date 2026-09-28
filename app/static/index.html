@@ -426,6 +426,33 @@
   .focusbar button { border: 1px solid #f0abfc; background: #fff; color: #701a75;
     border-radius: 7px; padding: 2px 8px; font: inherit; cursor: pointer; }
   .focusbar button:hover { background: #fae8ff; }
+  /* ---- loading feedback. github.io from a corporate network took 3-56 s for
+     one SLD in measurement, so every wait shows itself: a thin bar while any
+     file is in flight, and a message where the content will appear. ---- */
+  .loadbar { position: fixed; left: 0; right: 0; top: 0; height: 3px; z-index: 100;
+    pointer-events: none; opacity: 0; transition: opacity .2s;
+    background: linear-gradient(90deg, transparent, #60a5fa, transparent) 0 0 / 40% 100% no-repeat; }
+  .loadbar.on { opacity: 1; animation: loadbar 1.1s linear infinite; }
+  @keyframes loadbar { from { background-position: -60% 0; } to { background-position: 160% 0; } }
+  .spin { display: inline-block; width: 14px; height: 14px; flex: none; border-radius: 50%;
+    border: 2px solid #bfdbfe; border-top-color: var(--blue); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+  .loading b { display: flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 600; }
+  /* the slow-connection note appears on its own after a while: no timer to clear */
+  .loading .slow { opacity: 0; animation: reveal 0s 6s forwards; font-size: 11.5px; }
+  @keyframes reveal { to { opacity: 1; } }
+  .loading .retry { align-self: flex-start; margin-top: 2px; border: 1px solid var(--blue); background: var(--blue);
+    color: #fff; border-radius: 7px; padding: 5px 12px; font: inherit; font-weight: 700; cursor: pointer; }
+  .map-loading { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; }
+  .map-loading .loading { background: rgba(255,255,255,.9); border-radius: 10px; padding: 10px 14px; }
+  .stage-loading { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center;
+    background: rgba(255,255,255,.7); }
+  .stage-loading[hidden] { display: none; }
+  .stage-loading .loading { max-width: 380px; background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 18px; box-shadow: 0 6px 20px rgba(15,39,74,.12); }
+  .gires .loading { padding: 10px; }
+  @media (prefers-reduced-motion: reduce) { .spin, .loadbar.on { animation-duration: 3s; } }
   /* A subsystem split into views: each one, and the combined sheet, one click
      away on the drawing itself, not only in the sidebar tree. */
   .povbar { position: absolute; left: 12px; top: 12px; z-index: 4; display: flex; flex-wrap: wrap;
@@ -673,6 +700,7 @@
 </style>
 </head>
 <body class="mode-hub">
+<div class="loadbar" id="loadbar" aria-hidden="true"></div>
 <header>
   <button class="brand" id="brandhome" type="button" title="Kembali ke Beranda">
     <b>MANTAPS</b> &nbsp;<span class="sub">Peta Kerawanan</span>
@@ -715,8 +743,9 @@
         <svg id="indo-svg" preserveAspectRatio="none" aria-label="Peta Indonesia: sistem yang sudah tersedia"></svg>
         <nav class="atlas-crumb" id="atlas-crumb" aria-label="Tingkat peta"></nav>
         <div class="indo-tip" id="indo-tip"></div>
+        <div class="map-loading" id="map-loading"><div class="loading"><b><span class="spin"></span>Memuat peta&hellip;</b></div></div>
       </div>
-      <aside class="portal-card atlas-panel" id="atlas-panel" aria-live="polite"></aside>
+      <aside class="portal-card atlas-panel" id="atlas-panel" aria-live="polite"><div class="loading"><b><span class="spin"></span>Memuat data kerawanan&hellip;</b><small class="slow">Koneksi ke server sedang lambat. Peta dan angka tampil begitu datanya tiba.</small></div></aside>
     </div>
     <div class="hub-legend">
       <b>Tingkat kerawanan</b>
@@ -804,6 +833,7 @@
   <div class="card viewer">
     <div id="stage"></div>
     <nav class="povbar" id="povbar" aria-label="Sudut pandang subsistem ini" hidden></nav>
+    <div class="stage-loading" id="stageload" role="status" hidden></div>
     <div class="zbadge" id="zbadge">100%</div>
     <div class="zoomctl">
       <button id="zin" title="Perbesar">+</button>
@@ -865,8 +895,35 @@ function resourcePath(p){
   m=p.match(/^\/api\/views\/(\d+)\/sld\.svg$/); if(m) return `data/view-${m[1]}.svg`;
   return p;
 }
-async function j(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw new Error(p+' '+r.status); return r.json(); }
-async function txt(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw new Error(p+' '+r.status); return r.text(); }
+// Every file the page waits for is counted, so the top bar shows whenever
+// anything is on its way; a load under 250 ms never flashes it.
+let INFLIGHT = 0, loadBarT = null;
+function tracked(promise){
+  INFLIGHT++; syncLoadBar();
+  return promise.finally(() => { INFLIGHT--; syncLoadBar(); });
+}
+function syncLoadBar(){
+  const bar = document.getElementById('loadbar'); if (!bar) return;
+  clearTimeout(loadBarT);
+  if (INFLIGHT > 0) loadBarT = setTimeout(() => bar.classList.add('on'), 250);
+  else bar.classList.remove('on');
+}
+async function fetchOk(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw new Error(p+' '+r.status); return r; }
+function j(p){ return tracked(fetchOk(p).then(r => r.json())); }
+function txt(p){ return tracked(fetchOk(p).then(r => r.text())); }
+const SLOW_NOTE = 'Koneksi ke server sedang lambat. Isinya tampil begitu datanya tiba.';
+function loadingHTML(text, slow = SLOW_NOTE){
+  return `<div class="loading"><b><span class="spin"></span>${esc(text)}</b>`
+    + (slow ? `<small class="slow">${esc(slow)}</small>` : '') + `</div>`;
+}
+// the map outlines' downloads, started at boot (above the boot code: it
+// runs before the rest of this script has been evaluated)
+const COAST_P = {};
+let INDO_P = null;
+function failedHTML(text, detail){
+  return `<div class="loading"><b>${esc(text)}</b><small>${esc(detail || '')}</small>`
+    + `<button type="button" class="retry">Coba lagi</button></div>`;
+}
 
 // ---------- transmission systems ----------
 // Each system has its own landing map, regions and system page. Keys and
@@ -946,6 +1003,9 @@ function sysCfg(key){ return SYSTEMS[key || SYS]; }
 (async function boot(){
   if(window.STATIC_SNAPSHOT) document.querySelector('a[href="/ingest"]')?.remove();
   const keys = Object.keys(SYSTEMS);
+  // the map's outlines are independent of the data: start them now rather
+  // than after it, one round-trip less before the landing is complete
+  indoOutline(); keys.forEach(loadCoast);
   const [views, subs, ...summaries] = await Promise.all(
     [j('/api/views'), j('/api/subsystems'), ...keys.map(k => j(SYSTEMS[k].summary))]);
   VIEWS = views; SUBS = subs;
@@ -1006,8 +1066,10 @@ function sysCfg(key){ return SYSTEMS[key || SYS]; }
 })().catch(e => {
   showHub();
   $('#all-total').textContent = '!';
-  $('#atlas-panel').innerHTML = '<div class="empty-state">Gagal memuat data dashboard. '
-    + 'Jalankan aplikasi melalui FastAPI atau layani hasil build statis lewat HTTP. Detail: '+esc(e.message)+'</div>';
+  $('#map-loading')?.remove();
+  $('#atlas-panel').innerHTML = failedHTML('Data dashboard gagal dimuat.',
+    'Periksa koneksi lalu coba lagi. (Lokal: jalankan lewat FastAPI atau layani hasil build statis lewat HTTP.) Detail: ' + e.message);
+  $('#atlas-panel .retry').onclick = () => location.reload();
   $('#system500').innerHTML = '<div class="empty-state" style="grid-column:1/-1">Gagal memuat data dashboard.</div>';
 });
 
@@ -1135,15 +1197,12 @@ function renderHub(){
   $('#all-total').textContent = all;
 }
 
-async function loadCoast(key){
-  if(COASTS[key] !== undefined) return COASTS[key];
-  try {
-    COASTS[key] = (await j(SYSTEMS[key].coast)).rings || [];
-  } catch(_) {
-    COASTS[key] = [];      // no backdrop is fine; the pins still carry the meaning
-  }
-  return COASTS[key];
+function loadCoast(key){
+  // no backdrop is fine; the pins still carry the meaning
+  return COAST_P[key] ||= j(SYSTEMS[key].coast)
+    .then(d => (COASTS[key] = d.rings || []), () => (COASTS[key] = []));
 }
+function indoOutline(){ return INDO_P ||= j('indonesia_outline.json').catch(() => ({rings: []})); }
 
 // Fit a lat/lon box to the panel while preserving shape, so the coastline is
 // never stretched. Padded first, then widened to the panel's aspect ratio.
@@ -1200,8 +1259,8 @@ function atlasXY(lon, lat){
 // finer coastline, hidden until the camera is inside that system.
 function atlasBase(){
   return ATLAS.base ||= (async () => {
-    try { INDO = await j('indonesia_outline.json'); } catch (_) { INDO = {rings: []}; }
-    await Promise.all(Object.keys(SYSTEMS).map(loadCoast));
+    [INDO] = await Promise.all([indoOutline(), ...Object.keys(SYSTEMS).map(loadCoast)]);
+    $('#map-loading')?.remove();
     const d = pts => 'M' + pts.map(p => `${(+p[0]).toFixed(3)},${(-p[1]).toFixed(3)}`).join('L') + 'Z';
     // a national ring whose centre lies inside one of its system's finer
     // rings is drawn by that finer ring once zoomed
@@ -1606,9 +1665,11 @@ function bookCell(t){
 async function openSystemTable(tableKey){
   const box = $('#system-table');
   let data;
+  box.hidden = false;
+  box.innerHTML = loadingHTML('Memuat tabel buku…');
   try { data = await systemTables(SYS); } catch (e) {
-    box.hidden = false;
-    box.innerHTML = `<div class="empty-state">Tabel tidak dapat dimuat: ${esc(e.message)}</div>`;
+    box.innerHTML = failedHTML('Tabel gagal dimuat.', 'Periksa koneksi lalu coba lagi. Detail: ' + e.message);
+    box.querySelector('.retry').onclick = () => openSystemTable(tableKey);
     return;
   }
   const t = (data.tables || []).find(x => x.key === tableKey);
@@ -1665,7 +1726,7 @@ async function openSystemTable(tableKey){
     where.innerHTML = links.length ? links.join('')
       : '<span class="muted">belum digambar di SLD mana pun</span>';
     where.querySelectorAll('.ssl').forEach(x => x.onclick = async () => {
-      await selectView(+x.dataset.view); markGI(x.dataset.gi); });
+      if (await selectView(+x.dataset.view)) markGI(x.dataset.gi); });
   });
   box.scrollIntoView({block: 'start', behavior: 'smooth'});
 }
@@ -1861,6 +1922,36 @@ function markTree(id){
 }
 
 // ---------- view load ----------
+// SLD + graph per view. The snapshot never changes under the page, so a load
+// is kept (and a hover can start it early); the live engine always refetches.
+const VIEW_DATA = new Map();
+function viewData(id){
+  const load = () => Promise.all([txt(`/api/views/${id}/sld.svg`), j(`/api/views/${id}/graph`)]);
+  if (!window.STATIC_SNAPSHOT) return load();
+  if (!VIEW_DATA.has(id)) {
+    const p = load();
+    VIEW_DATA.set(id, p);
+    p.catch(() => VIEW_DATA.delete(id));      // a failed load can be tried again
+  }
+  return VIEW_DATA.get(id);
+}
+// Pointing at a subsystem starts its download, so the click often finds it here.
+function prefetchView(id){ if (window.STATIC_SNAPSHOT && id) viewData(id).catch(() => {}); }
+function stageLoading(html, retry){
+  const box = $('#stageload'); if (!box) return;
+  if (!html) { box.hidden = true; box.innerHTML = ''; return; }
+  box.innerHTML = html; box.hidden = false;
+  const b = box.querySelector('.retry'); if (b && retry) b.onclick = retry;
+}
+let VIEW_LOAD = 0;     // the latest view asked for; an older load that lands late is dropped
+// "SS Sumbagut · Gabungan Aceh & Sumatera Utara"; a system view is its own name
+function viewLabel(v){
+  if (!v || isSystemView(v)) return v ? v.name : 'SLD';
+  const ss = `SS ${ssName(v.subsystem_id)}`;
+  return v.name && v.name !== 'SLD lengkap' ? `${ss} · ${v.name}` : ss;
+}
+
+// Resolves true once the view is drawn, false if it failed or was overtaken.
 async function selectView(id){
   document.body.classList.remove('mode-hub', 'mode-system500');
   document.body.classList.add('mode-viewer');
@@ -1873,10 +1964,23 @@ async function selectView(id){
   // from the region map or from a neighbouring SS in the tree.
   if(!isSystemView(VIEW)) NAV_REGION = regionKeyOf(apbOf(VIEW.subsystem_id));
   buildTree(isSystemView(VIEW) ? 'system' : 'subsystem');
-  const [svg, graph] = await Promise.all([
-    txt(`/api/views/${id}/sld.svg`),
-    j(`/api/views/${id}/graph`),
-  ]);
+  markTree(id);                               // the trail names where we are going, even while it loads
+  const token = ++VIEW_LOAD, name = viewLabel(VIEW);
+  const shown = setTimeout(() => {            // a cached view never flashes it
+    if (token === VIEW_LOAD) stageLoading(loadingHTML(`Memuat ${name}…`));
+  }, 120);
+  let svg, graph;
+  try { [svg, graph] = await viewData(id); }
+  catch (e) {
+    clearTimeout(shown);
+    if (token === VIEW_LOAD)
+      stageLoading(failedHTML(`${name} gagal dimuat.`, 'Periksa koneksi lalu coba lagi. Detail: ' + e.message),
+                   () => selectView(id));
+    return false;
+  }
+  clearTimeout(shown);
+  if (token !== VIEW_LOAD) return false;      // another view was chosen meanwhile
+  stageLoading(null);
   GRAPH = graph;
 
   const stage = $('#stage');
@@ -1905,6 +2009,7 @@ async function selectView(id){
   updateCounts();
   renderFocusBar();
   writeHash();
+  return true;
 }
 
 // Every view of the open subsystem, the combined sheet (GABUNGAN) last. A
@@ -1924,8 +2029,7 @@ function renderPovBar(){
     const id = +b.dataset.view;
     if (id === VIEW.id) return;
     const keep = FOCUS && FOCUS.seqs;
-    await selectView(id);
-    if (keep) { showTab('risk'); setFocus(keep, {zoom: true}); }
+    if (await selectView(id) && keep) { showTab('risk'); setFocus(keep, {zoom: true}); }
   });
 }
 
@@ -2957,7 +3061,7 @@ async function openFromHash(){
   }
   const v = VIEWS.find(x => x.view_key === p.get('v'));
   if (!v) return false;
-  await selectView(v.id);
+  if (!await selectView(v.id)) return false;
   const r = (p.get('r') || '').split(',').map(Number).filter(Boolean);
   if (r.length) { showTab('risk'); setFocus(r, {zoom: true}); }
   else if (p.get('gi')) markGI(p.get('gi'));
@@ -2979,8 +3083,11 @@ function markGI(code){
 // ---------- GI search + "also in" ----------
 // One index of every GI: the subsystems that carry it (as core, source,
 // boundary or stub) and the kerawanan that touch it. Fetched on first use.
-let GI_INDEX = null;
-async function giIndex(){ if (!GI_INDEX) GI_INDEX = await j('/api/gi-index'); return GI_INDEX; }
+let GI_INDEX_P = null, GI_INDEX_READY = false;
+function giIndex(){
+  return GI_INDEX_P ||= j('/api/gi-index').then(d => { GI_INDEX_READY = true; return d; },
+                                                e => { GI_INDEX_P = null; throw e; });
+}
 const ROLE_LABEL = {SOURCE: 'sumber', CORE: 'inti', SOURCE_BOUNDARY: 'batas', BOUNDARY: 'batas',
                     EXTERNAL_CONTEXT: 'stub', DOWNSTREAM_CONTEXT: 'hilir'};
 const VIA_LABEL = {pin: 'lokasi', ruas: 'pada ruasnya', dampak: 'disebut Dampak'};
@@ -3007,8 +3114,9 @@ async function runGISearch(text){
   const res = $('#gi-res'), s = normTxt(text), code = text.trim().toUpperCase();
   if (s.length < 2) { res.classList.remove('on'); res.innerHTML = ''; return; }
   let idx;
+  if (!GI_INDEX_READY) { res.innerHTML = loadingHTML('Memuat indeks GI…'); res.classList.add('on'); }
   try { idx = await giIndex(); }
-  catch (_) { res.innerHTML = '<div class="none">Indeks GI belum tersedia.</div>'; res.classList.add('on'); return; }
+  catch (_) { res.innerHTML = '<div class="none">Indeks GI gagal dimuat. Ketik lagi untuk mencoba ulang.</div>'; res.classList.add('on'); return; }
   const hits = idx.map(g => {
     const nm = normTxt(g.name), cd = displayCode(g.code).toUpperCase();
     const score = cd === code ? 100 : nm === s ? 90 : nm.startsWith(s) ? 70
@@ -3030,10 +3138,10 @@ async function runGISearch(text){
   }).join('');
   res.classList.add('on');
   res.querySelectorAll('.ssl').forEach(b => b.onclick = async () => {
-    res.classList.remove('on'); await selectView(+b.dataset.view); markGI(b.dataset.gi); });
+    res.classList.remove('on'); if (await selectView(+b.dataset.view)) markGI(b.dataset.gi); });
   res.querySelectorAll('.rkl').forEach(b => b.onclick = async () => {
-    res.classList.remove('on'); await selectView(+b.dataset.view);
-    showTab('risk'); setFocus([+b.dataset.seq], {zoom: true}); });
+    res.classList.remove('on');
+    if (await selectView(+b.dataset.view)) { showTab('risk'); setFocus([+b.dataset.seq], {zoom: true}); } });
 }
 
 // In a GI's detail: every other subsystem that carries it, one click away --
@@ -3047,7 +3155,7 @@ async function fillAlsoIn(code){
   if (!other.length) return;
   box.innerHTML = `<div class="k">Juga tercakup di</div>` + other.map(m => ssButton(m, code)).join('');
   box.querySelectorAll('.ssl').forEach(b => b.onclick = async () => {
-    await selectView(+b.dataset.view); markGI(code); });
+    if (await selectView(+b.dataset.view)) markGI(code); });
 }
 
 function riskTarget(svg, r){
