@@ -1492,7 +1492,7 @@ function atlasSSPins(region){
     b.innerHTML=`<i>${p.s.risk.total}</i><span>${esc(p.s.code.replace(/^SS_/,''))}</span>`;
     b.title=`${p.s.name}\n${p.s.risk.total} kerawanan · ${p.s.views.length} view`
       + (p.s.anchor.anchored_on?.length ? `\nposisi dari: ${p.s.anchor.anchored_on.join(', ')}` : '');
-    b.onmouseenter = () => pairHot('sid', p.s.id, true);
+    b.onmouseenter = () => { pairHot('sid', p.s.id, true); prefetchView(p.s.views[0]?.id); };
     b.onmouseleave = () => pairHot('sid', p.s.id, false);
     b.onclick=()=>{ if(p.s.views.length) selectView(p.s.views[0].id); };
     map.appendChild(b);
@@ -1612,7 +1612,7 @@ function renderAtlasPanel(){
   box.querySelectorAll('[data-sid]').forEach(b => {
     const s = ATLAS.region.subsystems.find(x => x.id === +b.dataset.sid);
     b.onclick = () => { if (s?.views.length) selectView(s.views[0].id); };
-    b.onmouseenter = () => pairHot('sid', s.id, true);
+    b.onmouseenter = () => { pairHot('sid', s.id, true); prefetchView(s.views[0]?.id); };
     b.onmouseleave = () => pairHot('sid', s.id, false);
   });
 }
@@ -1855,6 +1855,7 @@ function buildTree(scope='subsystem'){
           : v.layout_hint === 'GABUNGAN' ? '<small>semua dalam satu SLD</small>' : '<small>sudut pandang</small>';
         b.innerHTML = `${esc(v.name)}${sub}`;
         b.onclick = () => selectView(v.id);
+        b.onmouseenter = () => prefetchView(v.id);
         kids.appendChild(b);
       });
       const toggle = () => {
@@ -2025,6 +2026,7 @@ function renderPovBar(){
     + `${v.id === VIEW.id ? ' aria-current="true"' : ''}`
     + ` title="${v.layout_hint === 'GABUNGAN' ? 'Seluruh subsistem dalam satu SLD' : 'Buka sudut pandang ini'}">`
     + `${esc(v.name)}</button>`).join('');
+  bar.querySelectorAll('button').forEach(b => b.onmouseenter = () => prefetchView(+b.dataset.view));
   bar.querySelectorAll('button').forEach(b => b.onclick = async () => {
     const id = +b.dataset.view;
     if (id === VIEW.id) return;
