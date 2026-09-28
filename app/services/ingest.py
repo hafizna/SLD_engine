@@ -58,6 +58,10 @@ class IngestError(Exception):
     """A bad ingest request."""
 
 
+# Views-sheet key of a view that shows the whole subsystem at once.
+COMBINED_VIEW_KEY = "GABUNGAN"
+
+
 # ---------------------------------------------------------------------------
 # build a draft blob from parser output  (no DB write)
 # ---------------------------------------------------------------------------
@@ -671,8 +675,15 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
     manifests = draft["subsystem"].get("views") or [{
         "view_key": "FULL", "name": "SLD lengkap", "description": "", "source_keys": []}]
     views = []
+    # A view keyed GABUNGAN is the whole subsystem on one sheet, next to the
+    # views that split it (Riau / Sumbar / Jambi): every object and line, and
+    # every view's sources when it names none of its own. It is opted into per
+    # workbook with one Views row, since not every split subsystem draws well
+    # as one (README, "Views manifest").
+    all_sources = {k for m in manifests for k in (m.get("source_keys") or [])}
     for manifest in manifests:
         side = str(manifest.get("view_key") or "FULL").strip().upper()
+        combined = side == COMBINED_VIEW_KEY
         full_key = f"{code}_{side}" if side != "FULL" else f"{code}_FULL"
         view = db.query(AnalyticalView).filter(AnalyticalView.view_key == full_key).first()
         if view is None:
@@ -680,7 +691,7 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                 view_key=full_key, view_type="SUBSYSTEM", name=manifest.get("name") or side,
                 rule_profile=(draft.get("meta") or {}).get("analytical_hint") or "SUBSYSTEM_500_150",
                 subsystem_id=ss.id,
-                layout_hint=side, drawing_side=side if side != "FULL" else None,
+                layout_hint=side, drawing_side=side if side not in ("FULL", COMBINED_VIEW_KEY) else None,
             )
             db.add(view)
             db.flush()
@@ -688,11 +699,12 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         member_seen = {(m.node_kind, m.node_id) for m in
                        db.query(ViewMembership).filter_by(view_id=view.id).all()}
         included = {n["external_key"] for n in nodes
-                    if not n.get("view_keys") or side in n.get("view_keys", [])}
-        view_edges = [e for e in edges if not e.get("view_keys") or side in e.get("view_keys", [])]
+                    if combined or not n.get("view_keys") or side in n.get("view_keys", [])}
+        view_edges = [e for e in edges
+                      if combined or not e.get("view_keys") or side in e.get("view_keys", [])]
         for e in view_edges:
             included.update((e["from_key"], e["to_key"]))
-        sources = set(manifest.get("source_keys") or [])
+        sources = set(manifest.get("source_keys") or []) or (all_sources if combined else set())
         for n in nodes:
             key = n["external_key"]
             if key not in included:

@@ -426,6 +426,20 @@
   .focusbar button { border: 1px solid #f0abfc; background: #fff; color: #701a75;
     border-radius: 7px; padding: 2px 8px; font: inherit; cursor: pointer; }
   .focusbar button:hover { background: #fae8ff; }
+  /* A subsystem split into views: each one, and the combined sheet, one click
+     away on the drawing itself, not only in the sidebar tree. */
+  .povbar { position: absolute; left: 12px; top: 12px; z-index: 4; display: flex; flex-wrap: wrap;
+    align-items: center; gap: 3px; max-width: calc(100% - 90px); padding: 4px;
+    background: rgba(255,255,255,.95); border: 1px solid var(--line); border-radius: 9px;
+    box-shadow: 0 2px 8px rgba(15,39,74,.1); font-size: 11.5px; }
+  .povbar[hidden] { display: none; }
+  .povbar .k { padding: 0 6px; font-size: 10px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .05em; }
+  .povbar button { border: 1px solid transparent; background: none; border-radius: 6px;
+    padding: 4px 9px; font: inherit; color: var(--ink); cursor: pointer; }
+  .povbar button:hover { background: #eef6ff; }
+  .povbar button.all { border-color: #c7d2fe; }
+  .povbar button[aria-current] { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 700; }
   .focusbar #fclear { background: #a21caf; border-color: #a21caf; color: #fff; font-weight: 700; }
   .focusbar #fclear:hover { background: #86198f; }
   .focusbar .fhint { flex-basis: 100%; font-size: 10.5px; color: #a21caf; opacity: .8; }
@@ -789,6 +803,7 @@
   <!-- CENTER -->
   <div class="card viewer">
     <div id="stage"></div>
+    <nav class="povbar" id="povbar" aria-label="Sudut pandang subsistem ini" hidden></nav>
     <div class="zbadge" id="zbadge">100%</div>
     <div class="zoomctl">
       <button id="zin" title="Perbesar">+</button>
@@ -1775,7 +1790,8 @@ function buildTree(scope='subsystem'){
         const b = document.createElement('button');
         b.className = 'pov';
         b.dataset.viewId = v.id;
-        const sub = g.views.length > 1 ? '<small>sudut pandang</small>' : '';
+        const sub = g.views.length < 2 ? ''
+          : v.layout_hint === 'GABUNGAN' ? '<small>semua dalam satu SLD</small>' : '<small>sudut pandang</small>';
         b.innerHTML = `${esc(v.name)}${sub}`;
         b.onclick = () => selectView(v.id);
         kids.appendChild(b);
@@ -1874,6 +1890,7 @@ async function selectView(id){
   commitVB();
 
   markTree(id);
+  renderPovBar();
   buildScenario();
   applyLayers();
   wireHits();
@@ -1888,6 +1905,28 @@ async function selectView(id){
   updateCounts();
   renderFocusBar();
   writeHash();
+}
+
+// Every view of the open subsystem, the combined sheet (GABUNGAN) last. A
+// kerawanan in focus stays in focus across the switch.
+function renderPovBar(){
+  const bar = $('#povbar'); if (!bar) return;
+  const sibs = VIEW && !isSystemView(VIEW)
+    ? VIEWS.filter(v => v.subsystem_id === VIEW.subsystem_id) : [];
+  if (sibs.length < 2) { bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.hidden = false;
+  bar.innerHTML = `<span class="k">Sudut pandang</span>` + sibs.map(v =>
+    `<button type="button" data-view="${v.id}"${v.layout_hint === 'GABUNGAN' ? ' class="all"' : ''}`
+    + `${v.id === VIEW.id ? ' aria-current="true"' : ''}`
+    + ` title="${v.layout_hint === 'GABUNGAN' ? 'Seluruh subsistem dalam satu SLD' : 'Buka sudut pandang ini'}">`
+    + `${esc(v.name)}</button>`).join('');
+  bar.querySelectorAll('button').forEach(b => b.onclick = async () => {
+    const id = +b.dataset.view;
+    if (id === VIEW.id) return;
+    const keep = FOCUS && FOCUS.seqs;
+    await selectView(id);
+    if (keep) { showTab('risk'); setFocus(keep, {zoom: true}); }
+  });
 }
 
 function buildScenario(){

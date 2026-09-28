@@ -52,6 +52,8 @@ BOTH = ["CIBINONG", "SALAK"]
 VIEWS = [
     ("CIBINONG", "Sisi Cibinong 1,2 - Depok 2", "CIBNG;DEPOK", 101),
     ("SALAK", "Sisi Salak - Pelabuhan Ratu", "SALAK;PRATU", 101),
+    # both sides on one sheet; takes every object and every source above
+    ("GABUNGAN", "Gabungan kedua sisi", "", 101),
 ]
 
 ASSETS = [

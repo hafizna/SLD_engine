@@ -46,6 +46,8 @@ BOTH = ["BDGSEL", "NUBRG"]
 VIEWS = [
     ("BDGSEL", "Sisi Bandung Selatan 1,2", "BDSLN", 127),
     ("NUBRG", "Sisi New Ujungberung 1,2", "NUBRG5", 127),
+    # both sides on one sheet; takes every object and every source above
+    ("GABUNGAN", "Gabungan kedua sisi", "", 127),
 ]
 
 ASSETS = [

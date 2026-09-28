@@ -812,3 +812,40 @@ def test_an_ibt_bay_on_the_500kv_map_draws_as_a_transformer_with_its_pin(client)
     assert bay.group(0).count('<circle') >= 3            # three windings, not a stub's dot
     assert '>IBT 1,2</text>' in bay.group(0)
     assert re.search(r'class="risk-pin" data-risk-seqs="16"', svg)   # #16 is sited on it
+
+
+def test_a_gabungan_view_draws_the_whole_subsystem_on_one_sheet(client):
+    """A subsystem split into regional views can add one Views row keyed
+    GABUNGAN: that view takes every object and line, and every view's
+    sources, while the regional views keep only their own."""
+    def obj(key, views, tier):
+        return {"external_key": key, "raw_label": key, "object_type": "GI",
+                "tier_hint": tier, "view_keys": views}
+    payload = {
+        "subsystem": {"code": "SS_GAB", "name": "Uji Gabungan", "apb": "Sumbagteng", "views": [
+            {"view_key": "UTARA", "name": "Utara", "source_keys": ["AAA"]},
+            {"view_key": "SELATAN", "name": "Selatan", "source_keys": ["CCC"]},
+            {"view_key": "GABUNGAN", "name": "Gabungan", "source_keys": []}]},
+        "objects": [obj("AAA", ["UTARA"], 1), obj("BBB", ["UTARA", "SELATAN"], 2),
+                    obj("CCC", ["SELATAN"], 1)],
+        "connections": [{"from_external_key": "AAA", "to_external_key": "BBB", "view_keys": ["UTARA"]},
+                        {"from_external_key": "CCC", "to_external_key": "BBB", "view_keys": ["SELATAN"]}],
+        "risks": [],
+    }
+    draft = client.post("/api/ingest/parse", json={"payload": payload}).json()
+    for n in draft["nodes"]:
+        n["resolution"] = "NEW"
+    r = client.post("/api/ingest/publish", json={
+        "draft": draft, "subsystem_code": "SS_GAB", "subsystem_name": "Uji Gabungan"})
+    assert r.status_code == 200, r.text
+    views = {v["view_key"]: v for v in client.get("/api/views").json() if v["view_key"].startswith("SS_GAB_")}
+    assert set(views) == {"SS_GAB_UTARA", "SS_GAB_SELATAN", "SS_GAB_GABUNGAN"}
+
+    def drawn(key):
+        g = client.get(f"/api/views/{views[key]['id']}/graph").json()
+        return ({n["code"] for n in g["nodes"] if n["kind"] == "SUBSTATION"}, len(g["edges"]))
+    assert drawn("SS_GAB_UTARA") == ({"AAA", "BBB"}, 1)
+    assert drawn("SS_GAB_GABUNGAN") == ({"AAA", "BBB", "CCC"}, 2)
+    from tests.test_sld_geometry import geometry_errors
+    svg = client.get(f"/api/views/{views['SS_GAB_GABUNGAN']['id']}/sld.svg").text
+    assert geometry_errors(svg) == []

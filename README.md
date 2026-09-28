@@ -74,7 +74,12 @@ not verified physical equipment registers.
 
 The Excel parser imports a `Views` manifest and per-row `Sudut Pandang` values.
 Publishing creates one `AnalyticalView` per manifest row and restricts both
-nodes and circuits to their declared views. Mixed 500/150 kV workbooks are
+nodes and circuits to their declared views. A manifest row with View Key
+`GABUNGAN` is the exception: it takes every node and circuit of the subsystem
+(and every view's sources when it lists none), so a subsystem split into
+regional views can also be read on one sheet. It is opt-in per workbook, since
+not every split draws well as one -- check the audit before adding it.
+Mixed 500/150 kV workbooks are
 supported; `Pembangkit` rows require `Bus Terhubung` (or an explicit connection).
 `No Kerawanan` accepts multiple semicolon-separated numbers such as `5;7`.
 

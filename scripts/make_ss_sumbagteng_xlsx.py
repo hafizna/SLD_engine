@@ -60,6 +60,8 @@ VIEWS = [
     ("SUMBAR", "Sumatera Barat", "PYBUH_275;KLJAO_275;SRMBI_275;OMBLN;MNJAU;SKRAK;"
                                  "PLIMO;TSRIH;PMLBH", 18),
     ("JAMBI", "Jambi", "NAURD_500;MBUGO_275;BNGKO_275;MRNGN;PYSLC;SGLAM", 18),
+    # the three panels on one sheet; takes every object and every source above
+    ("GABUNGAN", "Gabungan Riau, Sumbar & Jambi", "", 18),
 ]
 
 
