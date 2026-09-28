@@ -368,6 +368,8 @@ JOINT = {"BNJAI", "BNJAI_275"}
 VIEWS = [
     ("ACEH", "Aceh", "BACEH;NAGAN_275;ARUN_275;ULKRG_275;SIGLI_275;BNJAI_275", 24),
     ("SUMUT", "Sumatera Utara", "BNJAI_275;GLANG_275;SMKOK_275;SMUT4_275;NPSDM_275", 24),
+    # both provinces on one sheet; takes every object and every source above
+    ("GABUNGAN", "Gabungan Aceh & Sumatera Utara", "", 24),
 ]
 
 
