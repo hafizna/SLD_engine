@@ -213,12 +213,40 @@ class OrthogonalRouter:
             # Transmission routing must stay below that hierarchy boundary.
             ys = {y for y in ys if y >= min_route_y} | {round(y, 3) for x, y in endpoints}
         self.xs, self.ys = sorted(xs), sorted(ys)
-        self.blocked = set()
-        for i, x in enumerate(self.xs):
-            for j, y in enumerate(self.ys):
-                if any(l < x < r and t < y < b for l, t, r, b in self.rects):
-                    self.blocked.add((i, j))
+        # Whether a grid point sits inside an obstacle, asked lazily and kept
+        # by coordinate. The rectangles never change, so this is the same
+        # answer the old per-route full-grid table gave -- but that table was
+        # rebuilt for every grid point on every route() (xs x ys x rects), which
+        # was half of a large view's render time (Sumbagut, 79 GI, ~15 min).
+        self._blocked_xy = {}
         self.base_clear = {}
+        self._uidx = None
+
+    def _blocked(self, x, y):
+        hit = self._blocked_xy.get((x, y))
+        if hit is None:
+            hit = self._blocked_xy[(x, y)] = any(
+                l < x < r and t < y < b for l, t, r, b in self.rects)
+        return hit
+
+    # Reserved segments bucketed by their fixed coordinate (x of a vertical, y
+    # of a horizontal), rebuilt once per route(). _cost then looks only at
+    # segments that can matter -- parallel ones within reach, crossing ones
+    # inside its span -- instead of every segment reserved so far. Any
+    # collision still returns None and the penalties are integers, so the sum
+    # does not depend on which order the segments are met in.
+    _BUCKET = 32.0
+
+    def _index_used(self):
+        vert, horz = defaultdict(list), defaultdict(list)
+        for c, d in self.used:
+            (vert[int(c[0] // self._BUCKET)] if c[0] == d[0]
+             else horz[int(c[1] // self._BUCKET)]).append((c, d))
+        self._uidx = (vert, horz)
+
+    def _near(self, table, lo, hi):
+        for k in range(int(lo // self._BUCKET), int(hi // self._BUCKET) + 1):
+            yield from table.get(k, ())
 
     def _clear(self, a, b):
         key = tuple(sorted((a, b)))
@@ -242,7 +270,12 @@ class OrthogonalRouter:
         span = 1 - axis
         low, high = sorted((a[span], b[span]))
         penalty = 0
-        for c, d in self.used:
+        vert, horz = self._uidx
+        reach = max(32, CHANNEL_PITCH) + 1
+        same, cross = (vert, horz) if vertical else (horz, vert)
+        candidates = [*self._near(same, a[axis] - reach, a[axis] + reach),
+                      *self._near(cross, low - 1, high + 1)]
+        for c, d in candidates:
             other_vertical = c[0] == d[0]
             if vertical == other_vertical:
                 # Reserve enough centreline clearance for the outer wires of
@@ -286,9 +319,7 @@ class OrthogonalRouter:
         if additions or x_additions:
             self.ys = sorted(set(self.ys) | additions)
             self.xs = sorted(set(self.xs) | x_additions)
-            self.blocked = {(i, j) for i, x in enumerate(self.xs)
-                            for j, y in enumerate(self.ys)
-                            if any(l < x < r and t < y < b for l, t, r, b in self.rects)}
+        self._index_used()
         start = tuple(round(v, 3) for v in start)
         end = tuple(round(v, 3) for v in end)
         si = (self.xs.index(start[0]), self.ys.index(start[1]))
@@ -309,9 +340,9 @@ class OrthogonalRouter:
             for ni, nj, nd in ((i - 1, j, 0), (i + 1, j, 0), (i, j - 1, 1), (i, j + 1, 1)):
                 if not (0 <= ni < len(self.xs) and 0 <= nj < len(self.ys)):
                     continue
-                if (ni, nj) in self.blocked:
-                    continue
                 b = self.xs[ni], self.ys[nj]
+                if self._blocked(*b):
+                    continue
                 key = tuple(sorted((a, b)))
                 if key not in costs:
                     costs[key] = self._cost(a, b) if self._clear(a, b) else None
