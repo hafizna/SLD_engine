@@ -37,6 +37,8 @@ from sqlalchemy.orm import Session
 
 from app.models import (AnalyticalView, Bay, Circuit, DiagramNodePosition, RiskAttachment,
                         RiskRecord, Subsystem, Transformer)
+from app.services.bus_sections import section_inventory, SWITCH_TYPES
+from app.services.sld_layout import section_port_layout
 from app.services.sld_layout import (layered_positions, route_bundles, offset_path,
                                       path_d, WIRE_PITCH, BUS_TOP, BUS_BOTTOM)
 from app.services.topology import _is_live, calculate_tier, classify_layout, get_view_graph
@@ -328,6 +330,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     core_ids, spur = classify_layout(db, view)
 
     subs = {k[1]: n for k, n in nodes.items() if k[0] == "SUBSTATION"}
+    sections_by_sub = section_inventory(db, set(subs))
+    couplers = [c for c in edges if c.circuit_type in SWITCH_TYPES]
+    unassigned_subs = {sid for sid in sections_by_sub if any(
+        (c.from_substation_id == sid and c.from_bus_section_id is None)
+        or (c.to_substation_id == sid and c.to_bus_section_id is None)
+        for c in edges if c.circuit_type not in SWITCH_TYPES)}
     gens = {k[1]: n for k, n in nodes.items() if k[0] == "GENERATING_UNIT"}
     if not subs:
         return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120">'
@@ -339,6 +347,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # bus position to connect to.
     generator_outlets = {g.outlet_substation_id for g in gens.values() if g.outlet_substation_id in subs}
     core_ids.update(generator_outlets)
+    core_ids.update(sections_by_sub)
+    for sid in sections_by_sub:
+        spur.pop(sid, None)
     for sid in generator_outlets:
         spur.pop(sid, None)
 
@@ -442,6 +453,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
 
     line_edges = [c for c in edges
                   if (c.circuit_type != "IBT_LINK" or c.id in _ibt_as_line)
+                  and c.circuit_type not in SWITCH_TYPES
                   and c.from_substation_id not in bay_gi_ids
                   and c.to_substation_id not in bay_gi_ids
                   and c.from_substation_id in subs and c.to_substation_id in subs]
@@ -449,7 +461,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     bundles = defaultdict(list)
     for c in line_edges:
         bundles[(tuple(sorted((c.from_substation_id, c.to_substation_id))),
-                 c.circuit_type, c.status)].append(c)
+                 c.circuit_type, c.status,
+                 tuple(sorted((c.from_bus_section_id or 0, c.to_bus_section_id or 0))))].append(c)
     bundle_edges = [min(cs, key=lambda c: c.code) for cs in bundles.values()]
     representative = {c.id: min(cs, key=lambda c: c.code).id
                       for cs in bundles.values() for c in cs}
@@ -505,7 +518,8 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         att[sid] = max(n, 2)
 
     def bus_half(sid: int) -> float:
-        return max(bus_min_half, att[sid] * bay_slot / 2)
+        return max(bus_min_half, att[sid] * bay_slot / 2,
+                   (len(sections_by_sub.get(sid, [])) + (sid in unassigned_subs)) * 100)
 
     # ---- rows keyed by fractional Tier --------------------------------
     # a GITET whose IBT chain feeds a LIVE bus sits just above that bus. A
@@ -743,7 +757,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     # would change the subsystem.
     drawn_sub_ids = set(drawn_ids)
     _ibt_drawn = {c.id for links in ibt_links_by_pair.values() for c in links}
-    drawn_circ_ids = {c.id for c in line_edges} | _ibt_drawn
+    drawn_circ_ids = {c.id for c in line_edges} | _ibt_drawn | {c.id for c in couplers}
     drawn_bay_ids = {b.id for b in bay_rows if b.feeder_substation_id in pos}
     _pg = {"K": "sisi Balaraja (hal.70)", "B": "sisi Kembangan (hal.69)"}.get(view.drawing_side or "", "halaman lain")
     _pg_of = {"K": "sisi Kembangan (hal.69)", "B": "sisi Balaraja (hal.70)"}
@@ -937,6 +951,38 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         if key.startswith("c") and key[1:].isdigit():
             key = f"c{representative.get(int(key[1:]), int(key[1:]))}"
         return PORT.get((sid, key), fallback_x if fallback_x is not None else pos[sid][0])
+
+    # Allocate circuit terminals inside their own section, independently on
+    # the top/bottom side. Unassigned terminals land in the visible gap and
+    # remain explicitly unresolved in the electrical graph.
+    section_spans = {}
+    section_owners = {}
+    for sid, sections in sections_by_sub.items():
+        if sid not in pos:
+            continue
+        x, _y = pos[sid]
+        terminals = []
+        for c in bundle_edges:
+            if sid not in (c.from_substation_id, c.to_substation_id):
+                continue
+            section_id = c.from_bus_section_id if c.from_substation_id == sid else c.to_bus_section_id
+            other = c.to_substation_id if c.from_substation_id == sid else c.from_substation_id
+            terminals.append({'key': f'c{c.id}', 'section_id': section_id,
+                              'side': side(sid, other), 'order': pos.get(other, (0, 0))[0]})
+        if sid in unassigned_subs and not any(t['section_id'] is None for t in terminals):
+            terminals.append({'key': 'unassigned', 'section_id': None, 'side': 0, 'order': 0})
+        spans, section_ports = section_port_layout(bus_half(sid), [s.id for s in sections], terminals)
+        for section_id, span in spans.items():
+            section_id = section_id if section_id is not None else -sid
+            section_spans[section_id] = span
+            section_owners[section_id] = sid
+        for key, offset in section_ports.items():
+            PORT[(sid, key)] = x + offset
+
+    def section_span(section_id):
+        lo, hi = section_spans[section_id]
+        cx = pos[section_owners[section_id]][0]
+        return lo + cx, hi + cx
 
     # A radial child can align its incoming bay with the parent outgoing bay,
     # not merely its bus centre. This removes the repeated tiny Z on a chain.
@@ -1316,6 +1362,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     p.append('</g>')
 
     # ---- busbars ---------------------------------------------
+    coupler_pin_positions = {}
     p.append('<g id="busbars">')
     for sid in drawn_ids:
         s = subs[sid]
@@ -1401,10 +1448,44 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         else:
             p.append(f'<text x="{x:.1f}" y="{y - 34:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
                      f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
-        p.append(f'<line x1="{x - bh:.1f}" x2="{x + bh:.1f}" y1="{y:.1f}" y2="{y:.1f}" '
-                 f'stroke="{bstroke}" stroke-width="6"{da}/>')
-        # busbar_config remains metadata. Without bay-to-section connectivity
-        # and an operating scenario, drawing a coupler implies unknown state.
+        if sections_by_sub.get(sid):
+            for section in sections_by_sub[sid]:
+                lo, hi = section_span(section.id)
+                p.append(f'<g class="bus-section" data-bus-section-id="{section.id}">'
+                         f'<line x1="{lo:.1f}" x2="{hi:.1f}" y1="{y:.1f}" y2="{y:.1f}" '
+                         f'stroke="{bstroke}" stroke-width="6"{da}/>'
+                         f'<text x="{(lo+hi)/2:.1f}" y="{y+18:.1f}" text-anchor="middle" '
+                         f'font-size="10">{esc(section.name)}</text></g>')
+            if sid in unassigned_subs:
+                lo, hi = section_span(-sid)
+                p.append(f'<g class="bus-unassigned"><line x1="{lo:.1f}" x2="{hi:.1f}" '
+                         f'y1="{y:.1f}" y2="{y:.1f}" stroke="#64748b" stroke-width="6" stroke-dasharray="4 4"/>'
+                         f'<text x="{(lo+hi)/2:.1f}" y="{y+18:.1f}" text-anchor="middle" font-size="10" '
+                         f'fill="#b45309">? Belum dipetakan</text></g>')
+            for c in (c for c in couplers if c.from_substation_id == sid):
+                alo, ahi = section_span(c.from_bus_section_id)
+                blo, bhi = section_span(c.to_bus_section_id)
+                # Source figures use adjacent sections and an inline kopel.
+                # Non-adjacent couplers take a shoulder above the bus.
+                left, right = sorted(((alo, ahi), (blo, bhi)))
+                cx = (left[1] + right[0]) / 2
+                closed_d = f'M{cx-9:.1f},{y:.1f} L{cx+9:.1f},{y:.1f}'
+                open_d = f'M{cx-9:.1f},{y:.1f} L{cx+5:.1f},{y-12:.1f}'
+                state = c.switch_state or 'UNKNOWN'
+                coupler_pin_positions[c.id] = (cx, y + 34)
+                color = bstroke if state != 'UNKNOWN' else '#64748b'
+                p.append(f'<g class="bus-coupler" data-circuit-id="{c.id}" '
+                         f'data-circuit-code="{esc(c.code)}" data-circuit-type="{c.circuit_type}" '
+                         f'data-switch-state="{state}"><title>{esc(c.name)} - {state}</title>'
+                         f'<path d="M{left[1]:.1f},{y:.1f} H{cx-9:.1f} M{cx+9:.1f},{y:.1f} H{right[0]:.1f}" stroke="{color}" fill="none"/>'
+                         f'<circle cx="{cx-9:.1f}" cy="{y:.1f}" r="2.5" fill="white" stroke="{color}"/>'
+                         f'<circle cx="{cx+9:.1f}" cy="{y:.1f}" r="2.5" fill="white" stroke="{color}"/>'
+                         f'<path class="coupler-contact" d="{closed_d if state == "CLOSED" else open_d}" '
+                         f'data-closed-d="{closed_d}" data-open-d="{open_d}" stroke="{color}" stroke-width="2" fill="none"/>'
+                         f'<text class="coupler-state" x="{cx:.1f}" y="{y-18:.1f}" font-size="9" text-anchor="middle">{state}</text></g>')
+        else:
+            p.append(f'<line x1="{x - bh:.1f}" x2="{x + bh:.1f}" y1="{y:.1f}" y2="{y:.1f}" '
+                     f'stroke="{bstroke}" stroke-width="6"{da}/>')
         if sid not in gitet_feeds:
             for unit in range(loads[sid]):
                 p.append(f'<g class="load-transformer" data-symbol-unit="{unit+1}">'
@@ -1591,6 +1672,10 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                 u, v = max(zip(wire, wire[1:]), key=lambda e: abs(e[0][0] - e[1][0]) + abs(e[0][1] - e[1][1]))
                 px, py = (u[0] + v[0]) / 2, (u[1] + v[1]) / 2
                 p.append(_pin(px + (22 if u[0] == v[0] else 0), py - (20 if u[1] == v[1] else 0), seqs))
+    for cid, (px, py) in coupler_pin_positions.items():
+        seqs = risk_on.get(('CIRCUIT', cid))
+        if seqs:
+            p.append(_pin(px, py, seqs))
     for cid, (px, py) in stub_pin_by_circuit.items():
         seqs = risk_on.get(("CIRCUIT", cid))
         if seqs:

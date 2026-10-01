@@ -36,6 +36,47 @@ def test_health(client):
     assert client.get("/api/health").json() == {"status": "ok"}
 
 
+def test_section_graph_and_read_only_switch_scenario(client):
+    raw = {
+        'subsystem': {'code': 'SS_BUS_TEST', 'name': 'Bus section API test'},
+        'objects': [
+            {'external_key': 'BS_SOURCE', 'tier_hint': 1, 'voltage_hv_kv': 150},
+            {'external_key': 'BS_SPLIT', 'tier_hint': 2, 'voltage_hv_kv': 150, 'bus_sections': ['A', 'B']},
+            {'external_key': 'BS_LOAD', 'tier_hint': 3, 'voltage_hv_kv': 150},
+        ],
+        'connections': [
+            {'from_external_key': 'BS_SOURCE', 'to_external_key': 'BS_SPLIT', 'to_bus_section': 'A', 'confidence': 1},
+            {'from_external_key': 'BS_SPLIT', 'to_external_key': 'BS_LOAD', 'from_bus_section': 'B', 'confidence': 1},
+            {'from_external_key': 'BS_SPLIT', 'to_external_key': 'BS_SPLIT',
+             'from_bus_section': 'A', 'to_bus_section': 'B', 'circuit_type_hint': 'BUS_COUPLER',
+             'switch_state': 'OPEN', 'unit_no': 'KOP1', 'circuit_count': 1, 'confidence': 1},
+        ],
+        'risks': [],
+    }
+    parsed = client.post('/api/ingest/parse', json=raw)
+    assert parsed.status_code == 200, parsed.text
+    draft = parsed.json()
+    for n in draft['nodes']:
+        n.update(resolution='NEW', canonical_id=None, confirmed_code=n['external_key'])
+    response = client.post('/api/ingest/publish', json={
+        'draft': draft, 'subsystem_code': 'SS_BUS_TEST', 'subsystem_name': 'Bus section API test'})
+    assert response.status_code == 200, response.text
+    vid = response.json()['view_id']
+    graph = client.get(f'/api/views/{vid}/graph').json()
+    split = next(n for n in graph['nodes'] if n.get('code') == 'BS_SPLIT')
+    assert [s['name'] for s in split['bus_sections']] == ['A', 'B']
+    assert graph['connectivity']['complete']
+    kopel = next(e for e in graph['edges'] if e['circuit_type'] == 'BUS_COUPLER')
+    result = client.post(f'/api/views/{vid}/connectivity-scenario', json={
+        'switch_overrides': {str(kopel['id']): 'CLOSED'}})
+    assert result.status_code == 200 and not result.json()['unreached']
+    assert next(e for e in client.get(f'/api/views/{vid}/graph').json()['edges']
+                if e['id'] == kopel['id'])['switch_state'] == 'OPEN'
+    assert len(client.post(f'/api/views/{vid}/connectivity-scenario', json={}).json()['unreached']) == 2
+    assert client.post(f'/api/views/{vid}/connectivity-scenario', json={
+        'switch_overrides': {str(kopel['id']): 'invalid'}}).status_code == 422
+
+
 def test_subsystems_lists_ss_lbk(client):
     data = client.get("/api/subsystems").json()
     assert any(s["code"] == "SS_LBK" for s in data)

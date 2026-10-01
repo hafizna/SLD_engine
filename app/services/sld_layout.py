@@ -22,6 +22,38 @@ BUS_TOP = 52.0
 BUS_BOTTOM = 80.0
 
 
+def section_port_layout(half_width, section_ids, terminals, gap=18.0):
+    """Allocate local geometry from terminal section IDs, never GI names.
+
+    Coordinates are relative to the GI centre, so automatic repositioning
+    cannot leave its bars behind. Each side is ordered by the opposite bus.
+    A None section is an isolated, visibly unresolved display lane.
+    """
+    sections = list(section_ids)
+    if any(t['section_id'] is None for t in terminals):
+        sections.append(None)
+    if not sections:
+        return {}, {}
+    width = 2 * half_width / len(sections)
+    spans = {}
+    for index, section in enumerate(sections):
+        lo = -half_width + index * width
+        hi = lo + width
+        spans[section] = (lo + (gap if index else 0), hi - (gap if index < len(sections)-1 else 0))
+    groups = defaultdict(list)
+    for t in terminals:
+        groups[(t['section_id'], t['side'])].append(t)
+    ports = {}
+    for (section, _side), items in groups.items():
+        if section not in spans:
+            raise ValueError('terminal references an undeclared bus section')
+        lo, hi = spans[section]
+        items.sort(key=lambda t: (t.get('order', 0), t['key']))
+        for index, item in enumerate(items):
+            ports[item['key']] = lo + (index+1) * (hi-lo) / (len(items)+1)
+    return spans, ports
+
+
 def layered_positions(row_of, links, half, names, y_at, gutter=110,
                       virtual_gutter=24, order_hints=None):
     """Order and place a layered graph.

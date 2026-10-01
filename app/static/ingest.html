@@ -327,7 +327,7 @@ let DRAFT = null;                 // the blob -- kept in localStorage, re-sent e
 let vb=null, vb0=null, stale=false, saving=false;
 const CATS = ["N-1","N-2","N-1-1","N-0"];
 const STATUSES = ["ENERGIZED","DE_ENERGIZED","NEW_NOT_ENERGIZED","PLANNED","OWNED_BY_CUSTOMER"];
-const CTYPES = ["SUTT","SKTT","IBT_LINK"];
+const CTYPES = ["SUTT","SKTT","IBT_LINK","BUS_COUPLER","BUS_TIE"];
 
 // server never returns the derived bits inside `nodes` after an edit unless we
 // call /decorate; keep the blob lean in storage.
@@ -495,7 +495,7 @@ function renderNodes(){
   t.innerHTML = `<colgroup><col class="c-raw"><col><col><col><col>
       <col class="c-num"><col><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"><col></colgroup>
     <tr><th>Dari SLD</th><th>Cocokkan</th><th>Kode</th><th>Nama</th>
-    <th>Tipe</th><th>Tier</th><th>Status</th><th>Bay</th><th>Trafo</th><th>Kapasitor</th><th>Yakin</th><th></th></tr>`;
+    <th>Tipe</th><th>Tier</th><th>Status</th><th>Bay</th><th>Trafo</th><th>Kapasitor</th><th>Yakin</th><th>Seksi bus</th><th></th></tr>`;
   DRAFT.nodes.forEach((n, idx) => {
     const tr = document.createElement('tr');
     if (n.needs_review) tr.className = 'rev';
@@ -521,6 +521,7 @@ function renderNodes(){
       <td><input type="number" min="0" step="1" data-f="transformer_count" title="Jumlah simbol trafo beban; kosong = belum diisi" value="${n.transformer_count??(n.has_transformer?1:'')}" ${n.resolution==='MATCH'?'disabled':''}></td>
       <td><input type="number" min="0" step="1" data-f="capacitor_count" title="Jumlah simbol kapasitor; kosong = belum diisi" value="${n.capacitor_count??(n.has_capacitor?1:'')}" ${n.resolution==='MATCH'?'disabled':''}></td>
       <td><input type="number" step="0.05" min="0" max="1" data-f="confidence" value="${n.confidence??''}"></td>
+      <td><input data-f="bus_sections" placeholder="A;B" title="Nama seksi dipisahkan titik koma" value="${esc((n.bus_sections || []).join(';'))}"></td>
       <td><button class="btn sm ghost" data-act="skip">${n.resolution==='SKIP'?'&crarr;':'skip'}</button></td>`;
 
     const node = DRAFT.nodes[idx];
@@ -543,6 +544,7 @@ function renderNodes(){
       tr.querySelector(`[data-f=${f}]`).onchange = e => patch({ [f]: e.target.value === '' ? null : Number(e.target.value) });
     }
     tr.querySelector('[data-f=confidence]').onchange = e => patch({ confidence:+e.target.value });
+    tr.querySelector('[data-f=bus_sections]').onchange = e => patch({bus_sections:e.target.value.split(';').map(s=>s.trim()).filter(Boolean)});
     tr.querySelector('[data-act=skip]').onclick = () =>
       patch({ resolution: node.resolution==='SKIP' ? 'NEW' : 'SKIP' });
     t.appendChild(tr);
@@ -557,10 +559,13 @@ function renderEdges(){
   $('#eTo').innerHTML = sel();
   const t = $('#tblEdges');
   t.innerHTML = `<tr><th>Dari GI</th><th>Ke GI</th><th>Tipe</th><th>Status</th>
-    <th>Sirkit</th><th>Yakin</th><th>Sudah&nbsp;dicek</th><th></th></tr>`;
+    <th>Sirkit</th><th>Yakin</th><th>Sudah&nbsp;dicek</th><th>Seksi dari</th><th>Seksi ke</th><th>Posisi kopel</th><th>ID sirkit/kopel</th><th></th></tr>`;
   DRAFT.edges.forEach((e, idx) => {
     const tr = document.createElement('tr');
     if (e.needs_review) tr.className = 'rev';
+    const sectionOptions = (key, value) => '<option value="">Belum dipetakan</option>'
+      + (DRAFT.nodes.find(n=>n.external_key===key)?.bus_sections || []).map(s=>`<option value="${esc(s)}" ${s===value?'selected':''}>${esc(s)}</option>`).join('');
+    const isCoupler = ['BUS_COUPLER', 'BUS_TIE'].includes(e.circuit_type_hint);
     tr.innerHTML = `
       <td class="nowrap">${esc(e.from_key)}</td>
       <td class="nowrap">${esc(e.to_key)}</td>
@@ -571,24 +576,32 @@ function renderEdges(){
       <td><input type="number" data-f="circuit_count" value="${e.circuit_count}"></td>
       <td><input type="number" step="0.05" min="0" max="1" data-f="confidence" value="${e.confidence}"></td>
       <td style="text-align:center"><input type="checkbox" data-f="confirmed" ${e.confirmed?'checked':''}></td>
+      <td><select data-f="from_bus_section">${sectionOptions(e.from_key,e.from_bus_section)}</select></td>
+      <td><select data-f="to_bus_section">${sectionOptions(e.to_key,e.to_bus_section)}</select></td>
+      <td><select data-f="switch_state" ${isCoupler?'':'disabled'}>${['UNKNOWN','OPEN','CLOSED'].map(s=>`<option ${s===(e.switch_state||'UNKNOWN')?'selected':''}>${s}</option>`).join('')}</select></td>
+      <td><input data-f="unit_no" value="${esc(e.unit_no || '')}"></td>
       <td><button class="btn sm ghost" data-act="del">hapus</button></td>`;
     const edge = DRAFT.edges[idx];
     const patch = p => { Object.assign(edge, p); sync(); };
-    tr.querySelector('[data-f=circuit_type_hint]').onchange = ev => patch({circuit_type_hint:ev.target.value});
+    tr.querySelector('[data-f=circuit_type_hint]').onchange = ev => patch({circuit_type_hint:ev.target.value,
+      switch_state:['BUS_COUPLER','BUS_TIE'].includes(ev.target.value) ? (e.switch_state||'UNKNOWN') : null});
     tr.querySelector('[data-f=status_hint]').onchange = ev => patch({status_hint:ev.target.value});
     tr.querySelector('[data-f=circuit_count]').onchange = ev => patch({circuit_count:+ev.target.value});
     tr.querySelector('[data-f=confidence]').onchange = ev => patch({confidence:+ev.target.value});
     tr.querySelector('[data-f=confirmed]').onchange = ev => patch({confirmed:ev.target.checked});
+    for (const f of ['from_bus_section','to_bus_section','unit_no']) tr.querySelector(`[data-f=${f}]`).onchange = ev => patch({[f]:ev.target.value||null});
+    tr.querySelector('[data-f=switch_state]').onchange = ev => patch({switch_state:ev.target.value});
     tr.querySelector('[data-act=del]').onclick = () => { DRAFT.edges.splice(idx, 1); sync(); };
     t.appendChild(tr);
   });
 }
 function addEdge(){
   const a = $('#eFrom').value, b = $('#eTo').value;
-  if (!a || a === b) return;
+  if (!a || !b) return;
   DRAFT.edges.push({ from_key:a, to_key:b, relation_type:'CONNECTED_TO',
     circuit_type_hint:'SUTT', status_hint:'ENERGIZED',
-    circuit_count:+$('#eCnt').value||2, confidence:0.5, confirmed:false });
+    circuit_count:+$('#eCnt').value||2, confidence:0.5, confirmed:false,
+    ...(a===b ? {circuit_type_hint:'BUS_COUPLER',circuit_count:1,switch_state:'UNKNOWN',unit_no:`KOP${DRAFT.edges.length+1}`} : {}) });
   sync();
 }
 
@@ -643,7 +656,8 @@ function renderValidation(){
     <div class="row"><span>Kerawanan</span><span>${v.risk_count}</span></div>
     <div class="row"><span>Status</span>
       <span class="badge ${v.ok?'ok':'warn'}">${v.ok?'SIAP TERBIT':'BELUM SIAP'}</span></div>
-    ${v.problems.map(p=>`<div class="prob">&bull; ${esc(p)}</div>`).join('')}`;
+    ${v.problems.map(p=>`<div class="prob">&bull; ${esc(p)}</div>`).join('')}
+    ${(v.warnings||[]).map(p=>`<div class="prob">&bull; ${esc(p)}</div>`).join('')}`;
   $('#publish').disabled = !v.ok;
 }
 

@@ -121,7 +121,9 @@ def build_workbook(spec: dict) -> Path:
             ws.append([vk, vn, src, page])
 
     ws = wb.create_sheet("Gardu_Induk_dan_Aset")
-    ws.append(ASSET_HEADER); _bold(ws)
+    sectioned = any(a.get('bus_sections') for a in spec['assets']) or bool(spec.get('couplers'))
+    asset_header = ASSET_HEADER + (["Seksi Bus", "Seksi Bus HV", "Seksi Bus LV"] if sectioned else [])
+    ws.append(asset_header); _bold(ws)
     for i, a in enumerate(spec["assets"], 1):
         kno = a.get("kerawanan")
         vw = ";".join(a["views"]) if a.get("views") else default_view
@@ -134,11 +136,14 @@ def build_workbook(spec: dict) -> Path:
                    a.get("trafo", ""), a.get("kapasitor", ""), a.get("simbol", ""),
                    a.get("bay_sirkit", ""), a.get("status", "Beroperasi"), a.get("role", ""),
                    "Rawan" if kno else "Normal", kno or "", wil, vw or ""])
+        if sectioned:
+            for col, value in enumerate([';'.join(a.get('bus_sections') or []), a.get('hv_section', ''), a.get('lv_section', '')], len(ASSET_HEADER)+1):
+                ws.cell(i+1, col, value)
         ws.cell(ws.max_row, len(ASSET_HEADER) - 1, a.get("latitude"))
         ws.cell(ws.max_row, len(ASSET_HEADER), a.get("longitude"))
 
     ws = wb.create_sheet("Jalur_Transmisi")
-    ws.append(LINE_HEADER); _bold(ws)
+    ws.append(LINE_HEADER + (["Seksi Dari", "Seksi Ke", "No Sirkit"] if sectioned else [])); _bold(ws)
     for i, ln in enumerate(spec["lines"], 1):
         kno = ln.get("kerawanan")
         status = ln.get("status", "Beroperasi")
@@ -151,6 +156,16 @@ def build_workbook(spec: dict) -> Path:
                    ln.get("tier_fr", ""), ln.get("tier_to", ""),
                    "Ya" if ln.get("single_phi") or "single phi" in ln["name"].lower() else "Tidak",
                    vw or ""])
+        if sectioned:
+            for col, value in enumerate([ln.get('section_fr', ''), ln.get('section_to', ''), ln.get('unit_no', '')], len(LINE_HEADER)+1):
+                ws.cell(i+1, col, value)
+
+    if spec.get('couplers'):
+        ws = wb.create_sheet('Kopel_Bus')
+        ws.append(['Kode GI', 'ID Kopel', 'Seksi Dari', 'Seksi Ke', 'Status Kopel', 'No Kerawanan', 'Catatan', 'Sudut Pandang'])
+        _bold(ws)
+        for c in spec['couplers']:
+            ws.append([c['gi'], c['id'], c['fr'], c['to'], c.get('state', 'UNKNOWN'), c.get('kerawanan', ''), c.get('note', ''), ';'.join(c.get('views') or [])])
 
     if spec.get("bays"):
         ws = wb.create_sheet("Bay")

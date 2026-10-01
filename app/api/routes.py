@@ -60,6 +60,7 @@ from app.services.sld_print import plan as print_plan, to_a4
 from app.services.sld_renderer import render_view_svg
 from app.services.systems import region_key, system_of_apb  # noqa: F401  (tests import them here)
 from app.services.topology import calculate_tier, get_view_graph
+from app.services.bus_sections import electrical_graph, section_inventory, simulate_connectivity
 
 router = APIRouter(prefix="/api")
 
@@ -401,6 +402,8 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
     nodes, edges, roles, seeds, _ = get_view_graph(db, v)
     tier = calculate_tier(db, v)
 
+    sections = section_inventory(db, {nid for kind, nid in nodes if kind == 'SUBSTATION'})
+
     node_out = []
     for (kind, nid), obj in nodes.items():
         role = roles.get((kind, nid), "")
@@ -415,6 +418,7 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
                 "voltage_kv": obj.voltage_kv, "status": obj.status,
                 "latitude": obj.lat, "longitude": obj.lon,
                 "busbar_config": obj.busbar_config, "busbar_note": obj.busbar_note,
+                "bus_sections": [{'id': s.id, 'name': s.name, 'order': s.bus_order} for s in sections.get(nid, [])],
                 "has_transformer": obj.has_transformer,
                 "has_shunt_capacitor": obj.has_shunt_capacitor,
                 "symbol_note": obj.symbol_note, "note": obj.note,
@@ -425,6 +429,7 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
                 "code": obj.code, "name": obj.name, "unit_type": obj.unit_type,
                 "rated_mw": obj.rated_mw, "unit_count": obj.unit_count,
                 "outlet_substation_id": obj.outlet_substation_id, "status": obj.status,
+                "outlet_bus_section_id": obj.outlet_bus_section_id,
             })
         elif kind == "TRANSFORMER":
             entry.update({
@@ -441,6 +446,8 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
             "from_substation_id": c.from_substation_id, "to_substation_id": c.to_substation_id,
             "circuit_count": c.circuit_count, "single_phi": c.single_phi,
             "scenario_id": c.scenario_id, "confidence": c.confidence, "note": c.note,
+            "from_bus_section_id": c.from_bus_section_id,
+            "to_bus_section_id": c.to_bus_section_id, "switch_state": c.switch_state,
         }
         for c in edges
     ]
@@ -510,11 +517,30 @@ def view_graph(view_id: int, db: Session = Depends(get_db)):
         },
         "nodes": node_out,
         "edges": edge_out,
+        "connectivity": electrical_graph(db, v, physical_graph=(nodes, edges, roles, seeds, {})),
         "overlays": {"risk": risks, "defense_scheme": schemes},
         # manually-saved node positions for this view; the SVG carries the full
         # auto-layout coords as data-x / data-y on each <g class="sld-node">.
         "layout": {"positions": positions},
     }
+
+
+@router.post("/views/{view_id}/connectivity-scenario")
+def connectivity_scenario(view_id: int, scenario: dict, db: Session = Depends(get_db)):
+    """Read-only switch/outage simulation; never changes the source state."""
+    view = db.get(AnalyticalView, view_id)
+    if not view:
+        raise HTTPException(404, 'View not found')
+    graph = electrical_graph(db, view)
+    try:
+        overrides = {int(k): v for k, v in (scenario.get('switch_overrides') or {}).items()}
+        removed = scenario.get('removed_edges') or []
+        valid_ids = {e['id'] for e in graph['edges']}
+        if not isinstance(removed, list) or any(type(i) is not int or i not in valid_ids for i in removed):
+            raise ValueError('removed_edges harus daftar ID circuit yang ada di view')
+        return simulate_connectivity(graph, removed_edges=removed, switch_overrides=overrides)
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @router.get("/views/{view_id}/sld.svg")

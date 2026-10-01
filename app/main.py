@@ -7,10 +7,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
-from app.db import Base, SessionLocal, engine
+from app.db import Base, SessionLocal, engine, upgrade_bus_section_schema
 from app.services.seed import seed_demo
 
 Base.metadata.create_all(bind=engine)
+upgrade_bus_section_schema(engine)
 with SessionLocal() as _db:
     seed_demo(_db)
 

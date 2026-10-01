@@ -126,8 +126,12 @@ def geometry_errors(svg):
     root = ET.fromstring(svg)
     bars = []
     for group in root.findall('.//s:g[@id="busbars"]/s:g', ns):
-        line = group.find('s:line', ns)
-        if line is not None:
+        # Sectioned GI has several visible bars, with real gaps. Never replace
+        # those spans by one bounding box or the test would hide false joins.
+        lines = group.findall('s:line', ns)
+        lines += group.findall('s:g[@class="bus-section"]/s:line', ns)
+        lines += group.findall('s:g[@class="bus-unassigned"]/s:line', ns)
+        for line in lines:
             bars.append((group.get('data-code'), float(line.get('x1')), float(line.get('x2')), float(line.get('y1'))))
     errors = []
     bundles = {}

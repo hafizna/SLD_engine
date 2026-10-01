@@ -130,9 +130,9 @@ ASSETS = [
     dict(code="SMNEP", name="Sumenep", type="Busbar GI", tier=13),
 ]
 
-L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2: dict(
+L = lambda fr, to, nm, tf, tt, kv=150, kno=None, st="Beroperasi", sirkit=2, single_phi=False: dict(
     fr=fr, to=to, name=nm, kv=kv, tier_fr=tf, tier_to=tt, kerawanan=kno,
-    status=st, sirkit=sirkit, koridor=WIL)
+    status=st, sirkit=sirkit, single_phi=single_phi, koridor=WIL)
 
 LINES = [
     L("KIT_GRESIK", "GRLMA", "Outlet PLTGU Gresik", 1, 1, sirkit=1),
@@ -156,8 +156,9 @@ LINES = [
     L("TNDES", "SWHAN", "SUTT Tandes - Sawahan", 2, 3, kno="8"),
     L("SWHAN", "GNSRI", "SUTT Sawahan - Gunungsari", 3, 4, kno="4"),
     L("GNSRI", "WARU5", "SUTT Gunungsari - Waru", 4, 5, kno="4"),
-    L("TNDES", "PERAK", "SUTT Tandes - Perak", 2, 3, kno="18", sirkit=1),
-    L("PERAK", "UJUNG", "SUTT Perak - Ujung", 3, 4, kno="18", sirkit=1),
+    # Tabel 5.1 #19 explicitly says single phi towards Tandes and Ujung.
+    L("TNDES", "PERAK", "SUTT Tandes - Perak", 2, 3, kno="18", sirkit=1, single_phi=True),
+    L("PERAK", "UJUNG", "SUTT Perak - Ujung", 3, 4, kno="18", sirkit=1, single_phi=True),
     L("TNDES", "UJUNG", "SUTT Tandes - Ujung", 2, 4, kno="18", sirkit=1),
     L("PERAK", "PTISM", "SKTT Perak - PTISM", 3, 4, sirkit=1),
     # ================= Karangpilang / Bambe / Sawahan ke bawah =================
@@ -191,12 +192,58 @@ LINES = [
     L("UJUNG", "BKLAN", "SUTT Ujung - Bangkalan", 4, 9, kno="22", sirkit=1),
     L("KDING", "BKLAN", "SUTT Kedinding - Bangkalan", 8, 9, kno="22"),
     L("KJRAN", "KDING", "SUTT Kenjeran - Kedinding", 7, 8, kno="23", sirkit=1),
-    L("KJRAN", "GLMUR", "SUTT Kenjeran - Gilitimur", 7, 9, kno="20", sirkit=1),
-    L("GLMUR", "BKLAN", "SUTT Gilitimur - Bangkalan", 9, 9, kno="20", sirkit=1),
+    # Tabel 5.1 #20 explicitly says Kenjeran-Gilitimur-Bangkalan single phi.
+    L("KJRAN", "GLMUR", "SUTT Kenjeran - Gilitimur", 7, 9, kno="20", sirkit=1, single_phi=True),
+    L("GLMUR", "BKLAN", "SUTT Gilitimur - Bangkalan", 9, 9, kno="20", sirkit=1, single_phi=True),
     L("BKLAN", "SAMPG", "SUTT Bangkalan - Sampang", 9, 10, kno="23"),
     L("SAMPG", "PKSAN", "SUTT Sampang - Pamekasan", 10, 11, kno="24"),
     L("PKSAN", "GULUK", "SUTT Pamekasan - Guluk-Guluk", 11, 12),
     L("GULUK", "SMNEP", "SUTT Guluk-Guluk - Sumenep", 12, 13),
+]
+
+# Internal bus sections traced from Gambar 5.3 and the supplied close-ups.
+# This preserves ONE physical GI. Terminal assignments below distinguish the
+# two sections electrically; a label A/B alone does not create connectivity.
+for asset in ASSETS:
+    if asset['code'] in {'RNKUT', 'BKLAN'}:
+        asset['bus_sections'] = ['A', 'B']
+    elif asset['code'] == 'SWHAN':
+        # #9 establishes an OPEN coupler but not all terminal assignments.
+        # 1/2 are model identifiers, not claims about the source's bus labels.
+        asset['bus_sections'] = ['1', '2']
+        asset['simbol'] = 'Seksi 1/2: ID model; bay belum dipetakan; kopel OPEN per risiko #9'
+
+SECTION_TERMINALS = {
+    ('KLANG', 'RNKUT'): (None, 'A'),
+    ('WARU5', 'RNKUT'): (None, 'B'),
+    ('RNKUT', 'SBSEL'): ('A', None),
+    ('RNKUT', 'SLILO'): ('B', None),
+    ('RNKUT', 'HJAYA'): ('B', None),
+    ('GLMUR', 'BKLAN'): (None, 'A'),
+    ('UJUNG', 'BKLAN'): (None, 'B'),
+    ('KDING', 'BKLAN'): (None, 'B'),
+}
+section_lines = []
+for line in LINES:
+    fr, to = line['fr'], line['to']
+    if (fr, to) == ('BKLAN', 'SAMPG'):
+        # One drawn conductor leaves each section. The book does not identify
+        # circuit numbers, so A/B are endpoint identifiers, not guessed 1/2.
+        for section in ('A', 'B'):
+            section_lines.append({**line, 'sirkit': 1, 'unit_no': section,
+                                  'section_fr': section})
+    else:
+        sf, st = SECTION_TERMINALS.get((fr, to), (None, None))
+        section_lines.append({**line, 'section_fr': sf, 'section_to': st})
+LINES = section_lines
+
+COUPLERS = [
+    dict(gi='RNKUT', id='KOP_AB', fr='A', to='B', state='OPEN',
+         note='Kopel Rungkut A-B; Gambar 5.3; splitting sesuai mitigasi #3. Posisi sumber buku, bukan telemetri.'),
+    dict(gi='BKLAN', id='KOP_AB', fr='A', to='B', state='OPEN', kerawanan='21',
+         note='Kopel Bangkalan A-B dibuka; Tabel 5.1 #21 dan Gambar 5.3.'),
+    dict(gi='SWHAN', id='KOP_12', fr='1', to='2', state='OPEN', kerawanan='9',
+         note='Kopel Sawahan dibuka per #9; terminal belum dipetakan; 1/2 adalah ID model.'),
 ]
 
 SPEC = dict(
@@ -211,6 +258,7 @@ SPEC = dict(
                "topologi dari Gambar 5.3 Peta Kerawanan (PDF p.179)",
     assets=ASSETS,
     lines=LINES,
+    couplers=COUPLERS,
     risks=as_risk_dicts(180, 196, expected=25),
 )
 

@@ -872,6 +872,7 @@
 <script>
 const API = '';                       // same-origin FastAPI
 let VIEWS = [], SUBS = [], SUMMARY = null, VIEW = null, GRAPH = null;
+let SWITCH_OVERRIDES = {};
 let vb = null, vb0 = null;             // current / fit viewBox {x,y,w,h}
 const layerState = {};                 // group id -> bool
 
@@ -1983,6 +1984,7 @@ async function selectView(id){
   if (token !== VIEW_LOAD) return false;      // another view was chosen meanwhile
   stageLoading(null);
   GRAPH = graph;
+  SWITCH_OVERRIDES = {};
 
   const stage = $('#stage');
   stage.innerHTML = svg;
@@ -2359,8 +2361,8 @@ function wireHits(){
     // picking any other object ends a kerawanan focus: the dimming belongs to it
     if (!pin && (node || circ || aud) && FOCUS) clearFocus();
     if (pin)       showPinRisks(pin);
-    else if (node) showNode(node);
     else if (circ) showCircuit(circ);
+    else if (node) showNode(node);
     else if (aud)  showAudit(aud);
   });
   svg.addEventListener('mousemove', e => pinTip(e.target.closest('.risk-pin'), e));
@@ -2567,6 +2569,14 @@ function showCircuit(g){
     + (ends ? `<div class="obj-sub">${esc(ends)}</div>` : '') + `</div>`;
   h += riskSection('Kerawanan di ruas ini', rr, 'detail')
     || `<div class="dsec none">Tidak ada kerawanan yang dipasang di ruas ini.</div>`;
+  if (['BUS_COUPLER', 'BUS_TIE'].includes(e.circuit_type)) {
+    const state = SWITCH_OVERRIDES[e.id] || e.switch_state || 'UNKNOWN';
+    h += `<div class="dsec"><b>Kopel antar seksi</b><div>Status sumber: ${esc(e.switch_state || 'UNKNOWN')}</div>`
+      + `<label>Skenario kopel <select id="coupler-scenario">`
+      + ['OPEN', 'CLOSED', 'UNKNOWN'].map(s => `<option ${s === state ? 'selected' : ''}>${s}</option>`).join('')
+      + `</select></label><button id="coupler-reset" type="button">Kembalikan sumber</button>`
+      + `<div id="coupler-result"></div></div>`;
+  }
   let tech = kv('Kode', e.code || '-');
   if (e.from_substation_id) tech += kv('Dari', nodeName(e.from_substation_id));
   if (e.to_substation_id) tech += kv('Ke', nodeName(e.to_substation_id));
@@ -2574,6 +2584,15 @@ function showCircuit(g){
   if (e.confidence != null) tech += kv('Confidence parse', fmtConf(e.confidence));
   h += `<details class="tech"><summary>Data teknis</summary><div class="kv">${tech}</div></details>`;
   $('#detail').innerHTML = h;
+  if ($('#coupler-scenario')) {
+    $('#coupler-scenario').onchange = ev => {
+      if (ev.target.value === 'UNKNOWN') delete SWITCH_OVERRIDES[e.id];
+      else SWITCH_OVERRIDES[e.id] = ev.target.value;
+      updateCouplerScenario();
+    };
+    $('#coupler-reset').onclick = () => { delete SWITCH_OVERRIDES[e.id]; showCircuit(g); updateCouplerScenario(); };
+    updateCouplerScenario();
+  }
   wireDetailCards();
   showTab('detail');   // clicking the drawing must reveal what it selected
 }
@@ -3212,6 +3231,65 @@ function otherPathsTo(subId, exceptEdgeId){
     (e.from_substation_id === subId || e.to_substation_id === subId)).length;
 }
 
+// BEGIN ELECTRICAL REACHABILITY (pure, also exercised by Node tests)
+function electricalReach(graph, removed = [], overrides = {}) {
+  if (!graph || !graph.complete) return {complete: false, reached: [], unreached: []};
+  const live = new Set(graph.nodes.filter(n => ['ENERGIZED', 'OWNED_BY_CUSTOMER'].includes(n.status)).map(n => n.key));
+  const adjacency = new Map([...live].map(k => [k, new Set()]));
+  for (const e of graph.edges) {
+    if (removed.includes(e.id) || !['ENERGIZED', 'OWNED_BY_CUSTOMER'].includes(e.status)) continue;
+    if (['BUS_COUPLER', 'BUS_TIE'].includes(e.circuit_type) && (overrides[e.id] || e.switch_state) !== 'CLOSED') continue;
+    if (!live.has(e.from_key) || !live.has(e.to_key)) continue;
+    adjacency.get(e.from_key).add(e.to_key);
+    adjacency.get(e.to_key).add(e.from_key);
+  }
+  const reached = new Set(graph.seeds.filter(k => live.has(k)));
+  const queue = [...reached];
+  for (let i = 0; i < queue.length; i++) {
+    for (const k of adjacency.get(queue[i]) || []) if (!reached.has(k)) { reached.add(k); queue.push(k); }
+  }
+  return {complete: true, reached: [...reached], unreached: [...live].filter(k => !reached.has(k))};
+}
+// END ELECTRICAL REACHABILITY
+
+function updateCouplerScenario() {
+  const svg = $('#stage svg');
+  for (const e of GRAPH.edges.filter(e => ['BUS_COUPLER', 'BUS_TIE'].includes(e.circuit_type))) {
+    const g = svg?.querySelector(`[data-circuit-id="${e.id}"]`);
+    const state = SWITCH_OVERRIDES[e.id] || e.switch_state || 'UNKNOWN';
+    if (g) {
+      g.dataset.switchState = state;
+      const contact = g.querySelector('.coupler-contact');
+      if (contact) contact.setAttribute('d', state === 'CLOSED' ? contact.dataset.closedD : contact.dataset.openD);
+      const label = g.querySelector('.coupler-state');
+      if (label) label.textContent = state + (SWITCH_OVERRIDES[e.id] ? ' (skenario)' : '');
+    }
+  }
+  svg?.querySelectorAll('.scenario-section-status').forEach(n => n.remove());
+  const base = electricalReach(GRAPH.connectivity);
+  const scenario = electricalReach(GRAPH.connectivity, [], SWITCH_OVERRIDES);
+  const box = $('#coupler-result');
+  if (box) box.textContent = scenario.complete
+    ? `Skenario: ${scenario.reached.length} terminal terjangkau sumber. Perubahan hanya untuk simulasi lokal.`
+    : 'Simulasi belum dapat dinilai: pemetaan seksi atau posisi kopel belum lengkap.';
+  if (scenario.complete && Object.keys(SWITCH_OVERRIDES).length) {
+    const before = new Set(base.reached), after = new Set(scenario.reached);
+    for (const n of GRAPH.connectivity.nodes) if (n.bus_section_id && before.has(n.key) !== after.has(n.key)) {
+      const group = svg?.querySelector(`[data-bus-section-id="${n.bus_section_id}"]`);
+      const bus = group?.querySelector('line');
+      if (!bus) continue;
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('class', 'scenario-section-status');
+      text.setAttribute('x', (+bus.getAttribute('x1') + +bus.getAttribute('x2')) / 2);
+      text.setAttribute('y', +bus.getAttribute('y1') + 32);
+      text.setAttribute('text-anchor', 'middle'); text.setAttribute('font-size', '10');
+      text.setAttribute('fill', after.has(n.key) ? '#15803d' : '#b91c1c');
+      text.textContent = after.has(n.key) ? 'Terjangkau sumber' : 'Terlepas dari sumber';
+      group.appendChild(text);
+    }
+  }
+}
+
 // What a kerawanan actually puts at risk, on N-1 terms rather than "everything
 // touching it":
 //  - a double-circuit penghantar (circuit_count >= 2) losing one circuit still
@@ -3224,6 +3302,29 @@ function otherPathsTo(subId, exceptEdgeId){
 function exposedBy(svg, r){
   const out = [];
   if (!r || !r.attach_id) return out;
+  if (GRAPH.connectivity) {
+    const baseline = electricalReach(GRAPH.connectivity, [], SWITCH_OVERRIDES);
+    if (!baseline.complete) return out;
+    let removed = [];
+    if (r.attach_kind === 'CIRCUIT' || r.attach_kind === 'TRANSFORMER') {
+      const e = r.attach_kind === 'CIRCUIT' ? edgeById(r.attach_id) : ibtLinkOf(r);
+      if (!e || ((e.circuit_count || 1) >= 2 && !e.single_phi)) return out;
+      removed = [e.id];
+    } else if (r.attach_kind === 'SUBSTATION') {
+      removed = GRAPH.edges.filter(e => e.from_substation_id === r.attach_id || e.to_substation_id === r.attach_id).map(e => e.id);
+    } else return out;
+    const after = new Set(electricalReach(GRAPH.connectivity, removed, SWITCH_OVERRIDES).reached);
+    const before = new Set(baseline.reached);
+    const affected = GRAPH.connectivity.nodes.filter(n => before.has(n.key) && !after.has(n.key));
+    const seen = new Set();
+    for (const n of affected) {
+      const el = n.bus_section_id
+        ? svg.querySelector(`[data-bus-section-id="${n.bus_section_id}"]`)
+        : svgNode(svg, 'SUBSTATION', n.substation_id);
+      if (el && !seen.has(el)) { out.push(el); seen.add(el); }
+    }
+    return out;
+  }
   const push = el => { if (el) out.push(el); };
 
   if (r.attach_kind === 'CIRCUIT') {
@@ -3279,6 +3380,7 @@ function renderValidation(){
   const auditN = ($('#stage svg')?.querySelectorAll('#mapping-audit [data-audit-kind]').length) || 0;
 
   const rows = [
+    ['Konektivitas seksi bus', !GRAPH.connectivity || GRAPH.connectivity.complete ? 'Lengkap' : 'Belum lengkap', GRAPH.connectivity?.complete === false ? 'warn' : 'ok'],
     ['GI ber-Tier', withTier.length + ' / ' + nodes.length, withTier.length === nodes.length ? 'ok' : ''],
     ['Sumber (Tier-1)', String(seeds.length), seeds.length ? 'ok' : 'warn'],
     ['Tanpa Tier (non-live)', String(noTier.length), noTier.length && noTier.length === nonLive.length ? '' : (noTier.length ? 'warn' : 'ok')],
@@ -3289,6 +3391,8 @@ function renderValidation(){
   $('#valid').innerHTML = rows.map(([k, v, c]) =>
     `<div class="row"><span>${esc(k)}</span><span class="n ${c}">${esc(v)}</span></div>`
   ).join('');
+  if (GRAPH.connectivity?.complete === false) $('#valid').innerHTML += `<div class="warn">Simulasi dampak belum dapat dinilai.</div>`
+    + GRAPH.connectivity.issues.map(s => `<div>${esc(s)}</div>`).join('');
 }
 
 function updateCounts(){

@@ -62,8 +62,12 @@ Crossing detection handles both route orders; the vertical wire owns the bridge.
 Generator taps sit halfway along the routed conductor. `single_phi` metadata is
 preserved and does not change stroke width within a two-circuit corridor.
 
-Bus coupler glyphs are omitted until bay-to-bus-section mapping and an operating
-scenario are available; `busbar_config` metadata is retained. Transformer and
+Optional bus sections now have explicit circuit terminals and OPEN/CLOSED/UNKNOWN
+couplers. The GI stays one physical asset; section-level connectivity drives
+reachability and Tier fallback. Section-relative port allocation and orthogonal
+autorouting follow parsed endpoints without GI-specific coordinates. Unmapped
+terminals occupy a separate gray `?` display lane and block a simulation verdict.
+See [the ingest contract](docs/bus-sections.md). Transformer and
 capacitor counts accept optional `Jumlah Trafo`, `Jumlah Kapasitor`, and
 `Catatan Simbol` Excel columns and can be reviewed before publishing new assets.
 Legacy explicit counts in symbol notes are also rendered. Reviewed symbol-only
@@ -149,9 +153,9 @@ Plain Python cannot do this. Two routes, both deferred:
 | Kerawanan-table PDF → draft rows | `pdfplumber` could pull the No/UIT/Kondisi/Dampak/Mitigasi/Usulan table; kerawanan is hand-entered for now |
 | JavaScript port of parser + Tier + renderer | would let GitHub Pages preview a mapping with no backend, but means two renderers to keep identical while the Python one is still changing — deferred until the renderer is stable; for a live demo, deploy the engine |
 | Explicit UP2B entity | grouping uses `Subsystem.apb` (a string); a real `UP2B` table with an FK is a later step |
-| Engineering bus/bay/CB detail *data* | `BusSection` / `Bay` / `Device` tables exist as nullable stubs, unpopulated; the risk map does not need bay-level detail |
+| Full engineering inventory | Optional sections, terminal bays and coupler CBs are populated through ingest; comprehensive equipment inventory and NMM/CIM import remain future work |
 | Topology conflict detection | drawing A: IBT→Bus A, drawing B: IBT→Bus B → ⚠ ; not implemented |
-| Operating scenarios (SPLIT_BUS, MAINTENANCE, …) | `Circuit.scenario_id` hook exists; the risk map is the normal-operation snapshot |
+| Persisted operating scenarios | Read-only local OPEN/CLOSED coupler and outage simulations are supported; saving scenario variants remains future work |
 | AHI overlay | `AhiRecord` schema exists, no data |
 | NMM / CIM adapter | the long-term corporate source; the engine, views and API are built so this replaces the Excel adapter without touching them |
 

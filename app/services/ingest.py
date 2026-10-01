@@ -31,8 +31,10 @@ from sqlalchemy.orm import Session
 from app.models import (
     AnalyticalView,
     Bay,
+    BusSection,
     ChangeSet,
     Circuit,
+    Device,
     GeneratingUnit,
     ObservedObject,
     RiskAttachment,
@@ -99,6 +101,8 @@ def build_draft(db: Session, payload: dict) -> dict:
             "bay_appearances": list(o.get("bay_appearances") or []),
             "latitude": o.get("latitude"),
             "longitude": o.get("longitude"),
+            "bus_sections": list(o.get("bus_sections") or []),
+            "outlet_bus_section": o.get("outlet_bus_section"),
             "resolution": "NEW",
             "confirmed_code": o["external_key"],
             "confirmed_name": o.get("site_name") or o["raw_label"],
@@ -123,6 +127,9 @@ def build_draft(db: Session, payload: dict) -> dict:
             "confirmed": conf >= 0.9,
             "note": c.get("note"),
             "view_keys": list(c.get("view_keys") or []),
+            "from_bus_section": c.get("from_bus_section"),
+            "to_bus_section": c.get("to_bus_section"),
+            "switch_state": c.get("switch_state"),
         })
 
     draft = {
@@ -220,11 +227,12 @@ _ALLOWED_NODE = {"external_key", "object_type", "raw_label", "site_name",
                  "transformer_count", "capacitor_count", "symbol_note",
                  "view_keys", "outlet_key", "bay_circuit_count", "bay_kind",
                  "role_hint", "bay_view_keys", "bay_appearances",
-                 "latitude", "longitude",
+                 "latitude", "longitude", "bus_sections", "outlet_bus_section",
                  "confirmed_code", "confirmed_name", "canonical_id"}
 _ALLOWED_EDGE = {"from_key", "to_key", "relation_type", "circuit_type_hint",
                  "status_hint", "circuit_count", "unit_no", "confidence",
-                 "confirmed", "note", "view_keys", "single_phi"}
+                 "confirmed", "note", "view_keys", "single_phi",
+                 "from_bus_section", "to_bus_section", "switch_state"}
 _ALLOWED_RISK = {"seq_no", "uit", "category", "priority", "title", "condition",
                  "impact", "mitigation", "follow_up", "pin_kind", "pin_key",
                  "extra_pins"}
@@ -298,6 +306,9 @@ def validate(db: Session, draft: dict) -> dict:
         if e["from_key"] not in keys or e["to_key"] not in keys:
             problems.append(f"penghantar {e['from_key']}-{e['to_key']} menempel ke node yang di-SKIP")
     by_key = {n["external_key"]: n for n in nodes}
+    from app.services.bus_sections import draft_section_problems
+    section_problems, section_warnings = draft_section_problems(nodes, edges)
+    problems.extend(section_problems)
     for e in edges:
         a, b = by_key.get(e["from_key"]), by_key.get(e["to_key"])
         if not a or not b or "GENERATING_UNIT" in (a.get("object_type"), b.get("object_type")):
@@ -355,6 +366,7 @@ def validate(db: Session, draft: dict) -> dict:
                                 f"'{key}' tidak cocok objek mana pun")
 
     return {"ok": not problems, "problems": problems,
+            "warnings": section_warnings, "connectivity_complete": not section_warnings,
             "node_count": len(nodes), "edge_count": len(edges),
             "risk_count": len(draft["risks"])}
 
@@ -528,11 +540,34 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         kinds[n["external_key"]] = "SUBSTATION"
         _member("SUBSTATION", s.id, _role(n), n.get("tier_hint"))
 
+    sections = {}
+    for n in nodes:
+        key = n['external_key']
+        if kinds.get(key) != 'SUBSTATION':
+            continue
+        gi = subs[key]
+        for order, name in enumerate(n.get('bus_sections') or [], 1):
+            section = db.query(BusSection).filter_by(substation_id=gi.id, name=name).first()
+            if section is None:
+                section = BusSection(substation_id=gi.id, name=name,
+                                     voltage_kv=gi.voltage_kv, bus_order=order)
+                db.add(section)
+                db.flush()
+            sections[(key, name)] = section
+        if len(n.get('bus_sections') or []) > 1:
+            gi.busbar_config = 'DOUBLE_SECTIONALIZED'
+            gi.busbar_note = '; '.join(n['bus_sections'])
+
+    def _section_id(key, name):
+        section = sections.get((key, name)) if name else None
+        return section.id if section else None
+
     for n in nodes:
         if kinds.get(n["external_key"]) == "GENERATING_UNIT" and n.get("outlet_key") in subs:
             outlet = n["outlet_key"]
             if kinds.get(outlet) == "SUBSTATION":
                 subs[n["external_key"]].outlet_substation_id = subs[outlet].id
+                subs[n['external_key']].outlet_bus_section_id = _section_id(outlet, n.get('outlet_bus_section'))
 
     txs: dict[str, Transformer] = {}
 
@@ -563,6 +598,8 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
             gk, sk = (fk, tk) if kinds.get(fk) == "GENERATING_UNIT" else (tk, fk)
             if kinds.get(sk) == "SUBSTATION":
                 subs[gk].outlet_substation_id = subs[sk].id
+                target_section = e.get('to_bus_section' if sk == tk else 'from_bus_section')
+                subs[gk].outlet_bus_section_id = _section_id(sk, target_section)
             continue
         conf = e.get("confidence", 0.5)
         is_ibt = (e.get("relation_type") == "IBT_LINK" or e.get("circuit_type_hint") == "IBT_LINK")
@@ -594,6 +631,12 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
         # real subsystems, e.g. New Balaraja - Balaraja). Reuse by code.
         c = db.query(Circuit).filter(Circuit.code == ccode).first()
         if c is not None:
+            if e.get('from_bus_section') or e.get('to_bus_section') or e.get('switch_state'):
+                if c.subsystem_id not in (None, ss.id):
+                    raise IngestError(f'{ccode}: konfigurasi seksi milik subsistem lain; perlu rekonsiliasi')
+                c.from_bus_section_id = _section_id(fk, e.get('from_bus_section'))
+                c.to_bus_section_id = _section_id(tk, e.get('to_bus_section'))
+                c.switch_state = e.get('switch_state')
             circuits[ccode] = c
             circuits.setdefault(f"{fk}-{tk}", c)
             circuits.setdefault(f"{tk}-{fk}", c)
@@ -634,8 +677,27 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                 note=("NEEDS_REVIEW; " + note) if conf < 0.9 else note,
                 confidence=conf,
             )
+        c.from_bus_section_id = _section_id(fk, e.get('from_bus_section'))
+        c.to_bus_section_id = _section_id(tk, e.get('to_bus_section'))
+        if c.circuit_type in {'BUS_COUPLER', 'BUS_TIE'}:
+            c.switch_state = e.get('switch_state') or 'UNKNOWN'
+            c.name = e.get('note') or f"Kopel {subs[fk].name} {e.get('from_bus_section')}-{e.get('to_bus_section')}"
         db.add(c)
         db.flush()
+        # Link engineering bays to the actual endpoint sections. These are
+        # terminal bays (no feeder_substation_id), not the existing GI stubs.
+        for side, gi_key in (('from', fk), ('to', tk)):
+            section_id = getattr(c, f'{side}_bus_section_id')
+            if section_id is None:
+                continue
+            bay = Bay(substation_id=subs[gi_key].id, subsystem_id=ss.id,
+                      bus_section_id=section_id, circuit_id=c.id,
+                      name=f'{side} {ccode}', bay_type='COUPLER' if c.switch_state else 'LINE')
+            db.add(bay)
+            db.flush()
+            setattr(c, f'{side}_bay_id', bay.id)
+            if side == 'from' and c.switch_state:
+                db.add(Device(bay_id=bay.id, device_type='CB', normal_state=c.switch_state))
         circuits[ccode] = c
         circuits.setdefault(f"{fk}-{tk}", c)
         circuits.setdefault(f"{tk}-{fk}", c)

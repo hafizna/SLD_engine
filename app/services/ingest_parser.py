@@ -70,12 +70,14 @@ _NODE_DEFAULTS = {
     # normaliser dropped it and every bay reached ingest as a plain SUTT.
     "bay_kind": None,
     "role_hint": None, "bay_view_keys": [], "bay_appearances": [], "latitude": None, "longitude": None,
+    "bus_sections": [], "outlet_bus_section": None,
 }
 _CONN_DEFAULTS = {
     "relation_type": "CONNECTED_TO", "circuit_type_hint": "SUTT",
     "status_hint": "ENERGIZED", "circuit_count": 2, "unit_no": None,
     "confidence": 0.5, "note": None, "voltage_hv_kv": None,
     "view_keys": [], "single_phi": False,
+    "from_bus_section": None, "to_bus_section": None, "switch_state": None,
 }
 _RISK_DEFAULTS = {
     "seq_no": None, "uit": "JBB", "category": "N-1", "priority": "High",
@@ -132,6 +134,12 @@ def normalise(raw: dict, filename: str | None = None, *, drop_bad_edges: bool = 
         row["external_key"] = k
         row["object_type"] = (o.get("object_type") or "GI").upper()
         row["raw_label"] = o.get("raw_label") or k
+        sections = row.get("bus_sections") or []
+        if not isinstance(sections, list) or any(not isinstance(s, str) or not s.strip() for s in sections):
+            raise IngestParseError(f"{k}: bus_sections harus daftar nama seksi bus")
+        row["bus_sections"] = [s.strip() for s in sections]
+        if len(set(row["bus_sections"])) != len(sections):
+            raise IngestParseError(f"{k}: nama seksi bus ganda")
         norm_objs.append(row)
 
     norm_conns = []
@@ -149,6 +157,14 @@ def normalise(raw: dict, filename: str | None = None, *, drop_bad_edges: bool = 
         row["from_external_key"] = a
         row["to_external_key"] = b
         norm_conns.append(row)
+
+    from app.services.bus_sections import draft_section_problems
+    issues, _warnings = draft_section_problems(
+        [{**o, 'from_key': None} for o in norm_objs],
+        [{**c, 'from_key': c['from_external_key'], 'to_key': c['to_external_key']} for c in norm_conns],
+    )
+    if issues:
+        raise IngestParseError('; '.join(issues))
 
     norm_risks = []
     for r in (raw.get("risks") or []):
@@ -367,6 +383,8 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                            if _get(row, "Bus Terhubung", "Outlet Bus", "Terhubung ke Bus") else None),
             "bay_circuit_count": _int_or_none(_get(row, "Jumlah Sirkit Bay", "Jumlah Sirkit", "Sirkit", "Circuit Count")),
             "role_hint": (str(_get(row, "Role", "Peran", "Peran SLD") or "").strip().upper() or None),
+            "bus_sections": [s.strip() for s in str(_get(row, "Seksi Bus", "Bus Sections") or "").split(';') if s.strip()],
+            "outlet_bus_section": _get(row, "Seksi Bus Terhubung", "Outlet Bus Section"),
             "latitude": _coordinate(_get(row, "Latitude", "Lat", "Lintang"), -90, 90),
             "longitude": _coordinate(_get(row, "Longitude", "Lon", "Long", "Bujur"), -180, 180),
             "bay_view_keys": [],
@@ -406,6 +424,8 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                        if raw_status not in (None, "") else gitet_status)
         ibt_units.setdefault(gk, {"units": []})["units"].append(
             {"unit": unit, "lv": lv, "status": link_status,
+             "from_bus_section": _get(row, "Seksi Bus HV", "HV Bus Section"),
+             "to_bus_section": _get(row, "Seksi Bus LV", "LV Bus Section"),
              "view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key"))})
         for nk in _risk_numbers(_get(row, "No Kerawanan", "No. Kerawanan")):
             ibt_pins.setdefault(nk, []).append((gk, unit))
@@ -484,6 +504,9 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             "status_hint": _STATUS_MAP.get(_norm(_get(row, "Status Operasi", "Status")), "ENERGIZED"),
             "circuit_count": cnt,
             "single_phi": _bool_cell(_get(row, "Single Phi", "Single-phi", "Single Phase")),
+            "from_bus_section": _get(row, "Seksi Dari", "From Bus Section"),
+            "to_bus_section": _get(row, "Seksi Ke", "To Bus Section"),
+            "unit_no": str(_get(row, "No Sirkit", "Circuit No") or "").strip() or None,
             "confidence": _RAWAN_CONF.get(rawan, 0.8),
             "note": str(_get(row, "Nama Penghantar", "Nama") or "").strip() or None,
             "view_keys": _tokens(_get(row, "Sudut Pandang", "View", "View Key")),
@@ -502,12 +525,35 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
                 "relation_type": "IBT_LINK", "circuit_type_hint": "IBT_LINK",
                 "status_hint": unit_info["status"], "circuit_count": 1,
                 "unit_no": u, "confidence": 1.0,
+                "from_bus_section": unit_info.get('from_bus_section'),
+                "to_bus_section": unit_info.get('to_bus_section'),
                 "view_keys": unit_info["view_keys"],
             })
 
     # auto-pin: template marks "No Kerawanan" on the asset / line / IBT it belongs to.
     # One number is often written on several objects (a chain of ruas, both ends
     # of a radial line), and every one of them is kept. The primary is still the
+    # Optional internal switches: a coupler connects two sections of ONE GI,
+    # never two fake GI assets. Unknown position is explicit and non-conducting.
+    ws_coupler = _sheet("Kopel_Bus", "Bus_Couplers")
+    if ws_coupler is not None:
+        for row in _rows(ws_coupler):
+            gi = str(_get(row, "Kode GI", "Substation") or "").strip()
+            unit = str(_get(row, "ID Kopel", "Coupler ID") or "").strip()
+            if not gi or not unit:
+                raise IngestParseError("Kopel_Bus: Kode GI dan ID Kopel wajib diisi")
+            connections.append({
+                'from_external_key': gi, 'to_external_key': gi,
+                'circuit_type_hint': 'BUS_COUPLER', 'circuit_count': 1,
+                'unit_no': unit, 'confidence': 1.0,
+                'from_bus_section': _get(row, "Seksi Dari", "From Bus Section"),
+                'to_bus_section': _get(row, "Seksi Ke", "To Bus Section"),
+                'switch_state': str(_get(row, "Status Kopel", "Switch State") or 'UNKNOWN').strip().upper(),
+                'note': _get(row, "Catatan", "Note"),
+                '_no_kerawanan': _risk_numbers(_get(row, "No Kerawanan")),
+                'view_keys': _tokens(_get(row, "Sudut Pandang", "View")),
+            })
+
     # last one written, in the order objects -> lines -> IBTs, which is what a
     # single-pin risk has always resolved to -- so existing sheets keep their pin.
     pins_by_seq: dict[int, list[tuple[str, str]]] = {}
@@ -541,7 +587,8 @@ def parse_xlsx(file_bytes: bytes, filename: str) -> dict:
             _pin(nk, ("SUBSTATION", key))
     for c in connections:
         for nk in c.pop("_no_kerawanan", []):
-            _pin(nk, ("CIRCUIT", f"{c['from_external_key']}-{c['to_external_key']}"))
+            suffix = f":{c['unit_no']}" if c.get('unit_no') else ''
+            _pin(nk, ("CIRCUIT", f"{c['from_external_key']}-{c['to_external_key']}{suffix}"))
     for nk, units in ibt_pins.items():
         for gk, unit in units:
             _pin(nk, ("TRANSFORMER", f"{gk}:{unit}"))

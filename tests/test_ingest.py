@@ -18,6 +18,27 @@ LBK_XLSX = Path(__file__).resolve().parent.parent / "samples" / "ss_lbk_ingest.x
 BALI_JSON = Path(__file__).resolve().parent.parent / "samples" / "ss_bali_ingest.json"
 
 
+def test_krian_gresik_single_phi_matches_table_19_and_20():
+    """Single-circuit alone must not imply single phi for other ruas."""
+    from app.services.ingest_parser import parse_upload
+
+    path = SAMPLE_XLSX.parent / "ss_krian12_gresik_ingest.xlsx"
+    payload = parse_upload(path.read_bytes(), path.name)
+    expected = {
+        frozenset(("TNDES", "PERAK")), frozenset(("PERAK", "UJUNG")),
+        frozenset(("KJRAN", "GLMUR")), frozenset(("GLMUR", "BKLAN")),
+    }
+    actual = {frozenset((c["from_external_key"], c["to_external_key"]))
+              for c in payload["connections"] if c.get("single_phi")}
+    assert actual == expected
+    assert all(c["circuit_count"] == 1 for c in payload["connections"]
+               if c.get("single_phi"))
+    # 55 circuit records (Bangkalan-Sampang separately per section), six IBTs,
+    # and three internal couplers; physical GI identity remains unchanged.
+    assert len(payload["connections"]) == 64
+    assert len(payload["risks"]) == 25
+
+
 def test_system_ibt_workbook_keeps_table_12_separate_from_transmission_risks():
     from app.services.ingest_parser import parse_upload
     path = SAMPLE_XLSX.parent / 'system_ibt_500_ingest.xlsx'

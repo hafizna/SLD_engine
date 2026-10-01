@@ -236,6 +236,12 @@ def calculate_tier(db: Session, view: AnalyticalView) -> dict[tuple[str, int], i
     if not no_book:
         return tier
 
+    from app.services.bus_sections import section_inventory, electrical_graph, electrical_tiers
+    if section_inventory(db, live_sub_ids):
+        computed = electrical_tiers(electrical_graph(db, view))
+        tier.update({key: value for key, value in computed.items() if key[1] in no_book})
+        return tier
+
     # BFS fallback only for the GIs with no book Tier. Only LIVE edges carry
     # Tier progression -- a not-yet-energised line is drawn but does not feed.
     adj: dict[int, set[int]] = defaultdict(set)
@@ -259,6 +265,9 @@ def _legacy_bfs_tier(db: Session, view: AnalyticalView):
     if profile["tier_mode"] == "NONE":
         return {}
     nodes, edges, roles, seeds, seed_override = get_view_graph(db, view)
+    from app.services.bus_sections import section_inventory, electrical_graph, electrical_tiers
+    if section_inventory(db, {sid for kind, sid in nodes if kind == 'SUBSTATION'}):
+        return electrical_tiers(electrical_graph(db, view, physical_graph=(nodes, edges, roles, seeds, seed_override)))
 
     downstream = {
         key for key, role in roles.items() if role in profile["downstream_roles"]

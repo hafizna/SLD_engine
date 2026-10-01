@@ -9,10 +9,9 @@ Granularity for the risk-map use case is GI-node + circuit-edge:
     - Circuit (penghantar / IBT link)            -> edges
     - Tier / Risk / AHI / Defense Scheme         -> semantic overlays, never baked in
 
-Engineering detail (BusSection / Bay / Device) is kept as a NULLABLE
-attachment so the schema stays CIM/NMM-compatible, but the risk map does
-not require it. GI internal busbar config is stored as an attribute, not
-as a graph of sections.
+Engineering detail is optional for legacy drawings. Explicit BusSection
+endpoints and bus-coupler switch states drive electrical connectivity when
+a drawing supplies them; the physical GI remains one canonical Substation.
 """
 from __future__ import annotations
 
@@ -181,6 +180,7 @@ class GeneratingUnit(Base):
     # connection point: the substation this plant feeds via its GSU / outlet,
     # OR a circuit it taps in the middle (e.g. a small standby PLTD on a line).
     outlet_substation_id: Mapped[int | None] = mapped_column(ForeignKey("substation.id"), nullable=True)
+    outlet_bus_section_id: Mapped[int | None] = mapped_column(ForeignKey("bus_section.id"), nullable=True)
     tap_circuit_id: Mapped[int | None] = mapped_column(ForeignKey("circuit.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(30), default="ENERGIZED")  # ENERGIZED / STANDBY / OFF
     operator: Mapped[str | None] = mapped_column(String(60), nullable=True)  # PIP / PNP / IPP
@@ -258,6 +258,11 @@ class Circuit(Base):
     drawing_side: Mapped[str | None] = mapped_column(String(8), nullable=True)
     from_bay_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     to_bay_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    from_bus_section_id: Mapped[int | None] = mapped_column(ForeignKey("bus_section.id"), nullable=True)
+    to_bus_section_id: Mapped[int | None] = mapped_column(ForeignKey("bus_section.id"), nullable=True)
+    # Switch position is independent of asset energization. UNKNOWN never
+    # creates an electrical path. Only BUS_COUPLER/BUS_TIE use this field.
+    switch_state: Mapped[str | None] = mapped_column(String(10), nullable=True)
     source_document_id: Mapped[int | None] = mapped_column(ForeignKey("source_document.id"), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
