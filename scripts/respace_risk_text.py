@@ -15,6 +15,8 @@ edit. Everything it declines is reported.
 
     python scripts/respace_risk_text.py            # dry run: what would change
     python scripts/respace_risk_text.py --write    # rewrite the fixtures
+    python scripts/respace_risk_text.py --write ss_x_ingest.xlsx   # just these,
+                                                   # e.g. after re-running a builder
 """
 from __future__ import annotations
 
@@ -137,7 +139,7 @@ class Respacer:
         return None
 
 
-def main(write: bool) -> None:
+def main(write: bool, only: set[str] | None = None) -> None:
     srcs = sources()
     read: dict[tuple[int, int], tuple[list[str], list[str]]] = {}
     for rng in sorted(set(srcs.values())):
@@ -149,6 +151,10 @@ def main(write: bool) -> None:
     total, samples = Counter(), []
     declined = Counter()
     for fx, rng in sorted(srcs.items()):
+        # The vocabulary above is read from every table either way; `only`
+        # just limits which fixtures are touched, e.g. after one builder ran.
+        if only and fx not in only:
+            continue
         rs = Respacer(all_loose, read[rng][1])
         path = SAMPLES / fx
         changed = 0
@@ -197,4 +203,4 @@ def main(write: bool) -> None:
 
 
 if __name__ == "__main__":
-    main("--write" in sys.argv)
+    main("--write" in sys.argv, {a for a in sys.argv[1:] if not a.startswith("--")} or None)
