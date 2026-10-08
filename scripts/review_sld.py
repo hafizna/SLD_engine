@@ -36,6 +36,11 @@ def main():
     finally:
         source.close()
         connection.close()
+    # Bring only the disposable copy up to the current ORM schema. Older
+    # snapshots predate bus sections; the source database stays read-only.
+    from app.db import Base, upgrade_bus_section_schema
+    Base.metadata.create_all(engine)
+    upgrade_bus_section_schema(engine)
     old = types.ModuleType('baseline_sld_renderer')
     code = subprocess.run(['git', 'show', f'{args.baseline}:app/services/sld_renderer.py'],
                           cwd=ROOT, check=True, capture_output=True, encoding='utf-8').stdout

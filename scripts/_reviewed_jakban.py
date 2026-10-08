@@ -226,6 +226,17 @@ def _augment_boundary_evidence(wb, code):
             add_bay(stub, f"{stub} (boundary stub di BKASI)", "BKASI")
 
     elif code == "SS_LBK":
+        # The reviewed page lists the 150 kV buses only. Preserve the
+        # 500/150 kV sources and units recorded in the historical LBK book.
+        for bus, name in (("KMBGN", "Kembangan"), ("NBRJA", "New Balaraja")):
+            gitet = f"GITET_{bus}"
+            add_asset(gitet, f"GITET {name}", "Busbar GITET", 0, "500 kV",
+                      role="SOURCE", note="Historical LBK SLD: 500/150 kV source")
+            for unit in ("1", "2"):
+                add_asset(f"IBT {unit} {bus}", f"IBT {unit} {name}",
+                          "IBT 3-Winding", 1, "500/150 kV",
+                          role="SOURCE_BOUNDARY", bus_hv=gitet, bus_lv=bus,
+                          unit=unit, note="Historical LBK SLD: IBT unit")
         # These are explicit black/boundary stubs in the review sheet. Keep
         # uncertain names visible as external context without promoting them
         # into the red core network.
@@ -259,9 +270,8 @@ def _augment_boundary_evidence(wb, code):
 # that is drawn stands in, and the note says so.
 RISK_PINS = {
     "SS_LBK": {
-        # IBT-1,2 Kembangan: the reviewed book models Kembangan's 150 kV bus
-        # only, with no GITET or IBT rows -- the pin stands on that bus.
-        1: [("asset", "KMBGN")],
+        # IBT-1,2 Kembangan belong to the restored 500 kV source.
+        1: [("asset", "GITET_KMBGN")],
         2: [("line", "KMBGN", "NSYAN")],
         3: [("line", "PSKBR", "GJTGL"), ("line", "PSKMS", "GJTGL")],
         4: [("line", "CKUPA", "JTAKE"), ("line", "ILKNG", "TGBRU")],
@@ -372,7 +382,7 @@ def build_reviewed(code: str, output_dir: Path | None = None) -> Path:
         del wb["Views"]
     ws = wb.create_sheet("Views", 1)
     ws.append(["Kode View", "Nama View", "Sumber Tier-1 (kode GI, pisah ;)", "Halaman Buku"])
-    roots = {"SS_LBK": "KMBGN;NBRJA;ILKNG",
+    roots = {"SS_LBK": "GITET_KMBGN;GITET_NBRJA;ILKNG",
              "SS_GUCL": "CLBRU;LBUAN",
              "SS_PRBC": "MKLMA;PRBRT;PRTMR;PRTRU;BKASI;MTWAR;CWBRU"}
     ws.append(["FULL", "SLD lengkap", roots[code], None])

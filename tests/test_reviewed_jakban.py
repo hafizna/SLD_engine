@@ -71,6 +71,41 @@ def test_gucl_reviewed_supply_relations():
         assert frozenset(pair) not in pairs
 
 
+def test_lbk_restores_both_voltage_sources_and_ibt_units():
+    path = ROOT / "samples/ss_lbk_ingest.xlsx"
+    parsed = parse_upload(path.read_bytes(), path.name)
+    objects = {n["external_key"]: n for n in parsed["objects"]}
+    for bus in ("KMBGN", "NBRJA"):
+        assert objects[bus]["voltage_hv_kv"] == 150
+        assert objects[f"GITET_{bus}"]["voltage_hv_kv"] == 500
+    ibt = {(e["from_external_key"], e["to_external_key"], e["unit_no"])
+           for e in parsed["connections"] if e.get("relation_type") == "IBT_LINK"}
+    assert ibt == {(f"GITET_{bus}", bus, unit)
+                   for bus in ("KMBGN", "NBRJA") for unit in ("1", "2")}
+    risk = next(r for r in parsed["risks"] if r["seq_no"] == 1)
+    assert risk["pin_key"] == "GITET_KMBGN"
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        draft = ingest.build_draft(db, parsed)
+        for n in draft["nodes"]:
+            n.update(resolution="NEW", canonical_id=None,
+                     confirmed_code=n["external_key"], confirmed_name=n["raw_label"])
+        assert ingest.validate(db, draft)["ok"]
+        ingest.publish(db, draft, "SS_LBK", parsed["subsystem"]["name"], None,
+                       parsed["subsystem"]["apb"])
+        from app.services.sld_renderer import render_view_svg
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(render_view_svg(db, db.query(AnalyticalView).one()))
+        ns = {"s": "http://www.w3.org/2000/svg"}
+        bars = root.find("s:g[@id='busbars']", ns)
+        assert bars is not None
+        svg = ET.tostring(bars, encoding="unicode")
+        assert "GITET_KMBGN" in svg and "GITET_NBRJA" in svg
+        assert '#0047AB' in svg and '#C00000' in svg
+    engine.dispose()
+
+
 def test_reviewed_boundary_evidence_is_explicit():
     expected = {
         "SS_LBK": {"NCKUPA": "CKUPA", "CKNN?": "DLRA", "TGBRU3": "SUJYA",

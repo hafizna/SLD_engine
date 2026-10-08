@@ -77,6 +77,12 @@ def main():
                          'Jumlah Sirkit': 2, 'Sudut Pandang': view, 'Tegangan': '150 kV'})
     book['Views'].cell(2, 4, 75)
     book['Views'].cell(3, 4, 76)
+    views = book['Views']
+    if not any(row[0].value == 'GABUNGAN' for row in views.iter_rows(min_row=2)):
+        append(views, {'Kode View': 'GABUNGAN',
+                       'Nama View': 'Gabungan Muarakarang - Durikosambi',
+                       'Sumber Tier-1 (kode GI, pisah ;)': None,
+                       'Halaman Buku': None})
     info = book['Info']
     note = 'Koreksi MKBRU dan DMGOT'
     if not any(r[0].value == note for r in info):

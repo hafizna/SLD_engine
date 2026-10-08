@@ -102,3 +102,10 @@ python scripts/make_ss_prbc_xlsx.py
 python -m pytest tests/test_reviewed_jakban.py tests/test_ingest.py -q
 python scripts/render_one.py samples/ss_lbk_ingest.xlsx
 ```
+
+
+## Pemulihan sumber tegangan LBK ? 8 Oktober 2026
+
+Import reviewed LBK sebelumnya menghilangkan bus 500 kV dan IBT sumber. Builder kini menambahkan GITET_KMBGN dan GITET_NBRJA (500 kV), masing-masing dengan IBT unit 1 dan 2 menuju KMBGN/NBRJA (150 kV), berdasarkan SPEC dan workbook historis LBK. Bus ILKNG tetap 150 kV sesuai workbook reviewed. View FULL memakai sumber GITET tersebut dan ILKNG. Pin LBK #1 kini berada pada GITET_KMBGN; pemetaan ke bus 150 kV pada tabel historis di atas sudah digantikan. Boundary NCKUPA tetap mengikuti workbook reviewed; hubungan rencana historis ke JTAKE tidak digabungkan otomatis.
+
+Regenerasi sample mengubah workbook dan preview berikutnya; snapshot website atau database yang telah dipublish perlu diperbarui menggunakan alur ingest/build yang sesuai.

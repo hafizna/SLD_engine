@@ -15,6 +15,7 @@ from app.services.sld_renderer import (_circuit_style, _generator_color,
     'ss_gucl_ingest.xlsx', 'ss_plbratu_ingest.xlsx',
     'ss_cirata_ingest.xlsx', 'backbone_500_ingest.xlsx',
     'system_ibt_500_ingest.xlsx',
+    'ss_lbk_ingest.xlsx', 'ss_muarakarang_durikosambi_ingest.xlsx',
 ])
 def test_reviewed_near_continuation_fixtures_pass_full_geometry(filename):
     from pathlib import Path
