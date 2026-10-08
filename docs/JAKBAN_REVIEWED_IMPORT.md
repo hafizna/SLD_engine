@@ -109,3 +109,18 @@ python scripts/render_one.py samples/ss_lbk_ingest.xlsx
 Import reviewed LBK sebelumnya menghilangkan bus 500 kV dan IBT sumber. Builder kini menambahkan GITET_KMBGN dan GITET_NBRJA (500 kV), masing-masing dengan IBT unit 1 dan 2 menuju KMBGN/NBRJA (150 kV), berdasarkan SPEC dan workbook historis LBK. Bus ILKNG tetap 150 kV sesuai workbook reviewed. View FULL memakai sumber GITET tersebut dan ILKNG. Pin LBK #1 kini berada pada GITET_KMBGN; pemetaan ke bus 150 kV pada tabel historis di atas sudah digantikan. Boundary NCKUPA tetap mengikuti workbook reviewed; hubungan rencana historis ke JTAKE tidak digabungkan otomatis.
 
 Regenerasi sample mengubah workbook dan preview berikutnya; snapshot website atau database yang telah dipublish perlu diperbarui menggunakan alur ingest/build yang sesuai.
+
+
+## Audit ulang LBK per halaman ? 8 Oktober 2026
+
+PDF asli diperiksa visual pada halaman buku 69-70 (halaman PDF 85-86). Dua view utama dipulihkan: KEMBANGAN dan BALARAJA; GABUNGAN adalah view tambahan. Anotasi audit sumber tetap disimpan terpisah dari kolom Sudut Pandang yang kini menentukan membership.
+
+Koreksi transkripsi yang didukung label lama: UUMI?ULJMI, DLRA?BLRJA, SUJYA?SDJYA, ILKNG?LTKNG, DADAP?TLKNG2, CKDRU?CKBRU, SPTAR?SPTAN, SPTAN (bus Tier-5)?SPTAN2. Nama penuh dipulihkan setelah normalisasi kode, sehingga Ulujami, Balaraja, Sindang Jaya, Lontar, Teluknaga 2/Dadap, dan kedua Sepatan tidak lagi memakai hasil raster mentah.
+
+PLTU Lontar dan outlet ke bus Lontar dipulihkan. TGBRU3 menjadi aset belum operasi pada Tier-2, dengan hubungan historis ke Lontar; bukan Bay dari Sindang Jaya. Bus hitam pada PDF berada di koridor Lontar?Sindang Jaya: titik switching/tap persisnya masih perlu konfirmasi teknis; hubungan rencana tidak dianggap energized. PLTD Senayan dipulihkan sebagai generator dengan GIS tersendiri pada cabang Senayan?Danayasa sesuai model historis dan Tabel 2.3; representasi GIS ini adalah pemodelan cabang yang pada gambar tampil sebagai tap. Jalur langsung Senayan?Danayasa tetap satu sirkit. Boundary GI dibatasi per view, termasuk DKSBI, PKTGN, SVRNA, PSKMS, JTKBR dan JTAKE. Kabel sisi Kembangan serta single-phi Pasar Kemis?Gajah Tunggal dipulihkan.
+
+Batas audit: kode IIS?ITS (KTT ITS) dan JTKDR?JTKBR (Jatake Baru) telah dikonfirmasi pengguna. JTKBR adalah satu aset: full bus pada Balaraja dan boundary pada Kembangan. Hubungan silang Balaraja?Sindang Jaya?Suvarna mengikuti tracing reviewed; detail terminal dan jumlah sirkit perlu review manual. Lulus geometry memverifikasi gambar dapat dirender tanpa invariant error, bukan bukti seluruh topologi fisik telah benar. Workbook sumber pengguna tidak diubah.
+
+Bug status lintas SS juga ditemukan: boundary future di SS Priok terbit lebih dulu dan menentukan status kanonik PDKLP/SKTNI/SMRCN. Loader kini menandai aset yang hanya diketahui dari boundary; data GI penuh yang datang kemudian melengkapi status/nama/tipe/simbol fisiknya, sementara status Bay tetap mengikuti view asal. Ini berlaku untuk snapshot baru; database existing tanpa penanda tersebut memerlukan rekonsiliasi eksplisit.
+
+Konfirmasi konsistensi PLTD Senayan: kode GIS PLTD SNY dan PLTD SNY dipakai bersama workbook Muarakarang?Durikosambi. Outlet generator selalu menuju GIS tersebut. Keduanya Tier-3 pada Kembangan dan Tier-4 pada sisi Muarakarang, sesuai masing-masing sumber.

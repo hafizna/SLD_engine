@@ -72,11 +72,12 @@ def test_muarakarang_reviewed_ibt_and_cross_view_bays():
     assert frozenset(('KBJRK', 'PINKA')) not in pairs
 
 
-def test_muarakarang_both_views_render_without_geometry_errors():
+def test_muarakarang_source_and_combined_views_render_without_geometry_errors():
     from scripts.audit_sample_workbooks import audit_one
     result = audit_one(SAMPLE_XLSX.parent / 'ss_muarakarang_durikosambi_ingest.xlsx')
     assert result['ok'], result
-    assert len(result['views']) == 2
+    assert {v['view_key'] for v in result['views']} == {
+        'SS_MK_DURK_MUARAKARANG', 'SS_MK_DURK_DURIKOSAMBI', 'SS_MK_DURK_GABUNGAN'}
 
 
 def test_step_down_bus_feeding_a_lower_tier_routes_clean():

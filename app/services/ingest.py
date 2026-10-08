@@ -527,12 +527,27 @@ def _materialise(db: Session, draft: dict, code: str, name: str,
                 has_shunt_capacitor=symbol_count(symbol_note(n), 'capacitor', n.get('has_capacitor')) > 0,
                 symbol_note=symbol_note(n),
                 apb=apb, uit="JBB",
-                note=f"Bootstrap via /ingest ({fname}).",
+                note=f"Bootstrap via /ingest ({fname})." +
+                     (" Boundary-only observation." if n.get('is_bay') else ""),
                 confidence=n.get("confidence") or 1.0,
                 lat=n.get("latitude"), lon=n.get("longitude"),
             )
             db.add(s)
             db.flush()
+        elif not n.get('is_bay') and 'Boundary-only observation.' in (s.note or ''):
+            # A neighbouring bay describes the local terminal's state, not
+            # the remote GI's operating state. The first full asset record
+            # supplies authoritative GI attributes; the Bay retains its own
+            # status and remains scoped to the original subsystem/view.
+            s.status = n.get('status_hint') or 'ENERGIZED'
+            s.name = n.get('confirmed_name') or n['raw_label']
+            s.substation_type = n['object_type']
+            s.has_transformer = symbol_count(symbol_note(n), 'transformer', n.get('has_transformer')) > 0
+            s.has_shunt_capacitor = symbol_count(symbol_note(n), 'capacitor', n.get('has_capacitor')) > 0
+            s.symbol_note = symbol_note(n)
+            s.note = f"Bootstrap via /ingest ({fname})."
+            if n.get('latitude') is not None and n.get('longitude') is not None:
+                s.lat, s.lon = n['latitude'], n['longitude']
         elif n.get("latitude") is not None and n.get("longitude") is not None:
             # A later reviewed workbook may enrich a shared canonical GI.
             s.lat, s.lon = n["latitude"], n["longitude"]
