@@ -326,6 +326,7 @@
   .layer.disabled { opacity: .4; cursor: not-allowed; }
   .layer .sw { width: 13px; height: 13px; border-radius: 3px; flex: none; }
   .layer small { color: var(--muted); font-size: 10.5px; }
+  #adaptive-label-control[hidden] { display: none; }
   .zoomnote {
     margin-top: 6px; padding: 8px 9px; font-size: 10.5px; line-height: 1.5;
     color: var(--muted); background: #f7fafd; border-radius: 7px;
@@ -345,9 +346,9 @@
   .valid .n.ok { color: var(--ok); }
 
   /* ---- center: viewer ---- */
-  .viewer { position: relative; flex: 1; padding: 0; overflow: hidden; }
+  .viewer { position: relative; display: flex; flex-direction: column; flex: 1; padding: 0; overflow: hidden; }
   #stage {
-    width: 100%; height: 100%; min-height: 60vh;
+    width: 100%; height: 100%; min-height: 60vh; flex: 1;
     background:
       linear-gradient(#f0f5fb 1px, transparent 1px) 0 0 / 22px 22px,
       linear-gradient(90deg, #f0f5fb 1px, transparent 1px) 0 0 / 22px 22px,
@@ -455,7 +456,8 @@
   @media (prefers-reduced-motion: reduce) { .spin, .loadbar.on { animation-duration: 3s; } }
   /* A subsystem split into views: each one, and the combined sheet, one click
      away on the drawing itself, not only in the sidebar tree. */
-  .povbar { position: absolute; left: 12px; top: 12px; z-index: 4; display: flex; flex-wrap: wrap;
+  .povbar { position: relative; order: -1; flex-shrink: 0; align-self: flex-start;
+    margin: 8px 12px; z-index: 4; display: flex; flex-wrap: wrap;
     align-items: center; gap: 3px; max-width: calc(100% - 90px); padding: 4px;
     background: rgba(255,255,255,.95); border: 1px solid var(--line); border-radius: 9px;
     box-shadow: 0 2px 8px rgba(15,39,74,.1); font-size: 11.5px; }
@@ -802,9 +804,13 @@
         <span class="sw" style="background:#e7d9a8"></span>
         <span>Strip audit mapping <small>objek tak tergambar</small></span>
       </label>
+      <label id="adaptive-label-control" class="layer" hidden>
+        <input id="adaptive-labels" type="checkbox" checked>
+        <span>Label adaptif — SS Sumsel <small>Nama ringkas saat jauh, lengkap saat dekat</small></span>
+      </label>
       <div class="zoomnote">
-        Zoom kecil menampilkan pita Tier &amp; blok GI. Perbesar untuk melihat
-        penghantar, bay, dan label kode. Gambar SLD dirender engine sesuai
+        Zoom kecil menampilkan pita Tier &amp; blok GI. Label GI tetap terbaca, termasuk GI stub. Perbesar untuk melihat
+        detail penghantar dan pembangkit. Gambar SLD dirender engine sesuai
         tata gambar Buku Kerawanan (bersiku, hop-arc saat menyilang).
       </div>
     </div>
@@ -1060,7 +1066,7 @@ function sysCfg(key){ return SYSTEMS[key || SYS]; }
   addEventListener('resize', () => {
     clearTimeout(rt);
     rt = setTimeout(() => {
-      if (document.body.classList.contains('mode-viewer')) { applyLabelFloor($('#stage svg')); return; }
+      if (document.body.classList.contains('mode-viewer')) { commitVB(); return; }
       if (SUMMARY && ATLAS.base && document.body.classList.contains('mode-hub')) atlasCamera(false);
     }, 150);
   });
@@ -1994,6 +2000,9 @@ async function selectView(id){
   const [x, y, w, h] = el.getAttribute('viewBox').split(/\s+/).map(Number);
   vb0 = { x, y, w, h };
   vb  = openingVB(el);
+  const adaptiveControl = $('#adaptive-label-control');
+  adaptiveControl.hidden = VIEW.view_key !== 'SS_SUMSEL_FULL';
+  $('#adaptive-labels').onchange = () => commitVB();
   commitVB();
 
   markTree(id);
@@ -2132,12 +2141,10 @@ function zoomBy(f, cx, cy){
   commitVB();
 }
 
-// Smallest on-screen size a GI label may shrink to before it stops following
-// the zoom. Measured against the built fixtures: at fit zoom the 12.5-unit
-// labels land between 5.1px and 9.1px, so without a floor most views open
-// unreadable. Boosting them back to 9px introduces no label collisions on any
-// fixture - the renderer's own left/right/centre placement leaves the room.
+// Auxiliary busbar annotations retain their existing floor. Primary asset
+// labels share an 11px floor, whether the GI is a busbar or a hanging stub.
 const MIN_LABEL_PX = 9;
+const MIN_ASSET_LABEL_PX = 11;
 
 // Every SLD is drawn on a canvas sized by its own content, and across the 42
 // built views that canvas runs from 738 to 5382 units wide. Opening each one
@@ -2167,17 +2174,19 @@ function applySemanticZoom(z){
   const tier = svg.querySelector('#overlay-tier');
   if (tier && layerState['overlay-tier'] !== false)
     tier.style.opacity = z > 2.6 ? 0.35 : 1;
-  // fade small stub/audit text when zoomed far out so the shape reads first
-  svg.querySelectorAll('#bays text, #mapping-audit text').forEach(t => {
+  // Only audit annotations fade; a stub is still a GI and keeps its label.
+  svg.querySelectorAll('#mapping-audit text').forEach(t => {
     t.style.opacity = z < 0.62 ? 0 : (z < 0.8 ? 0.5 : 1);
   });
+  applyPlantDetail(svg);
   applyLabelFloor(svg);
 }
 
 // px on screen for one diagram unit at the current viewBox
 function unitPx(svg){
   const r = svg.getBoundingClientRect();
-  return (r.width && vb && vb.w) ? r.width / vb.w : 1;
+  return (r.width && r.height && vb && vb.w && vb.h)
+    ? Math.min(r.width / vb.w, r.height / vb.h) : 1;
 }
 
 // Hold GI labels and risk pins at a legible size as the diagram scales down.
@@ -2209,15 +2218,66 @@ function applyLabelFloor(svg){
   applyPinFloor(svg);
   // The pin's own number rides its group transform, so it must not also be
   // boosted here or it would grow twice and overflow the disc.
-  svg.querySelectorAll('#busbars text').forEach(t => {
+  svg.querySelectorAll('#busbars text, #bays .asset-label, #generators .plant-label').forEach(t => {
     let base = +t.dataset.baseSize;
     if (!base) {
       base = parseFloat(t.getAttribute('font-size')) || 0;
       if (!base) return;
       t.dataset.baseSize = base;            // remember the rendered size once
     }
-    const boost = Math.max(1, MIN_LABEL_PX / (base * k));
+    const floor = t.classList.contains('asset-label') ? MIN_ASSET_LABEL_PX : MIN_LABEL_PX;
+    const boost = Math.max(1, floor / (base * k));
     t.setAttribute('font-size', (base * boost).toFixed(2));
+    // Keep wrapped plant lines apart when their glyphs reach the screen floor.
+    t.querySelectorAll('tspan').forEach((span, i) => {
+      span.setAttribute('dy', i ? (15 * boost).toFixed(2) : '0');
+    });
+    if (t.classList.contains('plant-label') && t.dataset.labelAbove === '1') {
+      const lines = t.querySelectorAll('tspan').length;
+      t.setAttribute('y', +t.dataset.labelBottom - Math.max(0, lines - 1) * 15 * boost);
+    }
+  });
+  declutterPilotLabels(svg);
+}
+
+// Pilot only: use actual screen scale, not the relative FIT percentage.
+// Hysteresis prevents label flicker around the transition while zooming.
+function applyPlantDetail(svg){
+  const pilot = VIEW?.view_key === 'SS_SUMSEL_FULL' && $('#adaptive-labels').checked;
+  const k = unitPx(svg);
+  svg.querySelectorAll('.plant-label').forEach(t => {
+    if (!t.dataset.fullLabel) t.dataset.fullLabel = t.innerHTML;
+    const compact = pilot && (t.dataset.compact === '1' ? k < 0.9 : k < 0.75);
+    if (compact === (t.dataset.compact === '1')) return;
+    t.innerHTML = compact ? '' : t.dataset.fullLabel;
+    if (compact) {
+      const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      span.setAttribute('x', t.getAttribute('x'));
+      span.setAttribute('dy', '0');
+      span.textContent = t.dataset.shortLabel;
+      t.appendChild(span);
+    }
+    t.dataset.compact = compact ? '1' : '0';
+  });
+}
+
+function declutterPilotLabels(svg){
+  const labels = [...svg.querySelectorAll('.asset-label')];
+  labels.forEach(t => { t.style.visibility = ''; });
+  if (VIEW?.view_key !== 'SS_SUMSEL_FULL' || !$('#adaptive-labels').checked) return;
+  // Equal treatment for busbar and stub GIs. Hide only colliding labels in
+  // the overview; the electrical objects and their click targets stay intact.
+  const frame = svg.getBoundingClientRect(), kept = [];
+  labels.sort((a, b) => {
+    const priority = t => t.closest('.in-focus') ? 0 : t.classList.contains('gi-label') ? 1 : 2;
+    return priority(a) - priority(b);
+  }).forEach(t => {
+    const r = t.getBoundingClientRect();
+    if (r.right < frame.left || r.left > frame.right || r.bottom < frame.top || r.top > frame.bottom) return;
+    if (kept.some(b => r.left < b.right + 4 && r.right + 4 > b.left &&
+                        r.top < b.bottom + 3 && r.bottom + 3 > b.top)) {
+      t.style.visibility = 'hidden';
+    } else kept.push(r);
   });
 }
 
@@ -2297,6 +2357,17 @@ function openPrintSheet(){
   if (!w || !h) return;
   const p = planPrint(w, h);
 
+  clone.querySelectorAll('.asset-label').forEach(t => { t.style.visibility = ''; });
+  clone.querySelectorAll('.plant-label').forEach(t => {
+    if (t.dataset.fullLabel) t.innerHTML = t.dataset.fullLabel;
+    t.querySelectorAll('tspan').forEach((span, i) => {
+      span.setAttribute('dy', i ? (15 * p.boost).toFixed(2) : '0');
+    });
+    if (t.dataset.labelAbove === '1') {
+      const lines = t.querySelectorAll('tspan').length;
+      t.setAttribute('y', +t.dataset.labelBottom - Math.max(0, lines - 1) * 15 * p.boost);
+    }
+  });
   clone.querySelectorAll('[font-size]').forEach(t => {
     // the label floor is a screen device; print from the rendered sizes
     const base = +t.dataset.baseSize || parseFloat(t.getAttribute('font-size'));
@@ -2994,9 +3065,19 @@ function drawShade(svg, els){
 // off screen, so a click on a pin does not yank a view the user arranged.
 function fitTo(svg, els, ensureOnly){
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-  els.forEach(el => { try { const b = el.getBBox();
-    x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
-    x2 = Math.max(x2, b.x + b.width); y2 = Math.max(y2, b.y + b.height); } catch(_){} });
+  els.forEach(el => {
+    // Screen-sized labels can be enormous in diagram units at overview zoom.
+    // Focus on the asset geometry so searching a GI actually zooms into it.
+    const text = [...el.querySelectorAll('text')].map(t => [t, t.style.display]);
+    try {
+      text.forEach(([t]) => { t.style.display = 'none'; });
+      const b = el.getBBox();
+      x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+      x2 = Math.max(x2, b.x + b.width); y2 = Math.max(y2, b.y + b.height);
+    } catch(_){} finally {
+      text.forEach(([t, display]) => { t.style.display = display; });
+    }
+  });
   if (!isFinite(x1)) return;
   if (ensureOnly && x1 >= vb.x && y1 >= vb.y && x2 <= vb.x + vb.w && y2 <= vb.y + vb.h) return;
   const r = svg.getBoundingClientRect();

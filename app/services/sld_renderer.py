@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import html
 import re
+import textwrap
 from collections import defaultdict
 
 from sqlalchemy.orm import Session
@@ -43,6 +44,21 @@ from app.services.sld_layout import (layered_positions, route_bundles, offset_pa
                                       path_d, WIRE_PITCH, BUS_TOP, BUS_BOTTOM)
 from app.services.topology import _is_live, calculate_tier, classify_layout, get_view_graph
 from app.services.sld_symbols import symbol_count, capacitor_is_off
+
+
+def _plant_label(name, x, y, color, *, anchor="middle", above=True, code=""):
+    """Bound label width without shrinking or discarding the plant identity."""
+    lines = textwrap.wrap(" ".join((name or code).split()), width=24,
+                          break_long_words=True, break_on_hyphens=False) or [code]
+    first_y = y - (len(lines) - 1) * 15 if above else y
+    spans = "".join(f'<tspan x="{x:.1f}" dy="{0 if i == 0 else 15}">{html.escape(line)}</tspan>'
+                    for i, line in enumerate(lines))
+    short = html.escape(textwrap.shorten(name or code, width=24, placeholder="…"), quote=True)
+    return (f'<text class="asset-label plant-label" data-short-label="{short}" '
+            f'x="{x:.1f}" y="{first_y:.1f}" data-label-bottom="{y:.1f}" '
+            f'data-label-above="{int(above)}" font-size="12.5" font-weight="700" '
+            f'text-anchor="{anchor}" fill="{color}" paint-order="stroke" '
+            f'stroke="#ffffff" stroke-width="3" stroke-linejoin="round">{spans}</text>')
 
 
 def _view_title(db: Session, view: AnalyticalView) -> str:
@@ -1336,8 +1352,9 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
             else:
                 p.append(f'<circle cx="{nx:.1f}" cy="{ny:.1f}" r="4" fill="#ffffff" '
                          f'stroke="{col}" stroke-width="2"/>')
-            p.append(f'<text x="{nx + 13 if is_solar else nx + 8:.1f}" y="{ny + 3:.1f}" font-size="9" '
-                     f'fill="{col}">{esc(g.name)}{" (standby)" if standby else ""}</text>')
+            p.append(_plant_label(g.name + (" (standby)" if standby else ""),
+                                  nx + (13 if is_solar else 8), ny + 3, col,
+                                  anchor="start", above=False, code=g.code))
             p.append('</g>')
             continue
         outlet = pos.get(g.outlet_substation_id)
@@ -1347,13 +1364,11 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         p.append(f'<g class="sld-node" data-node-kind="GENERATING_UNIT" data-node-id="{gid}" '
                  f'data-code="{esc(g.code)}" data-x="{gx:.1f}" data-y="{gy:.1f}" data-pinned="{_gp}">')
         p.append(_sym_solar(gx, gy - 30, col) if is_solar else _sym_generator(gx, gy - 30, col))
-        if is_solar:
-            p.append(f'<text x="{gx + 16:.1f}" y="{gy - 14:.1f}" font-size="12" font-weight="700" text-anchor="start" '
-                     f'fill="{col}" stroke="#ffffff" stroke-width="4" paint-order="stroke" '
-                     f'stroke-linejoin="round">{esc(g.name)}</text>')
-        else:
-            p.append(f'<text x="{gx:.1f}" y="{gy - 42:.1f}" font-size="10" text-anchor="middle" '
-                     f'fill="{col}">{esc(g.name)}</text>')
+        p.append(f'<title>{esc(g.name)} [{esc(g.code)}] - {esc(g.status)}</title>')
+        p.append(_plant_label(g.name, gx + 16 if is_solar else gx,
+                              gy - 14 if is_solar else gy - 42, col,
+                              anchor="start" if is_solar else "middle",
+                              above=not is_solar, code=g.code))
         if outlet:
             p.append(f'<path d="M{gx:.1f},{gy:.1f} V{outlet[1] - CB_GAP:.1f}" fill="none" '
                      f'stroke="{col}" stroke-width="2"/>')
@@ -1431,22 +1446,22 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
                          or any(sid in lvs for lvs in gitet_feeds.values())):
             # the top of the bar carries SUTET arrows or the chain from the
             # GITET above; name it off the right end (its pins sit at the left)
-            p.append(f'<text x="{x + bh + 6:.1f}" y="{y + 4:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
+            p.append(f'<text x="{x + bh + 6:.1f}" y="{y + 4:.1f}" class="asset-label gi-label" font-size="{label_size}" font-weight="700" {label_halo} '
                      f'text-anchor="start" fill="#0f274a">{blabel}</text>')
         elif is_gitet:
-            p.append(f'<text x="{x:.1f}" y="{y - 12:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
+            p.append(f'<text x="{x:.1f}" y="{y - 12:.1f}" class="asset-label gi-label" font-size="{label_size}" font-weight="700" {label_halo} '
                      f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         elif centre_clear:
-            p.append(f'<text x="{x:.1f}" y="{y - 26:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
+            p.append(f'<text x="{x:.1f}" y="{y - 26:.1f}" class="asset-label gi-label" font-size="{label_size}" font-weight="700" {label_halo} '
                      f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         elif right_room and right_top_clear:
-            p.append(f'<text x="{x + bh + 6:.1f}" y="{y + 3:.1f}" font-size="{label_size}" '
+            p.append(f'<text x="{x + bh + 6:.1f}" y="{y + 3:.1f}" class="asset-label gi-label" font-size="{label_size}" '
                      f'font-weight="700" {label_halo} text-anchor="start" fill="#0f274a">{blabel}</text>')
         elif left_room and left_top_clear and not has_left_pin:
-            p.append(f'<text x="{x - bh - 6:.1f}" y="{y + 3:.1f}" font-size="{label_size}" '
+            p.append(f'<text x="{x - bh - 6:.1f}" y="{y + 3:.1f}" class="asset-label gi-label" font-size="{label_size}" '
                      f'font-weight="700" {label_halo} text-anchor="end" fill="#0f274a">{blabel}</text>')
         else:
-            p.append(f'<text x="{x:.1f}" y="{y - 34:.1f}" font-size="{label_size}" font-weight="700" {label_halo} '
+            p.append(f'<text x="{x:.1f}" y="{y - 34:.1f}" class="asset-label gi-label" font-size="{label_size}" font-weight="700" {label_halo} '
                      f'text-anchor="middle" fill="#0f274a">{blabel}</text>')
         if sections_by_sub.get(sid):
             for section in sections_by_sub[sid]:
@@ -1536,6 +1551,7 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     stub_pin_by_circuit = {}
     stub_pin_by_sub = {}    # a finding sited AT a bay GI has no bus to sit on
 
+    stub_label_boxes = []
     for feeder_id, key, gi, status, meta in sorted(stub_items, key=lambda it: (it[0], _stub_x(it))):
         fx, fy = pos[feeder_id]
         sx = port(feeder_id, key, fx)
@@ -1614,10 +1630,18 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         # (singkatan) is written below the dot, exactly as the book does it.
         for off in offsets:
             p.append(f'<circle cx="{sx + off:.1f}" cy="{sy:.1f}" r="3" fill="{stroke}"/>')
-        label_y = sy - 10 if direction < 0 else sy + 15
-        p.append(f'<text x="{sx:.1f}" y="{label_y:.1f}" font-size="10" font-weight="700" '
+        label_y = sy - 10 if direction < 0 else sy + 17
+        label = _display_code(gi.code)
+        half = len(label) * 3.8 + 5
+        # Adjacent stub codes retain the same typography as busbar GIs.
+        # Stagger their baselines instead of squeezing the glyphs.
+        while any(abs(label_y - yy) < 16 and sx - half < right and sx + half > left
+                  for left, right, yy in stub_label_boxes):
+            label_y += direction * 18
+        stub_label_boxes.append((sx - half, sx + half, label_y))
+        p.append(f'<text class="asset-label gi-label" x="{sx:.1f}" y="{label_y:.1f}" font-size="12.5" font-weight="700" '
                  f'paint-order="stroke" stroke="#ffffff" stroke-width="3" '
-                 f'text-anchor="middle" fill="#334155">{esc(_display_code(gi.code))}</text>')
+                 f'text-anchor="middle" fill="#0f274a">{esc(label)}</text>')
         p.append('</g>')
     p.append('</g>')
 
