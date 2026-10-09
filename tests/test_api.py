@@ -93,6 +93,15 @@ def test_dashboard_summary_deduplicates_multiview_risks(client):
     assert len(lbk["views"]) == 2
     # Six records belong to the subsystem and remain six in a two-view SS.
     assert lbk["risk"]["total"] == 6
+    graphs = [client.get(f"/api/views/{v['id']}/graph").json() for v in lbk["views"]]
+    unique_gi = {n["id"] for g in graphs for n in g["nodes"] if n["kind"] == "SUBSTATION"}
+    assert lbk["gi_count"] == len(unique_gi)
+    assert lbk["gi_count"] < sum(sum(n["kind"] == "SUBSTATION" for n in g["nodes"]) for g in graphs)
+    for v, g, t in zip(lbk["views"], graphs, lbk["tier_views"]):
+        tiers = [n["tier"] for n in g["nodes"] if n["tier"] is not None]
+        assert t["view_id"] == v["id"]
+        assert t["min"] == (min(tiers) if tiers else None)
+        assert t["max"] == (max(tiers) if tiers else None)
 
 
 def test_region_keys_never_mix_the_two_islands():
@@ -105,6 +114,29 @@ def test_region_keys_never_mix_the_two_islands():
     assert region_key("UP2B Jawa Tengah & DIY") == "JAWA_TENGAH_DIY"
     assert region_key("UP2B Jawa Barat") == "JAWA_BARAT"
     assert system_of_apb("UP2B Jakarta & Banten") == "JAMALI"
+
+
+def test_colocated_risks_have_independent_accessible_category_badges(client):
+    from xml.etree import ElementTree as ET
+    from app.db import SessionLocal
+    from app.models import RiskRecord
+    view = next(v for v in client.get('/api/views').json() if v['view_key'] == 'SS_LBK_KEMBANGAN')
+    with SessionLocal() as db:
+        risks = db.query(RiskRecord).filter(RiskRecord.subsystem_id == view['subsystem_id']).order_by(RiskRecord.seq_no).all()
+        site = risks[1]
+        for risk, category in zip(risks[:3], ['N-1', 'N-2', 'N-1-1']):
+            risk.attach_kind, risk.attach_id, risk.category = site.attach_kind, site.attach_id, category
+        db.commit()
+    root = ET.fromstring(client.get(f"/api/views/{view['id']}/sld.svg").text)
+    cluster = next(g for g in root.iter() if g.get('class') == 'risk-cluster' and len(g) >= 3)
+    pins = list(cluster)
+    assert [p.get('data-risk-seqs') for p in pins[:3]] == ['1', '2', '3']
+    assert len({p.get('transform') for p in pins[:3]}) == 3
+    for pin, category in zip(pins[:3], ['N-1', 'N-2', 'N-1-1']):
+        assert pin.get('role') == 'button' and pin.get('tabindex') == '0'
+        assert pin.get('data-category') == category
+        assert f"#{pin.get('data-risk-seqs')}" in ''.join(pin.itertext())
+    assert len({p[1].get('fill') for p in pins[:3]}) == 3
 
 
 def test_dashboard_summary_keeps_each_system_to_itself(client):

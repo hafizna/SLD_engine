@@ -282,10 +282,22 @@ def dashboard_summary(scope: str = "JAMALI", db: Session = Depends(get_db)):
             continue
         region = regions[region_key(subsystem.apb)]
         ss_risks = risks_by_ss.get(subsystem.id, [])
+        ss_views = views_by_ss.get(subsystem.id, [])
+        gi_ids = set()
+        tier_views = []
+        for ss_view in ss_views:
+            members = db.query(ViewMembership).filter(ViewMembership.view_id == ss_view.id).all()
+            gi_ids.update(m.node_id for m in members if m.node_kind == "SUBSTATION")
+            tiers = list(calculate_tier(db, ss_view).values())
+            tiers = [t for t in tiers if t is not None]
+            tier_views.append({"view_id": ss_view.id, "name": ss_view.name,
+                               "min": min(tiers) if tiers else None,
+                               "max": max(tiers) if tiers else None})
         region["risks"].extend(ss_risks)
         region["subsystems"].append({
             "id": subsystem.id, "code": subsystem.code, "name": subsystem.name,
             "apb": subsystem.apb, "risk": _risk_counts(ss_risks),
+            "gi_count": len(gi_ids), "tier_views": tier_views,
             "anchor": _ss_anchors().get(subsystem.code),
             "views": [{"id": v.id, "key": v.view_key, "name": v.name}
                       for v in views_by_ss.get(subsystem.id, [])],

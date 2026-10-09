@@ -406,10 +406,12 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     bay_counts = {b.id: _bay_note_count(b) for b in bay_rows}
 
     risk_on: dict[tuple[str, int], list[int]] = defaultdict(list)
+    risk_categories = {}
     if view.subsystem_id:
         view_risks = (db.query(RiskRecord)
                       .filter(RiskRecord.subsystem_id == view.subsystem_id).all())
         for r in view_risks:
+            risk_categories[r.seq_no or 0] = r.category
             if r.attach_kind and r.attach_id:
                 risk_on[(r.attach_kind, r.attach_id)].append(r.seq_no or 0)
         # A finding drawn on several objects in the book gets a pin on each.
@@ -1668,19 +1670,20 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
     p.append('<g id="overlay-risk">')
 
     def _pin(cx, cy, seqs):
-        values = ",".join(str(q) for q in sorted(seqs))
-        # An invisible disc carries the pointer. The drawn pin is r=9 in diagram
-        # units, which at fit zoom on a wide subsystem lands around 7px on
-        # screen - too small to hit. The hit disc is transparent and has no
-        # stroke, so it enlarges the target without altering the figure by a
-        # single pixel; a print render is byte-identical in appearance.
-        return (f'<g class="risk-pin" data-risk-seqs="{esc(values)}">'
+        colors = {"N-1": "#c2410c", "N-2": "#b91c1c", "N-1-1": "#7e22ce"}
+        badges = []
+        for index, seq in enumerate(sorted(set(seqs))):
+            category = risk_categories.get(seq) or "LAINNYA"
+            color = colors.get(category, "#475569")
+            badges.append(
+                f'<g class="risk-pin" data-risk-seqs="{seq}" role="button" tabindex="0" transform="translate({index * 46} 0)" '
+                f'aria-label="Kerawanan #{seq}, {esc(category)}: buka detail" '
+                f'data-cluster-index="{index}" data-category="{esc(category)}">'
                 f'<circle class="pin-hit" cx="{cx:.1f}" cy="{cy:.1f}" r="22" fill="transparent"/>'
-                f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="9" fill="#F6C000" '
-                f'stroke="#B8860B" stroke-width="1.5"/>'
-                f'<text x="{cx:.1f}" y="{cy + 3:.1f}" font-size="9" font-weight="700" '
-                f'text-anchor="middle" fill="#5a4500">'
-                f'{esc(values)}</text></g>')
+                f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="14" fill="{color}" stroke="white" stroke-width="2"/>'
+                f'<text x="{cx:.1f}" y="{cy + 4:.1f}" font-size="12" font-weight="700" '
+                f'text-anchor="middle" fill="white">#{seq}</text></g>')
+        return '<g class="risk-cluster">' + ''.join(badges) + '</g>'
 
     for sid in drawn_ids:
         seqs = risk_on.get(("SUBSTATION", sid))

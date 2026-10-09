@@ -367,7 +367,7 @@
      click meant for a bay or conductor underneath it. */
   #stage svg #overlay-risk { pointer-events: none; }
   #stage svg .risk-pin { pointer-events: auto; }
-  #stage svg .risk-pin.active > circle:not(.pin-hit) { stroke: #7c2d12; stroke-width: 2.5; }
+  #stage svg .risk-pin.active > circle:not(.pin-hit) { stroke: #a21caf; stroke-width: 2.5; }
   /* A hovered list row only points at its pin: the chosen kerawanan keeps its
      focus. The pin is lifted out of any dimming and pulses. */
   #stage svg .risk-pin.hover { opacity: 1 !important; }
@@ -701,6 +701,39 @@
     border-radius: 6px 6px 0 0; padding-bottom: 8px; }
   .sstree .tree-all { margin-top: 8px; }
   .sstree .tree-up:hover, .sstree .tree-all:hover { background: #eef6ff; color: var(--blue); }
+
+  main { grid-template-columns: var(--left-width,264px) minmax(0,1fr) var(--right-width,320px); }
+  main.left-closed { --left-width:0px; }
+  main.right-closed { --right-width:0px; }
+  #left-panel { grid-column:1; grid-row:1; }
+  main .viewer { grid-column:2; grid-row:1; }
+  #right-panel { grid-column:3; grid-row:1; }
+  .col[hidden] { display:none; }
+  .panel-controls { display:flex; flex-wrap:wrap; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); }
+  .panel-controls button, .ss-card button { min-height:44px; padding:8px 12px; background:white; color:var(--ink); border:1px solid var(--line); border-radius:8px; cursor:pointer; }
+  .panel-controls button[aria-expanded="true"] { background:#eaf2ff; border-color:var(--blue); }
+  button:focus-visible, [role="button"]:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
+  .summary-three { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:10px 0; }
+  .summary-three span { background:#f1f5f9; border-radius:7px; padding:8px; font-size:11px; }
+  .summary-three b { display:block; font-size:18px; }
+  .scope-note { font-size:11px; color:var(--muted); line-height:1.5; }
+  .risk.rcard { width:100%; text-align:left; color:var(--ink); font:inherit; }
+  button.risk { cursor:pointer; min-height:44px; }
+  #risk-cats button, .focusbar button { min-height:36px; min-width:36px; }
+  .tab { min-height:44px; }
+  #risklist { max-height:34vh; overflow:auto; padding:2px; }
+  #risk-active .rcard { border-color:#94a3b8; background:#f8fafc; }
+  #pintip { background:white; color:var(--ink); border:1px solid var(--line); box-shadow:0 4px 20px #0f274a26; }
+  #pintip b { color:var(--ink); }
+  .ss-card { position:absolute; z-index:40; width:min(340px,calc(100% - 16px)); background:white; padding:14px; border:1px solid var(--line); border-radius:10px; box-shadow:0 5px 24px #0f274a33; }
+  .ss-card h3 { margin:0; font-size:15px; }
+  @media (max-width:1180px) {
+    main { position:relative; display:flex; min-height:65vh; }
+    main .viewer { flex:1; min-width:0; min-height:60vh; }
+    #left-panel, #right-panel { position:absolute; top:68px; bottom:10px; z-index:35; width:min(320px,calc(100% - 30px)); background:#f1f5f9; box-shadow:0 4px 18px #0f274a33; padding:6px; }
+    #left-panel { left:10px; } #right-panel { right:10px; }
+    #risk-cats button, .focusbar button { min-height:44px; min-width:44px; }
+  }
 </style>
 </head>
 <body class="mode-hub">
@@ -752,7 +785,7 @@
       <aside class="portal-card atlas-panel" id="atlas-panel" aria-live="polite"><div class="loading"><b><span class="spin"></span>Memuat data kerawanan&hellip;</b><small class="slow">Koneksi ke server sedang lambat. Peta dan angka tampil begitu datanya tiba.</small></div></aside>
     </div>
     <div class="hub-legend">
-      <b>Tingkat kerawanan</b>
+      <b>Kategori kerawanan</b>
       <span><i style="background:var(--sev-n1)"></i> N-1 &mdash; kontingensi tunggal</span>
       <span><i style="background:var(--sev-n2)"></i> N-2 &mdash; kontingensi ganda</span>
       <span><i style="background:var(--sev-n12)"></i> N-1-1 &mdash; beruntun / kombinasi</span>
@@ -773,7 +806,7 @@
 
 <main>
   <!-- LEFT -->
-  <div class="col">
+  <div class="col" id="left-panel">
     <div class="card">
       <h3 id="nav-heading">UP2B &amp; subsistem</h3>
       <div id="sstree" class="sstree"></div>
@@ -839,6 +872,10 @@
 
   <!-- CENTER -->
   <div class="card viewer">
+    <div class="panel-controls" aria-label="Panel diagram">
+      <button id="toggle-left" type="button" aria-controls="left-panel" aria-expanded="true">Navigasi</button>
+      <button id="toggle-right" type="button" aria-controls="right-panel" aria-expanded="false">Detail / kerawanan</button>
+    </div>
     <div class="diagram-heading" id="diagram-heading"></div>
     <div id="stage"></div>
     <nav class="povbar" id="povbar" aria-label="Sudut pandang subsistem ini" hidden></nav>
@@ -852,7 +889,7 @@
   </div>
 
   <!-- RIGHT -->
-  <div class="col">
+  <div class="col" id="right-panel" hidden>
     <div class="card panel">
       <div class="tabs" role="tablist">
         <button class="tab active" role="tab" data-tab="detail" type="button">Detail objek</button>
@@ -866,12 +903,14 @@
       </div>
 
       <div class="tabpane" id="pane-risk">
+        <div id="risk-summary"></div>
         <div class="focusbar" id="focusbar" aria-live="polite"></div>
         <div class="riskfilter">
-          <input id="risk-q" type="search" placeholder="Cari nomor, judul, atau objek&hellip;" autocomplete="off">
+          <input id="risk-q" type="search" aria-label="Cari kerawanan" placeholder="Cari nomor, judul, atau objek&hellip;" autocomplete="off">
           <div class="chips" id="risk-cats"></div>
         </div>
         <div id="risklist" class="muted" style="font-size:12px">Pilih proyeksi.</div>
+        <div id="risk-active" aria-live="polite"></div>
       </div>
     </div>
   </div>
@@ -1062,6 +1101,7 @@ function sysCfg(key){ return SYSTEMS[key || SYS]; }
     else showSystem500Screen(b.dataset.sys);
   });
   wirePanel();
+  wirePanels();
   wireStage();
   // The atlas is sized in vh and its pins are placed in pixels, so a window
   // resize re-fits the current level instead of leaving pins at stale spots.
@@ -1500,17 +1540,36 @@ function atlasSSPins(region){
     b.style.left=p.x+'px'; b.style.top=p.y+'px';
     b.dataset.sid = p.s.id;
     b.innerHTML=`<i>${p.s.risk.total}</i><span>${esc(p.s.code.replace(/^SS_/,''))}</span>`;
-    b.title=`${p.s.name}\n${p.s.risk.total} kerawanan · ${p.s.views.length} view`
-      + (p.s.anchor.anchored_on?.length ? `\nposisi dari: ${p.s.anchor.anchored_on.join(', ')}` : '');
-    b.onmouseenter = () => { pairHot('sid', p.s.id, true); prefetchView(p.s.views[0]?.id); };
+    b.setAttribute('aria-label', `${p.s.name}, ${p.s.risk.total} kerawanan: ringkasan SS`);
+    b.onmouseenter = () => { pairHot('sid', p.s.id, true); prefetchView(p.s.views[0]?.id); showSSCard(map, b, p.s); };
+    b.onfocus = () => showSSCard(map, b, p.s);
     b.onmouseleave = () => pairHot('sid', p.s.id, false);
-    b.onclick=()=>{ if(p.s.views.length) selectView(p.s.views[0].id); };
+    b.onclick=()=>{ showSSCard(map, b, p.s); map.querySelector('.ss-open')?.focus(); };
     map.appendChild(b);
   });
   const hidden = region.subsystems.length - withPos.length;
   mapNote(withPos.length
     ? `${withPos.length} subsistem · posisi perkiraan (OSM)` + (hidden ? ` · ${hidden} tanpa koordinat` : '')
     : `${region.name} — belum ada koordinat subsistem`);
+}
+
+function showSSCard(map, pin, ss){
+  map.querySelector('.ss-card')?.remove();
+  const card = document.createElement('div'); card.className = 'ss-card';
+  card.setAttribute('role','dialog'); card.setAttribute('aria-label', 'Ringkasan ' + ss.name);
+  const tiers = ss.tier_views || [];
+  const tierText = tiers.length === 1 && tiers[0].min != null ? `${tiers[0].min}–${tiers[0].max}` : tiers.length > 1 ? 'Per view' : '—';
+  card.innerHTML = `<h3>${esc(ss.name)}</h3>` + summaryThree(ss.risk.total, ss.gi_count ?? '—', tierText)
+    + '<p class="scope-note">Cakupan seluruh SS; kerawanan dan GI dihitung sekali lintas sudut pandang. Tier = hop jaringan, bukan bahaya.</p>'
+    + tiers.map(t => `<div class="scope-note">${esc(t.name)}: ${t.min == null ? 'tanpa Tier' : `Tier ${t.min}–${t.max}`}</div>`).join('')
+    + `<button type="button" class="ss-open"${ss.views.length ? '' : ' disabled'}>Buka SLD</button> <button type="button" class="ss-close">Tutup</button>`;
+  map.appendChild(card);
+  card.style.left = Math.max(8, Math.min(parseFloat(pin.style.left) - card.offsetWidth/2, map.clientWidth - card.offsetWidth - 8)) + 'px';
+  card.style.top = Math.max(8, Math.min(parseFloat(pin.style.top) + 28, map.clientHeight - card.offsetHeight - 8)) + 'px';
+  card.querySelector('.ss-open').onclick = () => { card.remove(); selectView(ss.views[0].id); };
+  const dismiss = () => { pin.focus(); map.querySelector('.ss-card')?.remove(); };
+  card.querySelector('.ss-close').onclick = dismiss;
+  card.onkeydown = e => { if (e.key === 'Escape') dismiss(); };
 }
 
 // Header trail and the same trail on the map itself, where the eye is.
@@ -2021,7 +2080,8 @@ async function selectView(id){
   const q = $('#risk-q'); if (q) q.value = '';
   buildRiskChips();
   renderRiskList();
-  showTab('detail');
+  showTab('detail', false);
+  activeRisk = null; renderActiveRisk();
   clearDetail();
   updateCounts();
   renderFocusBar();
@@ -2131,6 +2191,36 @@ function commitVB(){
   $('#zbadge').textContent = Math.round(z * 100) + '%';
   el.dataset.zoom = z.toFixed(3);
   applySemanticZoom(z);
+  viewportMemory = {svg:el, scale:unitPx(el), cx:vb.x + vb.w/2, cy:vb.y + vb.h/2};
+}
+
+let viewportMemory = null;
+function preserveViewport(){
+  const svg = $('#stage svg'), r = svg?.getBoundingClientRect();
+  if (!svg || !r.width || !r.height || !viewportMemory || viewportMemory.svg !== svg) return;
+  const {scale,cx,cy} = viewportMemory;
+  if (!scale) return;
+  vb.w = r.width / scale; vb.h = r.height / scale;
+  vb.x = cx - vb.w/2; vb.y = cy - vb.h/2;
+  commitVB();
+}
+function setPanel(side, open, persist = true){
+  const panel = $('#' + side + '-panel'), toggle = $('#toggle-' + side);
+  panel.hidden = !open;
+  $('main').classList.toggle(side + '-closed', !open);
+  toggle.setAttribute('aria-expanded', String(open));
+  if (!open && panel.contains(document.activeElement)) toggle.focus();
+  preserveViewport();
+  if (persist) try { localStorage.setItem('mantaps-panels', JSON.stringify({left:!$('#left-panel').hidden,right:!$('#right-panel').hidden})); } catch (_) {}
+}
+function wirePanels(){
+  let prefs = {left:true, right:false};
+  try { const saved = JSON.parse(localStorage.getItem('mantaps-panels')); if (saved && typeof saved.left === 'boolean' && typeof saved.right === 'boolean') prefs = saved; } catch (_) {}
+  ['left','right'].forEach(side => {
+    setPanel(side, prefs[side], false);
+    $('#toggle-' + side).onclick = () => setPanel(side, $('#' + side + '-panel').hidden);
+  });
+  new ResizeObserver(() => preserveViewport()).observe($('#stage'));
 }
 
 function zoomBy(f, cx, cy){
@@ -2230,26 +2320,19 @@ function unitPx(svg){
     ? Math.min(r.width / vb.w, r.height / vb.h) : 1;
 }
 
-// Hold GI labels and risk pins at a legible size as the diagram scales down.
-// Only the glyph size is touched - x/y stay exactly as the renderer placed
-// them, so nothing moves relative to the drawing it annotates.
-// Smallest the drawn risk pin may get on screen. A tall subsystem is fitted by
-// its height, so OPEN_SCALE cannot help it: view 3 opens at 0.766 and its pin
-// lands at 9px across - visible, but too small to read the seq number in and
-// an awkward target. The pin holds this size the same way labels hold theirs.
-const MIN_PIN_PX = 24;
+// Keep 12px badge text and a 44px hit target at distant zoom levels.
+// Spread badges at a shared location into independent, non-overlapping targets.
 
 function applyPinFloor(svg){
   const k = unitPx(svg); if (!k) return;
-  const grow = Math.max(1, (MIN_PIN_PX / 2) / (9 * k));
+  const grow = Math.max(1, 1 / k);
   svg.querySelectorAll('.risk-pin').forEach(g => {
     // scale about the pin's own centre so it stays on the object it annotates
     const c = g.querySelector('circle:not(.pin-hit)');
     if (!c) return;
     const cx = +c.getAttribute('cx'), cy = +c.getAttribute('cy');
-    g.setAttribute('transform', grow > 1
-      ? `translate(${cx} ${cy}) scale(${grow.toFixed(3)}) translate(${-cx} ${-cy})`
-      : '');
+    const offset = (+g.dataset.clusterIndex || 0) * 46 * grow;
+    g.setAttribute('transform', `translate(${cx + offset} ${cy}) scale(${grow}) translate(${-cx} ${-cy})`);
   });
 }
 
@@ -2445,7 +2528,7 @@ function openPrintSheet(){
     t.setAttribute('font-size', (base * p.boost).toFixed(2));
     delete t.dataset.baseSize;
   });
-  clone.querySelectorAll('.risk-pin').forEach(g => g.removeAttribute('transform'));
+  clone.querySelectorAll('.risk-pin').forEach(g => { g.setAttribute('transform', `translate(${(+g.dataset.clusterIndex || 0) * 46} 0)`); g.style.display = ''; });
 
   // centre the drawing on the sheet: its shape rarely matches A4's, and the
   // slack must not all fall on one side
@@ -2456,7 +2539,7 @@ function openPrintSheet(){
   clone.setAttribute('height', p.ph + 'mm');
   clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-  const title = (VIEW && VIEW.name) || 'SLD';
+  const title = VIEW ? viewLabel(VIEW) : 'SLD';
   const warn = p.fits ? '' :
     `<div class="warn">Gambar ini perlu teks ${p.boost.toFixed(1)}&times; agar terbaca pada satu A4.
      Pertimbangkan memecahnya menjadi sudut pandang tambahan, atau cetak pada kertas lebih besar.</div>`;
@@ -2476,18 +2559,24 @@ function openPrintSheet(){
   .warn { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:12px;
           padding:8px 12px; border-radius:8px; margin:10px 14px; line-height:1.5; }
   .sheet { background:#fff; margin:14px auto; box-shadow:0 2px 12px rgba(15,39,74,.15); }
+  section .rcard { border:1px solid #cbd5e1; padding:12px; margin:12px 0; break-inside:avoid; }
+  section .rc-head, section .rc-title { font-weight:700; }
+  section .rc-sec { margin-top:10px; }
+  section .rc-lab { font-weight:700; }
+  section p { margin:4px 0; white-space:pre-line; }
   svg { display:block; }
   @media print {
     .bar, .warn { display:none !important; }
     html,body { background:#fff; }
     .sheet { margin:0; box-shadow:none; }
+    section { break-before:page; }
   }
 </style></head><body>
 <div class="bar"><b>${esc(title)}</b>
   <span>A4 ${p.orientation === 'landscape' ? 'lanskap' : 'potret'} &middot;
   label ${p.labelMm.toFixed(1)}mm &middot; skala ${(p.k*1000).toFixed(1)} mm/1000u</span>
   <button onclick="window.print()">Cetak</button></div>
-${warn}<div class="sheet">${clone.outerHTML}</div></body></html>`);
+${warn}<div class="sheet">${clone.outerHTML}</div><section style="padding:20px;background:white"><h2>Kerawanan — seluruh SS</h2>${(GRAPH.overlays.risk || []).map(r => riskCard(r, 'detail')).join('')}</section></body></html>`);
   win.document.close();
 }
 
@@ -2506,6 +2595,11 @@ function wireHits(){
     else if (circ) showCircuit(circ);
     else if (node) showNode(node);
     else if (aud)  showAudit(aud);
+  });
+  svg.querySelectorAll('.risk-pin').forEach(p => {
+    p.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showPinRisks(p); } };
+    p.onfocus = () => { const r = p.getBoundingClientRect(); pinTip(p, {clientX:r.right, clientY:r.top}); };
+    p.onblur = () => pinTip(null);
   });
   svg.addEventListener('mousemove', e => pinTip(e.target.closest('.risk-pin'), e));
   svg.addEventListener('mouseleave', () => pinTip(null));
@@ -2676,7 +2770,7 @@ function showNode(g){
     + (n.status ? statusPill(n.status) : '') + `</div>`
     + `<div class="obj-sub">${esc(roleLabel(n.role) || '-')} &middot; ${esc(tier)}`
     + (isBay ? ' &middot; digambar sebagai stub' : '') + `</div></div>`;
-  h += riskSection('Kerawanan di objek ini', here, 'detail')
+  h += riskSection('Kerawanan di objek ini', here, 'list')
     || `<div class="dsec none">Tidak ada kerawanan yang dipasang di objek ini.</div>`;
   h += riskSection('Terdampak oleh (disebut di Dampak)', affected, 'list');
   const giCode = n.code || code;
@@ -2709,7 +2803,7 @@ function showCircuit(g){
     + `<span class="pill">${esc(e.circuit_count || 1)} sirkit${e.single_phi ? ' &middot; single-phi' : ''}</span>`
     + (e.status ? statusPill(e.status) : '') + `</div>`
     + (ends ? `<div class="obj-sub">${esc(ends)}</div>` : '') + `</div>`;
-  h += riskSection('Kerawanan di ruas ini', rr, 'detail')
+  h += riskSection('Kerawanan di ruas ini', rr, 'list')
     || `<div class="dsec none">Tidak ada kerawanan yang dipasang di ruas ini.</div>`;
   if (['BUS_COUPLER', 'BUS_TIE'].includes(e.circuit_type)) {
     const state = SWITCH_OVERRIDES[e.id] || e.switch_state || 'UNKNOWN';
@@ -2792,29 +2886,70 @@ function shortNode(id){
   const n = (GRAPH.nodes || []).find(x => x.kind === 'SUBSTATION' && x.id === +id);
   return n ? n.name.replace(/\s*\((bus )?\d+\s*kV\)$/i, '') : '#' + id;
 }
-function riskWhere(r){
+function riskWhere(r, full = false){
   const names = [...new Set([r, ...(r.attachments || [])].map(attachName).filter(Boolean))];
-  return names.length > 3 ? names.slice(0, 3).join(', ') + ` +${names.length - 3}` : names.join(', ');
+  return !full && names.length > 3 ? names.slice(0, 3).join(', ') + ` +${names.length - 3}` : names.join(', ');
 }
 function rsec(label, text){
   return text ? `<div class="rc-sec"><span class="rc-lab">${esc(label)}</span><p>${esc(text)}</p></div>` : '';
 }
 function riskCard(r, mode, extra = ''){
-  const where = riskWhere(r);
   const detail = mode === 'detail';
-  const cond = plainText(r.condition || r.title);
-  return `<div class="risk rcard${detail ? ' rc-detail' : ''}${extra}" data-seq="${r.seq_no}">`
-    + `<div class="rc-head"><span class="rc-no">#${r.seq_no}</span>${catPill(r.category)}`
-    + (detail ? `<button class="rc-go" type="button" data-seq="${r.seq_no}" title="Sorot di SLD">Sorot</button>` : '')
-    + `</div>`
-    + `<div class="rc-title${detail ? '' : ' clamp'}">${esc(cond)}</div>`
-    + (where ? `<div class="rc-where" title="lokasi pin">&#9679; ${esc(where)}</div>` : '')
-    + (detail ? rsec('Dampak', r.impact) : '')
-    + `<details${detail ? '' : ' class="rc-more"'}><summary>${detail ? 'Mitigasi &amp; usulan' : 'Dampak, mitigasi &amp; usulan'}</summary>`
-    + (detail ? '' : rsec('Dampak', r.impact))
-    + rsec('Mitigasi', r.mitigation) + rsec('Usulan / solusi', r.follow_up)
-    + `</details></div>`;
+  const title = detail ? plainText(r.title || r.condition) : shortText(plainText(r.title || r.condition), 100);
+  return `<${detail ? 'div' : 'button type="button"'} class="risk rcard${detail ? ' rc-detail' : ''}${extra}" data-seq="${r.seq_no}">`
+    + `<div class="rc-head"><span class="rc-no">#${r.seq_no}</span>${catPill(r.category || 'LAINNYA')}</div>`
+    + `<div class="rc-title${detail ? '' : ' clamp'}">${esc(title)}</div>`
+    + `<div class="rc-where">${esc(riskWhere(r) || 'Lokasi belum dipetakan')}</div>`
+    + (detail ? rsec('Kondisi', plainText(r.condition || r.title)) + rsec('Lokasi', riskWhere(r, true))
+      + rsec('Dampak', r.impact) + rsec('Mitigasi', r.mitigation) + rsec('Usulan', r.follow_up) : '')
+    + `</${detail ? 'div' : 'button'}>`;
 }
+let activeRisk = null;
+function renderActiveRisk(){
+  const r = (GRAPH?.overlays?.risk || []).find(r => r.seq_no === activeRisk);
+  $('#risk-active').innerHTML = r ? riskCard(r, 'detail') : '<p class="scope-note">Pilih satu baris atau badge # pada SLD untuk membuka informasi lengkap.</p>';
+}
+let riskSelectionRequest = 0;
+async function selectRisk(seq, zoom = 'ensure'){
+  const request = ++riskSelectionRequest;
+  activeRisk = seq;
+  showTab('risk');
+  renderActiveRisk();
+  const risk = (GRAPH.overlays.risk || []).find(r => r.seq_no === seq);
+  if (risk && !riskOnThisPage(risk)) {
+    const current = VIEW;
+    for (const view of VIEWS.filter(v => v.subsystem_id === current.subsystem_id && v.id !== current.id)) {
+      try {
+        const [svg] = await viewData(view.id);
+        if (request !== riskSelectionRequest || VIEW.id !== current.id) return;
+        if (svg.includes(`data-risk-seqs="${seq}"`)) {
+          if (!await selectView(view.id)) return;
+          if (request !== riskSelectionRequest) return;
+          activeRisk = seq; showTab('risk'); renderActiveRisk(); break;
+        }
+      } catch (_) { /* Detail remains readable if another view cannot load. */ }
+    }
+  }
+  setFocus([seq], {zoom});
+  if (!riskOnThisPage((GRAPH.overlays.risk || []).find(r => r.seq_no === seq) || risk)) {
+    clearFocus(); activeRisk = seq; renderActiveRisk();
+    $('#risk-active').insertAdjacentHTML('beforeend', '<p class="scope-note">Lokasi item ini belum tergambar pada sudut pandang yang tersedia. Detail sumber tetap ditampilkan.</p>');
+  }
+  $('#risk-active').scrollIntoView({block:'nearest'});
+}
+function summaryThree(risks, gi, tier){
+  return `<div class="summary-three"><span><b>${risks}</b>Kerawanan</span><span><b>${gi}</b>GI unik</span><span><b>${esc(tier)}</b>Rentang Tier</span></div>`;
+}
+function renderRiskSummary(){
+  const nodes = (GRAPH.nodes || []).filter(n => n.kind === 'SUBSTATION');
+  const tiers = nodes.map(n => n.tier).filter(t => t != null);
+  const range = tiers.length ? `${Math.min(...tiers)}–${Math.max(...tiers)}` : '—';
+  $('#risk-summary').innerHTML = summaryThree(new Set((GRAPH.overlays.risk || []).map(r => r.id ?? r.seq_no)).size, new Set(nodes.map(n => n.id)).size, range)
+    + '<p class="scope-note">Kerawanan: seluruh SS, sekali per item. GI dan Tier: sudut pandang aktif. Tier adalah hop jaringan dari sumber, bukan tingkat bahaya; objek tanpa Tier tidak dihitung sebagai Tier 0.</p>'
+    + `<details class="scope-note"><summary>GI pada sudut pandang aktif</summary><p>${[...new Set(nodes.map(n => n.code))].sort().map(esc).join(', ')}</p></details>`
+    + '<p class="scope-note">Warna menunjukkan kategori, bukan urutan prioritas: ' + [...new Set(['N-1','N-2','N-1-1',...(GRAPH.overlays.risk || []).map(r => r.category || 'LAINNYA')])].map(catPill).join(' ') + '</p>';
+}
+
 // The findings on an object, the ones whose Dampak names it, and a quiet line
 // when there are none.
 function riskSection(title, list, mode){
@@ -2823,7 +2958,7 @@ function riskSection(title, list, mode){
     + list.map(r => riskCard(r, mode)).join('') + `</div>`;
 }
 function wireDetailCards(){
-  const go = seq => { showTab('risk'); setFocus([seq], {zoom: true}); };
+  const go = seq => selectRisk(seq, true);
   $$('#detail .rc-go').forEach(b => b.onclick = () => go(+b.dataset.seq));
   // a finding listed as "terdampak oleh" is itself a way into that finding
   $$('#detail .rcard:not(.rc-detail)').forEach(c => {
@@ -2834,20 +2969,37 @@ function wireDetailCards(){
 
 // is the object this risk pins to actually drawn on the current view?
 function riskOnThisPage(r){
-  const svg = $('#stage svg'); if (!svg || !r.attach_kind || !r.attach_id) return false;
-  return !!svgElForRelation(svg, r.attach_kind, r.attach_id, r.attach_label);
+  const svg = $('#stage svg'); if (!svg || !r) return false;
+  return [r, ...(r.attachments || [])].some(a => riskTargets(svg, a).length);
 }
 
 // ---------- right panel: tabs + risk filtering ----------
 const riskFilter = {q: '', cats: new Set()};
 
-function showTab(name){
+function showTab(name, reveal = true){
+  if (reveal) setPanel('right', true);
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  $$('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+  $$('.tab').forEach(t => { t.tabIndex = t.dataset.tab === name ? 0 : -1; });
   $$('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
 }
 
 function wirePanel(){
-  $$('.tab').forEach(t => t.onclick = () => showTab(t.dataset.tab));
+  const tabs = $$('.tab');
+  tabs.forEach((t,i) => {
+    t.id = 'tab-' + t.dataset.tab;
+    t.setAttribute('aria-controls', 'pane-' + t.dataset.tab);
+    const pane = $('#pane-' + t.dataset.tab);
+    pane.setAttribute('role','tabpanel'); pane.setAttribute('aria-labelledby', t.id);
+    t.onclick = () => showTab(t.dataset.tab);
+    t.onkeydown = e => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+      e.preventDefault();
+      const next = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length-1 : (i + (e.key === 'ArrowLeft' ? -1 : 1) + tabs.length) % tabs.length;
+      showTab(tabs[next].dataset.tab); tabs[next].focus();
+    };
+  });
+  showTab('detail', false);
   const q = $('#risk-q');
   q.oninput = () => { riskFilter.q = q.value.trim().toLowerCase(); renderRiskList(); };
 }
@@ -2857,16 +3009,19 @@ function wirePanel(){
 function buildRiskChips(){
   const box = $('#risk-cats');
   const cats = [...new Set((GRAPH?.overlays?.risk || []).map(r => r.category || 'LAINNYA'))].sort();
+  const categoryOrder = ['N-1','N-2','N-1-1'];
+  const rank = c => categoryOrder.includes(c) ? categoryOrder.indexOf(c) : categoryOrder.length;
+  cats.sort((a,b) => rank(a) - rank(b) || a.localeCompare(b));
   // Drop a filter that no longer exists in this view rather than silently
   // hiding every risk.
   [...riskFilter.cats].forEach(c => { if(!cats.includes(c)) riskFilter.cats.delete(c); });
-  box.innerHTML = (cats.length < 2 ? '' : cats.map(c =>
-    `<button class="chip${riskFilter.cats.has(c) ? ' on' : ''}" data-cat="${esc(c)}" type="button">${esc(c)}</button>`).join(''))
-    + ((GRAPH?.overlays?.risk || []).length
-       ? `<button class="chip hl-all" id="hl-all" type="button" title="Sorot semua kerawanan yang tampil di daftar">Sorot semua</button>` : '');
+  const risks = GRAPH?.overlays?.risk || [];
+  $('#stage svg')?.querySelectorAll('.risk-pin').forEach(p => { p.style.display = !riskFilter.cats.size || riskFilter.cats.has(p.dataset.category) ? '' : 'none'; });
+  box.innerHTML = `<button class="chip${!riskFilter.cats.size ? ' on' : ''}" data-cat="" type="button" aria-pressed="${!riskFilter.cats.size}">Semua (${risks.length})</button>`
+    + cats.map(c => `<button class="chip${riskFilter.cats.has(c) ? ' on' : ''}" data-cat="${esc(c)}" type="button" aria-pressed="${riskFilter.cats.has(c)}">${esc(c)} (${risks.filter(r => (r.category || 'LAINNYA') === c).length})</button>`).join('')
+    + (risks.length ? '<button class="chip hl-all" id="hl-all" type="button">Sorot semua</button>' : '');
   $$('#risk-cats .chip[data-cat]').forEach(b => b.onclick = () => {
-    const c = b.dataset.cat;
-    riskFilter.cats.has(c) ? riskFilter.cats.delete(c) : riskFilter.cats.add(c);
+    riskFilter.cats.clear(); if (b.dataset.cat) riskFilter.cats.add(b.dataset.cat);
     buildRiskChips(); renderRiskList();
   });
   const all = $('#hl-all');
@@ -2887,6 +3042,7 @@ function riskMatches(r){
 
 function renderRiskList(){
   if (!GRAPH) return;
+  renderRiskSummary(); renderActiveRisk();
   const box = $('#risklist');
   const rs = GRAPH.overlays.risk || [];
   const ds = GRAPH.overlays.defense_scheme || [];
@@ -2907,8 +3063,7 @@ function renderRiskList(){
   shown.forEach(r => {
     const here = riskOnThisPage(r);
     let card = riskCard(r, 'list', here ? '' : ' offpage');
-    if (!here) card = card.replace('</div><div class="rc-title',
-      '<span class="offtag">di sudut pandang lain</span></div><div class="rc-title');
+    if (!here) card = card.replace('</button>', '<span class="scope-note">Lokasi tidak tampil di view ini</span></button>');
     h += card;
   });
   if (layerState['ds']) {
@@ -2930,14 +3085,13 @@ function renderRiskList(){
     });
   }
   box.innerHTML = h;
-  box.querySelectorAll('.risk[data-seq]:not(.offpage)').forEach(el => {
+  box.querySelectorAll('.risk[data-seq]').forEach(el => {
     el.style.cursor = 'pointer';
     // a click chooses the kerawanan; clicking the chosen one again lets go
     el.onclick = ev => {
       if (ev.target.tagName === 'SUMMARY') return;
       const seq = +el.dataset.seq;
-      if (FOCUS && FOCUS.seqs.length === 1 && FOCUS.seqs[0] === seq) clearFocus();
-      else focusRisk(seq);
+      selectRisk(seq, true);
     };
     // Hovering only points at the row's pin. It used to re-focus the drawing
     // on every row the mouse crossed, so the kerawanan actually chosen kept
@@ -2954,9 +3108,7 @@ function renderRiskList(){
   };
 }
 
-// Clicking a pin on the drawing reveals the kerawanan it stands for. A pin can
-// carry several seq numbers (that is what its label shows), so all of them are
-// highlighted rather than only the first.
+// Each badge selects one finding, including badges sharing a location.
 function hoverPins(seq, on){
   $$('#stage svg .risk-pin').forEach(p => {
     if ((p.dataset.riskSeqs || '').split(',').map(Number).includes(seq)) p.classList.toggle('hover', on);
@@ -2965,26 +3117,9 @@ function hoverPins(seq, on){
 function showPinRisks(pin){
   const seqs = (pin.dataset.riskSeqs || '').split(',').map(s => +s).filter(Boolean);
   if (!seqs.length) return;
-  // the pin of the kerawanan already in focus: a second click lets go
-  if (FOCUS && pin.classList.contains('active')
-      && FOCUS.seqs.length === seqs.length && seqs.every(q => FOCUS.seqs.includes(q))) {
-    clearFocus(); return;
-  }
-  const svg = $('#stage svg');
-  svg.querySelectorAll('.risk-pin.active').forEach(p => p.classList.remove('active'));
-  pin.classList.add('active');
-  // A filter left over from an earlier search would hide the very rows the
-  // user just clicked towards, which reads as the pin doing nothing.
-  const hidden = seqs.some(q => !$(`#risklist .risk[data-seq="${q}"]`));
-  if (hidden) { riskFilter.q = ''; riskFilter.cats.clear();
-                const q = $('#risk-q'); if (q) q.value = '';
-                buildRiskChips(); renderRiskList(); }
-  showTab('risk');
-  const rows = seqs.map(q => $(`#risklist .risk[data-seq="${q}"]`)).filter(Boolean);
-  $$('#risklist .risk.active').forEach(el => el.classList.remove('active'));
-  rows.forEach(el => el.classList.add('active'));
-  rows[0]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  setFocus(seqs, {zoom: 'ensure'});
+  riskFilter.q = ''; riskFilter.cats.clear(); $('#risk-q').value = '';
+  buildRiskChips(); renderRiskList();
+  selectRisk(seqs[0]);
 }
 
 // ---------- risk focus ----------
@@ -3012,7 +3147,9 @@ function clearFocus(opts = {}){
   }
   $$('#risklist .risk.active').forEach(el => el.classList.remove('active'));
   if (opts.keepState) return;
+  ++riskSelectionRequest;
   FOCUS = null; FOCUS_PREVIEW = false;
+  activeRisk = null; renderActiveRisk();
   renderFocusBar();
   if (!opts.silent) writeHash();
 }
@@ -3065,7 +3202,7 @@ function setFocus(seqs, opts = {}){
   if (opts.zoom === true && !opts.preview)
     $(`#risklist .risk[data-seq="${seqs[0]}"]`)?.scrollIntoView({block: 'nearest'});
   FOCUS_PREVIEW = !!opts.preview;
-  if (!opts.preview) { FOCUS = {seqs}; renderFocusBar(); writeHash(); }
+  if (!opts.preview) { FOCUS = {seqs}; activeRisk = seqs.length === 1 ? seqs[0] : null; renderActiveRisk(); renderFocusBar(); writeHash(); }
 }
 
 // Location ring (solid, with halo), Dampak ring (solid, thinner) or topology
@@ -3174,7 +3311,7 @@ function renderFocusBar(){
     + (many ? `<button type="button" id="fprev" title="Kerawanan sebelumnya (&larr;)">&lsaquo;</button>`
             + `<button type="button" id="fnext" title="Kerawanan berikutnya (&rarr;)">&rsaquo;</button>` : '')
     + `<button type="button" id="fclear" title="Lepas sorotan (Esc)">&#10005; Lepas sorotan</button>`
-    + `<span class="fhint">atau klik area kosong di gambar, klik kartunya lagi, atau tekan Esc</span>`;
+    + `<span class="fhint">atau klik area kosong di gambar atau tekan Esc</span>`;
   bar.classList.add('on');
   if (many) { $('#fprev').onclick = () => stepFocus(-1); $('#fnext').onclick = () => stepFocus(1); }
   $('#fclear').onclick = () => clearFocus();
@@ -3200,8 +3337,8 @@ function pinTip(pin, e){
   const seqs = (pin.dataset.riskSeqs || '').split(',').map(Number).filter(Boolean);
   const rs = (GRAPH.overlays.risk || []).filter(r => seqs.includes(r.seq_no));
   if (!rs.length) { tip.style.display = 'none'; return; }
-  tip.innerHTML = rs.map(r => `<div><b>#${r.seq_no}</b> ${esc(r.category || '')} &middot; `
-    + `${esc(shortText(r.condition, 110))}</div>`).join('');
+  tip.innerHTML = rs.map(r => `<div><b>#${r.seq_no}</b> ${esc(r.category || 'LAINNYA')} &middot; `
+    + `${esc(shortText(r.title || r.condition, 90))}<br>${esc(riskWhere(r))}<br>Klik / Enter untuk membuka detail</div>`).join('');
   tip.style.display = 'block';
   tip.style.left = Math.max(6, Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8)) + 'px';
   tip.style.top = Math.max(6, Math.min(e.clientY + 14, innerHeight - tip.offsetHeight - 8)) + 'px';
@@ -3513,7 +3650,7 @@ function exposedBy(svg, r){
 
 // A row in the list: bring that kerawanan into focus and into view.
 function focusRisk(seq){
-  setFocus([seq], {zoom: true});
+  selectRisk(seq, true);
 }
 
 // ---------- validation card ----------
