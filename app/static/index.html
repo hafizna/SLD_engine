@@ -326,6 +326,8 @@
   .layer.disabled { opacity: .4; cursor: not-allowed; }
   .layer .sw { width: 13px; height: 13px; border-radius: 3px; flex: none; }
   .layer small { color: var(--muted); font-size: 10.5px; }
+  #stage .diagram-title { display: none; }
+  .diagram-heading { flex-shrink: 0; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 700; line-height: 1.4; color: var(--ink); overflow-wrap: anywhere; }
   #adaptive-label-control[hidden] { display: none; }
   .zoomnote {
     margin-top: 6px; padding: 8px 9px; font-size: 10.5px; line-height: 1.5;
@@ -806,7 +808,7 @@
       </label>
       <label id="adaptive-label-control" class="layer" hidden>
         <input id="adaptive-labels" type="checkbox" checked>
-        <span>Label adaptif — SS Sumsel <small>Nama ringkas saat jauh, lengkap saat dekat</small></span>
+        <span>Label adaptif <small>Nama ringkas saat jauh, lengkap saat dekat</small></span>
       </label>
       <div class="zoomnote">
         Zoom kecil menampilkan pita Tier &amp; blok GI. Label GI tetap terbaca, termasuk GI stub. Perbesar untuk melihat
@@ -837,6 +839,7 @@
 
   <!-- CENTER -->
   <div class="card viewer">
+    <div class="diagram-heading" id="diagram-heading"></div>
     <div id="stage"></div>
     <nav class="povbar" id="povbar" aria-label="Sudut pandang subsistem ini" hidden></nav>
     <div class="stage-loading" id="stageload" role="status" hidden></div>
@@ -915,7 +918,7 @@ function syncLoadBar(){
   if (INFLIGHT > 0) loadBarT = setTimeout(() => bar.classList.add('on'), 250);
   else bar.classList.remove('on');
 }
-async function fetchOk(p){ const r = await fetch(resourcePath(p)); if(!r.ok) throw new Error(p+' '+r.status); return r; }
+async function fetchOk(p){ const r = await fetch(resourcePath(p), {cache: 'no-cache'}); if(!r.ok) throw new Error(p+' '+r.status); return r; }
 function j(p){ return tracked(fetchOk(p).then(r => r.json())); }
 function txt(p){ return tracked(fetchOk(p).then(r => r.text())); }
 const SLOW_NOTE = 'Koneksi ke server sedang lambat. Isinya tampil begitu datanya tiba.';
@@ -2001,12 +2004,14 @@ async function selectView(id){
   vb0 = { x, y, w, h };
   vb  = openingVB(el);
   const adaptiveControl = $('#adaptive-label-control');
-  adaptiveControl.hidden = VIEW.view_key !== 'SS_SUMSEL_FULL';
+  adaptiveControl.hidden = false;
   $('#adaptive-labels').onchange = () => commitVB();
+  prepareDiagramLabels(el);
+  $('#diagram-heading').textContent = viewLabel(VIEW);
+  renderPovBar();
   commitVB();
 
   markTree(id);
-  renderPovBar();
   buildScenario();
   applyLayers();
   wireHits();
@@ -2173,13 +2178,49 @@ function applySemanticZoom(z){
   const svg = $('#stage svg'); if (!svg) return;
   const tier = svg.querySelector('#overlay-tier');
   if (tier && layerState['overlay-tier'] !== false)
-    tier.style.opacity = z > 2.6 ? 0.35 : 1;
+    tier.style.opacity = 1;
   // Only audit annotations fade; a stub is still a GI and keeps its label.
   svg.querySelectorAll('#mapping-audit text').forEach(t => {
     t.style.opacity = z < 0.62 ? 0 : (z < 0.8 ? 0.5 : 1);
   });
   applyPlantDetail(svg);
   applyLabelFloor(svg);
+}
+
+// Normalize older cached snapshots too: previously only busbars had a floor.
+function prepareDiagramLabels(svg){
+  svg.querySelector(':scope > text')?.classList.add('diagram-title');
+  svg.querySelectorAll('#overlay-tier > text').forEach(t => {
+    const pill = t.previousElementSibling;
+    if (!pill || pill.tagName.toLowerCase() !== 'rect') return;
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.classList.add('tier-label'); group.dataset.y = +t.getAttribute('y') - 3;
+    pill.before(group); group.append(pill, t);
+  });
+  svg.querySelectorAll('#busbars > g > text, #bays > g > text').forEach(t => {
+    t.classList.add('asset-label', 'gi-label');
+  });
+  svg.querySelectorAll('#generators text').forEach(t => {
+    t.classList.add('asset-label', 'plant-label');
+    if (!t.dataset.shortLabel) t.dataset.shortLabel = t.textContent.trim();
+    if (!t.dataset.labelBottom) t.dataset.labelBottom = t.getAttribute('y');
+    if (!t.dataset.labelAbove) t.dataset.labelAbove = t.getAttribute('text-anchor') === 'middle' ? '1' : '0';
+  });
+}
+
+function applyTierFloor(svg){
+  const k = unitPx(svg); if (!k) return;
+  const grow = Math.max(1, 11 / (10.5 * k));
+  const frame = svg.getBoundingClientRect(), matrix = svg.getScreenCTM();
+  let targetX = 41;
+  if (matrix) {
+    const point = svg.createSVGPoint(); point.x = frame.left + 38; point.y = frame.top;
+    targetX = point.matrixTransform(matrix.inverse()).x;
+  }
+  svg.querySelectorAll('.tier-label').forEach(g => {
+    const y = +g.dataset.y;
+    g.setAttribute('transform', `translate(${targetX - 41} 0) translate(41 ${y}) scale(${grow}) translate(-41 ${-y})`);
+  });
 }
 
 // px on screen for one diagram unit at the current viewBox
@@ -2196,7 +2237,7 @@ function unitPx(svg){
 // its height, so OPEN_SCALE cannot help it: view 3 opens at 0.766 and its pin
 // lands at 9px across - visible, but too small to read the seq number in and
 // an awkward target. The pin holds this size the same way labels hold theirs.
-const MIN_PIN_PX = 18;
+const MIN_PIN_PX = 24;
 
 function applyPinFloor(svg){
   const k = unitPx(svg); if (!k) return;
@@ -2218,14 +2259,14 @@ function applyLabelFloor(svg){
   applyPinFloor(svg);
   // The pin's own number rides its group transform, so it must not also be
   // boosted here or it would grow twice and overflow the disc.
-  svg.querySelectorAll('#busbars text, #bays .asset-label, #generators .plant-label').forEach(t => {
+  svg.querySelectorAll('#busbars text, #bays .asset-label, .plant-label').forEach(t => {
     let base = +t.dataset.baseSize;
     if (!base) {
       base = parseFloat(t.getAttribute('font-size')) || 0;
       if (!base) return;
       t.dataset.baseSize = base;            // remember the rendered size once
     }
-    const floor = t.classList.contains('asset-label') ? MIN_ASSET_LABEL_PX : MIN_LABEL_PX;
+    const floor = t.classList.contains('plant-label') ? 12 : t.classList.contains('asset-label') ? MIN_ASSET_LABEL_PX : MIN_LABEL_PX;
     const boost = Math.max(1, floor / (base * k));
     t.setAttribute('font-size', (base * boost).toFixed(2));
     // Keep wrapped plant lines apart when their glyphs reach the screen floor.
@@ -2237,17 +2278,18 @@ function applyLabelFloor(svg){
       t.setAttribute('y', +t.dataset.labelBottom - Math.max(0, lines - 1) * 15 * boost);
     }
   });
-  declutterPilotLabels(svg);
+  applyTierFloor(svg);
+  declutterLabels(svg);
 }
 
-// Pilot only: use actual screen scale, not the relative FIT percentage.
+// Use actual screen scale, not the relative FIT percentage.
 // Hysteresis prevents label flicker around the transition while zooming.
 function applyPlantDetail(svg){
-  const pilot = VIEW?.view_key === 'SS_SUMSEL_FULL' && $('#adaptive-labels').checked;
+  const adaptive = $('#adaptive-labels').checked;
   const k = unitPx(svg);
   svg.querySelectorAll('.plant-label').forEach(t => {
     if (!t.dataset.fullLabel) t.dataset.fullLabel = t.innerHTML;
-    const compact = pilot && (t.dataset.compact === '1' ? k < 0.9 : k < 0.75);
+    const compact = adaptive && (t.dataset.compact === '1' ? k < 0.9 : k < 0.75);
     if (compact === (t.dataset.compact === '1')) return;
     t.innerHTML = compact ? '' : t.dataset.fullLabel;
     if (compact) {
@@ -2261,10 +2303,11 @@ function applyPlantDetail(svg){
   });
 }
 
-function declutterPilotLabels(svg){
+function declutterLabels(svg){
+  svg.querySelectorAll('.label-leader').forEach(n => n.remove());
   const labels = [...svg.querySelectorAll('.asset-label')];
-  labels.forEach(t => { t.style.visibility = ''; });
-  if (VIEW?.view_key !== 'SS_SUMSEL_FULL' || !$('#adaptive-labels').checked) return;
+  labels.forEach(t => { t.style.visibility = ''; t.removeAttribute('transform'); });
+  if (!$('#adaptive-labels').checked) return;
   // Equal treatment for busbar and stub GIs. Hide only colliding labels in
   // the overview; the electrical objects and their click targets stay intact.
   const frame = svg.getBoundingClientRect(), kept = [];
@@ -2272,12 +2315,39 @@ function declutterPilotLabels(svg){
     const priority = t => t.closest('.in-focus') ? 0 : t.classList.contains('gi-label') ? 1 : 2;
     return priority(a) - priority(b);
   }).forEach(t => {
-    const r = t.getBoundingClientRect();
+    let r = t.getBoundingClientRect();
     if (r.right < frame.left || r.left > frame.right || r.bottom < frame.top || r.top > frame.bottom) return;
-    if (kept.some(b => r.left < b.right + 4 && r.right + 4 > b.left &&
-                        r.top < b.bottom + 3 && r.bottom + 3 > b.top)) {
-      t.style.visibility = 'hidden';
-    } else kept.push(r);
+    const collides = r => kept.some(b => r.left < b.right + 4 && r.right + 4 > b.left &&
+                                        r.top < b.bottom + 3 && r.bottom + 3 > b.top);
+    // Plant names need more room than GI codes. Try nearby label lanes before
+    // hiding them; the plant symbol and complete detail remain accessible.
+    if (t.classList.contains('plant-label')) {
+      const k = unitPx(svg);
+      const dx = (r.left < frame.left + 8 ? frame.left + 8 - r.left
+        : r.right > frame.right - 8 ? frame.right - 8 - r.right : 0) / k;
+      let dy = 0;
+      t.setAttribute('transform', `translate(${dx} 0)`);
+      r = t.getBoundingClientRect();
+      for (let lane = 1; collides(r) && lane <= 4; lane++) {
+        const nextY = -lane * 18 / k;
+        if (r.top - 18 < frame.top + 4) break;
+        dy = nextY;
+        t.setAttribute('transform', `translate(${dx} ${dy})`);
+        r = t.getBoundingClientRect();
+      }
+      if (!collides(r) && (dx || dy)) {
+        const x = +t.getAttribute('x'), y = +t.dataset.labelBottom + 5 / k;
+        const leader = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        leader.setAttribute('class', 'label-leader');
+        leader.setAttribute('d', `M${x},${y} L${x + dx},${y + dy}`);
+        leader.setAttribute('stroke', '#94a3b8'); leader.setAttribute('fill', 'none');
+        leader.setAttribute('vector-effect', 'non-scaling-stroke');
+        leader.style.pointerEvents = 'none';
+        t.before(leader);
+      }
+    }
+    if (collides(r)) t.style.visibility = 'hidden';
+    else kept.push(r);
   });
 }
 
@@ -2350,14 +2420,15 @@ function openPrintSheet(){
   if (!src) return;
   const clone = src.cloneNode(true);
   // the screen-only affordances have no business on paper
-  clone.querySelectorAll('.pin-hit, #sel-layer').forEach(n => n.remove());
+  clone.querySelectorAll('.pin-hit, #sel-layer, .label-leader').forEach(n => n.remove());
   // Print the whole drawing, not the pan/zoom the user happens to be on:
   // vb0 is the renderer's own extent, vb is wherever they have scrolled to.
   const { x: x0, y: y0, w, h } = vb0 || {};
   if (!w || !h) return;
   const p = planPrint(w, h);
 
-  clone.querySelectorAll('.asset-label').forEach(t => { t.style.visibility = ''; });
+  clone.querySelectorAll('.asset-label').forEach(t => { t.style.visibility = ''; t.removeAttribute('transform'); });
+  clone.querySelectorAll('.tier-label').forEach(g => g.removeAttribute('transform'));
   clone.querySelectorAll('.plant-label').forEach(t => {
     if (t.dataset.fullLabel) t.innerHTML = t.dataset.fullLabel;
     t.querySelectorAll('tspan').forEach((span, i) => {

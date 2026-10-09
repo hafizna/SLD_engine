@@ -1048,10 +1048,11 @@ def render_view_svg(db: Session, view: AnalyticalView) -> str:
         by = y - (previous_gap / 2 if idx else 60)
         p.append(f'<line x1="16" y1="{by:.0f}" x2="{W - 16:.0f}" y2="{by:.0f}" '
                  f'stroke="#b9c6d8" stroke-width="1.2" stroke-dasharray="6 5"/>')
+        p.append(f'<g class="tier-label" data-y="{by:.0f}">')
         p.append(f'<rect x="14" y="{by - 9:.0f}" width="54" height="17" rx="3" '
                  f'fill="#eef2f7" stroke="#c9d4e2" stroke-width="0.8"/>')
         p.append(f'<text x="41" y="{by + 3:.0f}" font-size="10.5" fill="#5a6b80" '
-                 f'font-weight="700" text-anchor="middle">TIER {t}</text>')
+                 f'font-weight="700" text-anchor="middle">TIER {t}</text></g>')
     p.append('</g>')
 
     # ---- route bundles before emitting individual conductors ------------

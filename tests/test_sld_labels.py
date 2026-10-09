@@ -23,6 +23,12 @@ def test_stub_gi_labels_have_busbar_typography_and_full_title(db):
     labels = []
     for view in db.query(AnalyticalView).all():
         root = ET.fromstring(render_view_svg(db, view))
+        badges = root.findall('.//s:g[@class="tier-label"]', ns)
+        assert badges, 'Tier labels must be independently scalable from tier lines'
+        for badge in badges:
+            assert badge.get('data-y')
+            assert badge.find('s:rect', ns) is not None
+            assert badge.find('s:text', ns).text.startswith('TIER ')
         for group in root.findall('.//s:g[@id="bays"]/s:g', ns):
             label = group.find('s:text', ns)
             if label is None or 'gi-label' not in label.get('class', ''):
