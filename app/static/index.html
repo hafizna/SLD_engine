@@ -637,7 +637,7 @@
   .rp-nav { display:flex; justify-content:space-between; gap:12px; margin-top:14px; }
   .rp-nav button { border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--blue); padding:7px 10px; font:inherit; font-size:11px; cursor:pointer; }
   .rp-nav button:disabled { opacity:.4; cursor:default; }
-  .rp-hero { padding:16px; border:1px solid #dce5ee; border-radius:12px; background:linear-gradient(135deg,#f0f6fc,#fff); }
+  .rp-hero, .obj-head { padding:16px; border:1px solid #dce5ee; border-radius:12px; background:linear-gradient(135deg,#f0f6fc,#fff); }
   .rp-hero .rp-label { display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:var(--blue-d); font-size:11px; font-weight:750; }
   .rp-hero h2 { margin:10px 0 8px; font-size:15px; line-height:1.5; color:var(--ink); overflow-wrap:anywhere; }
   .rp-hero p, .rp-note { margin:0; color:var(--muted); font-size:11px; line-height:1.6; }
@@ -660,10 +660,19 @@
   #risklist .rcard { background:#fff; border-color:var(--line); border-left-color:#b7cbe0; padding:12px; }
   #risklist .rcard:hover { border-color:#8aafd4; background:#f7faff; }
   #risklist .rc-where { color:var(--muted); }
+  #risklist .rc-description { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .rc-open { border:0; background:none; color:var(--blue); font:inherit; font-size:11px; padding:8px 0 0; cursor:pointer; }
   /* ---- object detail: identity, findings, neighbours, technical data ---- */
-  .obj-head { padding: 2px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
-  .obj-name { font-size: 16px; font-weight: 800; color: #0f274a; line-height: 1.3; }
+  .obj-head { margin-bottom:0; }
+  .obj-head .rp-label { color:var(--blue-d); font-size:11px; font-weight:750; margin-bottom:10px; }
+  .obj-name { font-size:15px; font-weight:700; color:var(--ink); line-height:1.5; overflow-wrap:anywhere; }
+  #detail .rcard { background:#fff; border:1px solid var(--line); border-left:3px solid #b7cbe0; padding:13px; }
+  #detail .rc-title.clamp { display:block; -webkit-line-clamp:unset; }
+  #detail .rc-where { color:var(--muted); }
+  .rc-description { color:var(--ink); font-size:12px; line-height:1.65; white-space:pre-line; overflow-wrap:anywhere; margin:9px 0 0; }
+  .rc-action { display:block; color:var(--blue); font-size:11px; margin-top:10px; }
+  .object-tabpane[hidden] { display:none; }
+  .object-tabpane > .tech { margin:0; padding:14px; border:1px solid var(--line); border-radius:10px; }
   .obj-pills { margin-top: 4px; }
   .obj-sub { margin-top: 5px; font-size: 11.5px; color: var(--muted); }
   .dsec { margin: 0 0 12px; }
@@ -2777,6 +2786,41 @@ function statusPill(s){
   return `<span class="pill ${c}">${esc(t)}</span>`;
 }
 
+function profileFacts(entries){
+  return `<dl class="rp-facts">` + entries.map(([label,value]) =>
+    `<div><dt>${esc(label)}</dt><dd>${esc(value == null || value === '' ? 'Belum tersedia' : value)}</dd></div>`).join('') + `</dl>`;
+}
+function setupObjectProfile(entries){
+  const box = $('#detail'), head = box.querySelector('.obj-head');
+  if (!head) return;
+  head.insertAdjacentHTML('afterbegin','<div class="rp-label">PROFIL OBJEK</div>');
+  const sections = [...box.children].filter(el => el !== head);
+  const nav = document.createElement('div');
+  nav.className = 'rp-tabs'; nav.setAttribute('role','tablist'); nav.setAttribute('aria-label','Profil objek');
+  nav.innerHTML = [['info','Informasi'],['risk','Kerawanan'],['tech','Data teknis']].map(([id,label]) =>
+    `<button type="button" role="tab" id="obj-tab-${id}" aria-controls="obj-content-${id}" aria-selected="${id === 'info'}" data-object-tab="${id}">${label}</button>`).join('');
+  box.appendChild(nav);
+  const panes = {};
+  ['info','risk','tech'].forEach(id => {
+    const pane = document.createElement('div');
+    pane.className = 'object-tabpane'; pane.id = 'obj-content-' + id;
+    pane.setAttribute('role','tabpanel'); pane.setAttribute('aria-labelledby','obj-tab-' + id);
+    pane.hidden = id !== 'info'; panes[id] = pane; box.appendChild(pane);
+  });
+  panes.info.innerHTML = profileFacts(entries);
+  sections.forEach(el => {
+    const id = el.classList.contains('tech') || el.classList.contains('alsoin') ? 'tech'
+      : el.classList.contains('dsec') && !el.querySelector('#coupler-scenario') ? 'risk' : 'info';
+    panes[id].appendChild(el);
+    if (el.classList.contains('tech')) el.open = true;
+  });
+  if (!panes.risk.children.length) panes.risk.innerHTML = '<p class="rp-note">Tidak ada kerawanan terkait pada snapshot ini.</p>';
+  nav.querySelectorAll('[data-object-tab]').forEach(button => button.onclick = () => {
+    nav.querySelectorAll('[data-object-tab]').forEach(b => b.setAttribute('aria-selected',String(b === button)));
+    Object.entries(panes).forEach(([id,pane]) => { pane.hidden = id !== button.dataset.objectTab; });
+  });
+}
+
 function showNode(g){
   selRing(g);
   const kind = g.getAttribute('data-node-kind');
@@ -2817,6 +2861,10 @@ function showNode(g){
   if (n.confidence != null) tech += kv('Confidence parse', fmtConf(n.confidence));
   h += `<details class="tech"><summary>Data teknis</summary><div class="kv">${tech}</div></details>`;
   $('#detail').innerHTML = h;
+  setupObjectProfile([['Kode',code],['Jenis objek',n.type || kind],
+    ['Tegangan',n.voltage_kv ? Math.round(n.voltage_kv) + ' kV' : null],
+    ['Status snapshot',n.status],['Peran',roleLabel(n.role)],['Tier',tier],
+    ['Kerawanan di objek',here.length],['Terdampak kerawanan lain',affected.length]]);
   wireDetailCards();
   showTab('detail');   // clicking the drawing must reveal what it selected
   if (kind === 'SUBSTATION' && giCode) fillAlsoIn(giCode);
@@ -2853,6 +2901,11 @@ function showCircuit(g){
   if (e.confidence != null) tech += kv('Confidence parse', fmtConf(e.confidence));
   h += `<details class="tech"><summary>Data teknis</summary><div class="kv">${tech}</div></details>`;
   $('#detail').innerHTML = h;
+  setupObjectProfile([['Kode',e.code],['Jenis objek',e.circuit_type],
+    ['Tegangan',e.voltage_kv ? Math.round(e.voltage_kv) + ' kV' : null],
+    ['Status snapshot',e.status],['Dari',e.from_substation_id ? shortNode(e.from_substation_id) : null],
+    ['Ke',e.to_substation_id ? shortNode(e.to_substation_id) : null],
+    ['Jumlah sirkit',e.circuit_count || 1],['Kerawanan di ruas',rr.length]]);
   if ($('#coupler-scenario')) {
     $('#coupler-scenario').onchange = ev => {
       if (ev.target.value === 'UNKNOWN') delete SWITCH_OVERRIDES[e.id];
@@ -2928,11 +2981,13 @@ function rsec(label, text){
 }
 function riskCard(r, mode, extra = ''){
   const detail = mode === 'detail';
-  const title = detail ? plainText(r.title || r.condition) : shortText(plainText(r.title || r.condition), 100);
+  const title = plainText(r.title || r.condition);
   return `<${detail ? 'div' : 'button type="button"'} class="risk rcard${detail ? ' rc-detail' : ''}${extra}" data-seq="${r.seq_no}">`
     + `<div class="rc-head"><span class="rc-no">#${r.seq_no}</span>${catPill(r.category || 'LAINNYA')}</div>`
     + `<div class="rc-title${detail ? '' : ' clamp'}">${esc(title)}</div>`
     + `<div class="rc-where">${esc(riskWhere(r) || 'Lokasi belum dipetakan')}</div>`
+    + (!detail && r.condition && r.condition !== r.title ? `<p class="rc-description">${esc(plainText(r.condition))}</p>` : '')
+    + (!detail ? `<span class="rc-action">Lihat profil kerawanan &rarr;</span>` : '')
     + (detail ? rsec('Kondisi', plainText(r.condition || r.title)) + rsec('Lokasi', riskWhere(r, true))
       + rsec('Dampak', r.impact) + rsec('Mitigasi', r.mitigation) + rsec('Usulan', r.follow_up) : '')
     + `</${detail ? 'div' : 'button'}>`;
@@ -3007,14 +3062,14 @@ function riskOnThisPage(r){
   return [r, ...(r.attachments || [])].some(a => riskTargets(svg, a).length);
 }
 
-let riskProfileTab = 'info', riskProfileSeq = null;
+let riskProfileTab = 'risk', riskProfileSeq = null;
 function renderRiskProfile(seq){
   const box = $('#riskprofile');
   const r = (GRAPH?.overlays?.risk || []).find(x => x.seq_no === seq);
   box.hidden = !r;
   $('#pane-risk').classList.toggle('profile-open', !!r);
   if (!r) { box.innerHTML = ''; riskProfileSeq = null; return; }
-  if (riskProfileSeq !== seq) riskProfileTab = 'info';
+  if (riskProfileSeq !== seq) riskProfileTab = 'risk';
   riskProfileSeq = seq;
   const asset = r.attach_kind === 'CIRCUIT' ? edgeById(r.attach_id) : nodeByKindId(r.attach_kind,r.attach_id);
   const fact = (label,value) => `<div><dt>${esc(label)}</dt><dd>${esc(value == null || value === '' ? 'Belum tersedia' : value)}</dd></div>`;
@@ -3062,8 +3117,7 @@ function renderRiskProfile(seq){
     b.disabled = !next;
     b.onclick = () => {
       if (!next) return;
-      if (riskOnThisPage(next)) focusRisk(next.seq_no);
-      else { clearFocus(); renderRiskProfile(next.seq_no); }
+      selectRisk(next.seq_no, true);
     };
   });
   box.querySelector('.rp-back').onclick = () => { clearFocus(); renderRiskProfile(null); };
