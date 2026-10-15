@@ -629,6 +629,38 @@
   .rcard details { margin-top: 6px; }
   .rcard summary { cursor: pointer; font-size: 11px; color: var(--blue-d); font-weight: 600; }
   .rc-detail { background: #fff; }
+  /* One risk at a time, with quiet surfaces and room for long source text. */
+  #pane-risk.profile-open > .riskfilter, #pane-risk.profile-open > #risklist,
+  #pane-risk.profile-open > .focusbar, #pane-risk.profile-open > #risk-active,
+  #pane-risk.profile-open > #risk-summary { display:none; }
+  .rp-back { border:0; background:none; color:var(--blue); padding:3px 0 14px; cursor:pointer; font:inherit; font-size:12px; }
+  .rp-nav { display:flex; justify-content:space-between; gap:12px; margin-top:14px; }
+  .rp-nav button { border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--blue); padding:7px 10px; font:inherit; font-size:11px; cursor:pointer; }
+  .rp-nav button:disabled { opacity:.4; cursor:default; }
+  .rp-hero { padding:16px; border:1px solid #dce5ee; border-radius:12px; background:linear-gradient(135deg,#f0f6fc,#fff); }
+  .rp-hero .rp-label { display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:var(--blue-d); font-size:11px; font-weight:750; }
+  .rp-hero h2 { margin:10px 0 8px; font-size:15px; line-height:1.5; color:var(--ink); overflow-wrap:anywhere; }
+  .rp-hero p, .rp-note { margin:0; color:var(--muted); font-size:11px; line-height:1.6; }
+  .rp-tabs { display:flex; gap:4px; padding:14px 0; }
+  .rp-tabs button { flex:1; min-width:0; border:0; border-radius:7px; background:#f2f5f8; color:#526277; padding:10px 3px; font:inherit; font-size:11px; cursor:pointer; }
+  .rp-tabs button[aria-selected="true"] { background:#e7f0fc; color:var(--blue-d); font-weight:750; }
+  .rp-facts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 12px; padding:15px; border:1px solid var(--line); border-radius:10px; margin:0; }
+  .rp-facts dt { color:var(--muted); font-size:11px; margin-bottom:4px; }
+  .rp-facts dd { margin:0; color:var(--ink); font-size:12px; font-weight:650; line-height:1.5; overflow-wrap:anywhere; }
+  .rp-section { padding:14px; border:1px solid var(--line); border-left:3px solid #d49a30; border-radius:9px; margin-bottom:10px; background:#fffcf4; }
+  .rp-section.impact { border-left-color:#d86570; background:#fff7f8; }
+  .rp-section.mitigation { border-left-color:#568dc7; background:#f5f9ff; }
+  .rp-section.solution { border-left-color:#4f9c83; background:#f4faf7; }
+  .rp-section h3 { margin:0 0 7px; font-size:11px; color:#42556c; }
+  .rp-section p { margin:0; color:var(--ink); font-size:12px; line-height:1.65; white-space:pre-line; overflow-wrap:anywhere; }
+  .rp-asset { border:1px solid var(--line); border-radius:9px; padding:13px; margin-top:9px; }
+  .rp-asset b { display:block; color:var(--ink); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+  .rp-asset small { display:block; color:var(--muted); margin-top:4px; }
+  .rp-asset button { border:0; background:none; color:var(--blue); font:inherit; font-size:11px; cursor:pointer; padding:8px 0 0; }
+  #risklist .rcard { background:#fff; border-color:var(--line); border-left-color:#b7cbe0; padding:12px; }
+  #risklist .rcard:hover { border-color:#8aafd4; background:#f7faff; }
+  #risklist .rc-where { color:var(--muted); }
+  .rc-open { border:0; background:none; color:var(--blue); font:inherit; font-size:11px; padding:8px 0 0; cursor:pointer; }
   /* ---- object detail: identity, findings, neighbours, technical data ---- */
   .obj-head { padding: 2px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
   .obj-name { font-size: 16px; font-weight: 800; color: #0f274a; line-height: 1.3; }
@@ -909,6 +941,7 @@
           <input id="risk-q" type="search" aria-label="Cari kerawanan" placeholder="Cari nomor, judul, atau objek&hellip;" autocomplete="off">
           <div class="chips" id="risk-cats"></div>
         </div>
+        <div id="riskprofile" hidden></div>
         <div id="risklist" class="muted" style="font-size:12px">Pilih proyeksi.</div>
         <div id="risk-active" aria-live="polite"></div>
       </div>
@@ -2907,6 +2940,7 @@ function riskCard(r, mode, extra = ''){
 let activeRisk = null;
 function renderActiveRisk(){
   const r = (GRAPH?.overlays?.risk || []).find(r => r.seq_no === activeRisk);
+  renderRiskProfile(r ? r.seq_no : null);
   $('#risk-active').innerHTML = r ? riskCard(r, 'detail') : '<p class="scope-note">Pilih satu baris atau badge # pada SLD untuk membuka informasi lengkap.</p>';
 }
 let riskSelectionRequest = 0;
@@ -2935,7 +2969,7 @@ async function selectRisk(seq, zoom = 'ensure'){
     clearFocus(); activeRisk = seq; renderActiveRisk();
     $('#risk-active').insertAdjacentHTML('beforeend', '<p class="scope-note">Lokasi item ini belum tergambar pada sudut pandang yang tersedia. Detail sumber tetap ditampilkan.</p>');
   }
-  $('#risk-active').scrollIntoView({block:'nearest'});
+  $('#riskprofile').scrollIntoView({block:'nearest'});
 }
 function summaryThree(risks, gi, tier){
   return `<div class="summary-three"><span><b>${risks}</b>Kerawanan</span><span><b>${gi}</b>GI unik</span><span><b>${esc(tier)}</b>Rentang Tier</span></div>`;
@@ -2971,6 +3005,76 @@ function wireDetailCards(){
 function riskOnThisPage(r){
   const svg = $('#stage svg'); if (!svg || !r) return false;
   return [r, ...(r.attachments || [])].some(a => riskTargets(svg, a).length);
+}
+
+let riskProfileTab = 'info', riskProfileSeq = null;
+function renderRiskProfile(seq){
+  const box = $('#riskprofile');
+  const r = (GRAPH?.overlays?.risk || []).find(x => x.seq_no === seq);
+  box.hidden = !r;
+  $('#pane-risk').classList.toggle('profile-open', !!r);
+  if (!r) { box.innerHTML = ''; riskProfileSeq = null; return; }
+  if (riskProfileSeq !== seq) riskProfileTab = 'info';
+  riskProfileSeq = seq;
+  const asset = r.attach_kind === 'CIRCUIT' ? edgeById(r.attach_id) : nodeByKindId(r.attach_kind,r.attach_id);
+  const fact = (label,value) => `<div><dt>${esc(label)}</dt><dd>${esc(value == null || value === '' ? 'Belum tersedia' : value)}</dd></div>`;
+  const section = (label,value,cls) => `<section class="rp-section ${cls}"><h3>${label}</h3><p>${esc(value || 'Belum tercantum dalam snapshot sumber.')}</p></section>`;
+  const assets = [];
+  [r,...(r.attachments || [])].forEach((a,i) => {
+    if (!assets.some(b => b.kind === a.attach_kind && b.id === a.attach_id && b.label === a.attach_label))
+      assets.push({name:attachName(a),role:i ? 'Objek terkait' : 'Lokasi utama',kind:a.attach_kind,id:a.attach_id,label:a.attach_label});
+  });
+  (r.dampak_ids || []).forEach(id => {
+    if (!assets.some(a => a.kind === 'SUBSTATION' && +a.id === +id))
+      assets.push({name:shortNode(id),role:'Disebut dalam dampak',kind:'SUBSTATION',id});
+  });
+  let content;
+  if (riskProfileTab === 'info') {
+    content = `<dl class="rp-facts">` + fact('Nomor kerawanan','#' + r.seq_no)
+      + fact('Kategori',r.category) + fact('Objek utama',attachName(r))
+      + fact('Tegangan',asset?.voltage_kv ? asset.voltage_kv + ' kV' : null)
+      + (asset?.from_substation_id ? fact('Dari',shortNode(asset.from_substation_id)) + fact('Ke',shortNode(asset.to_substation_id)) : '')
+      + (asset?.circuit_count ? fact('Jumlah sirkit',asset.circuit_count + ' sirkit') : '')
+      + fact('Status snapshot',asset?.status) + `</dl>`;
+  } else if (riskProfileTab === 'risk') {
+    content = section('Kondisi / permasalahan',plainText(r.condition || r.title),'condition')
+      + section('Dampak',r.impact,'impact') + section('Mitigasi',r.mitigation,'mitigation')
+      + section('Usulan / solusi',r.follow_up,'solution');
+  } else {
+    content = `<p class="rp-note">Lokasi dan aset yang tercantum pada kerawanan ini.</p>`
+      + assets.map((a,i) => a.name ? `<div class="rp-asset"><b>${esc(a.name)}</b><small>${esc(a.role)}</small>`
+        + (svgElForRelation($('#stage svg'),a.kind,a.id,a.label)
+          ? `<button type="button" data-profile-asset="${i}">Lihat di diagram &rarr;</button>`
+          : `<small>Tidak tampil di sudut pandang ini</small>`) + `</div>` : '').join('');
+  }
+  box.innerHTML = `<button class="rp-back" type="button">&larr; Daftar kerawanan</button>`
+    + `<div class="rp-hero"><div class="rp-label">KERAWANAN #${esc(r.seq_no)} ${catPill(r.category)}</div>`
+    + `<h2>${esc(plainText(r.title || r.condition))}</h2><p>${esc(riskWhere(r))}</p></div>`
+    + `<div class="rp-tabs" role="tablist" aria-label="Profil risiko">`
+    + [['info','Informasi'],['risk','Kerawanan'],['assets','Aset terkait']].map(([id,label]) =>
+      `<button type="button" role="tab" id="rp-tab-${id}" aria-controls="rp-content" aria-selected="${riskProfileTab === id}" data-profile-tab="${id}">${label}</button>`).join('')
+    + `</div><div id="rp-content" role="tabpanel" aria-labelledby="rp-tab-${riskProfileTab}">${content}</div>`
+    + `<div class="rp-nav"><button type="button" data-profile-step="-1">&larr; Sebelumnya</button><button type="button" data-profile-step="1">Berikutnya &rarr;</button></div>`;
+  const risks = (GRAPH.overlays.risk || []).filter(riskMatches).slice().sort((a,b) => a.seq_no - b.seq_no);
+  const index = risks.findIndex(x => x.seq_no === seq);
+  box.querySelectorAll('[data-profile-step]').forEach(b => {
+    const next = risks[index + Number(b.dataset.profileStep)];
+    b.disabled = !next;
+    b.onclick = () => {
+      if (!next) return;
+      if (riskOnThisPage(next)) focusRisk(next.seq_no);
+      else { clearFocus(); renderRiskProfile(next.seq_no); }
+    };
+  });
+  box.querySelector('.rp-back').onclick = () => { clearFocus(); renderRiskProfile(null); };
+  box.querySelectorAll('[data-profile-tab]').forEach(b => b.onclick = () => {
+    riskProfileTab = b.dataset.profileTab; renderRiskProfile(seq); $(`#rp-tab-${riskProfileTab}`).focus();
+  });
+  box.querySelectorAll('[data-profile-asset]').forEach(b => b.onclick = () => {
+    const a = assets[+b.dataset.profileAsset];
+    const target = svgElForRelation($('#stage svg'),a.kind,a.id,a.label);
+    if (target) fitTo($('#stage svg'),[target],false);
+  });
 }
 
 // ---------- right panel: tabs + risk filtering ----------
@@ -3299,6 +3403,7 @@ function fitTo(svg, els, ensureOnly){
 }
 
 function renderFocusBar(){
+  renderRiskProfile(FOCUS?.seqs.length === 1 ? FOCUS.seqs[0] : null);
   const bar = $('#focusbar'); if (!bar) return;
   if (!FOCUS) { bar.classList.remove('on'); bar.innerHTML = ''; return; }
   const many = focusableRisks().length > 1;
